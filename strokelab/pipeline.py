@@ -60,14 +60,13 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
     # 每笔初始模板中轴线 = B库同类型骨架按楷体该笔包围盒定位；缺类型退回楷体中轴线
     medians = []
     templateSources = []
-    templatePaths = []
+    templateEnts = []
     for k, m in enumerate(kai["medians"]):
         t = kai["strokeTypes"][k]
         ent = findLibEntry(fontEntry.libraryB, t) if fontEntry.libraryB else None
         if not ent and fontEntry.libraryB and t.endswith("钩"):
             ent = findLibEntry(fontEntry.libraryB, t[:-1])
         placed = None
-        placedPath = ""
         if ent:
             try:
                 skel = fontEntry.ensureSkeleton(ent, dataHub)
@@ -79,28 +78,17 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
                 th = max(1.0, c1[1] - c0[1])
                 ew = max(1.0, eb[2] - eb[0])
                 ehh = max(1.0, eb[3] - eb[1])
-
-                def mv(p):
-                    return (c0[0] + (p[0] - eb[0]) * tw / ew,
-                            c0[1] + (p[1] - eb[1]) * th / ehh)
-
-                placed = [mv(p) for p in skel]
-                parts = []
-                for d in ent["contours"]:
-                    for c in parseContours(d):
-                        moved = [(c_[0], mv(c_[1]), mv(c_[2]), mv(c_[3]), mv(c_[4]))
-                                 for c_ in c["segs"]]
-                        parts.append(contourToPath(moved))
-                placedPath = " ".join(parts)
+                placed = [(c0[0] + (p[0] - eb[0]) * tw / ew,
+                           c0[1] + (p[1] - eb[1]) * th / ehh) for p in skel]
                 templateSources.append(ent["source"])
+                templateEnts.append(ent)
             except Exception:
                 placed = None
         if placed is None:
             placed = [affine(p) for p in m]
             templateSources.append("楷体中轴线(B库缺类型)")
-            placedPath = ""
+            templateEnts.append(None)
         medians.append(placed)
-        templatePaths.append(placedPath)
     initMedians = [[tuple(p) for p in m] for m in medians]
     nStrokes = len(medians)
 
@@ -170,8 +158,49 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
             if len(assigned[k]) >= 6:
                 medians[k] = refineMedianFit(medians[k], initMedians[k],
                                              assigned[k], widths[k])
+                # 总长度硬约束：防止小笔画（点）被逐轮伸缩复利拉爆——
+                # 点的 D 一旦变成长对角线会侵占邻笔区域、令主人判定失火
+                newLen = polylineLength(medians[k])
+                initLen = polylineLength(initMedians[k]) or 1.0
+                ratio = newLen / initLen
+                if ratio > 1.4 or ratio < 0.6:
+                    f = (1.4 if ratio > 1.4 else 0.6) / ratio
+                    m = medians[k]
+                    mcx = sum(p[0] for p in m) / len(m)
+                    mcy = sum(p[1] for p in m) / len(m)
+                    medians[k] = [(mcx + (p[0] - mcx) * f,
+                                   mcy + (p[1] - mcy) * f) for p in m]
         scoreMedians = [extendMedian(m, min(70.0, widths[k] * 1.1))
                         for k, m in enumerate(medians)]
+
+    # S2 模板可视化：把 B 模板画在精调后的 D 位置（精调后中轴线包围盒 + 半笔宽），
+    # 与匹配实际使用的几何一致，避免初始放置的视觉重叠误导
+    templatePaths = []
+    for k in range(nStrokes):
+        ent = templateEnts[k]
+        if not ent:
+            templatePaths.append("")
+            continue
+        mb = bboxOfPoints(medians[k])
+        half = widths[k] * 0.55
+        fx0, fy0 = mb.x0 - half, mb.y0 - half
+        fw = mb.w + 2 * half
+        fh = mb.h + 2 * half
+        eb = ent["outlineBBox"]
+        ew = max(1.0, eb[2] - eb[0])
+        ehh = max(1.0, eb[3] - eb[1])
+
+        def mv(p, fx0=fx0, fy0=fy0, fw=fw, fh=fh, eb=eb, ew=ew, ehh=ehh):
+            return (fx0 + (p[0] - eb[0]) * fw / ew,
+                    fy0 + (p[1] - eb[1]) * fh / ehh)
+
+        parts = []
+        for d in ent["contours"]:
+            for c in parseContours(d):
+                moved = [(sg[0], mv(sg[1]), mv(sg[2]), mv(sg[3]), mv(sg[4]))
+                         for sg in c["segs"]]
+                parts.append(contourToPath(moved))
+        templatePaths.append(" ".join(parts))
 
     # ------------------------------------------------------------ 主人判定整体归属
     resampledMedians = [resamplePolyline([tuple(p) for p in m], 15) for m in medians]
@@ -192,10 +221,12 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
         for k in range(nStrokes):
             fr = fracInside(resampledMedians[k], c["poly"])
             fi = fracInside(resampledInit[k], c["poly"])
-            fracs.append((max(fr, fi), min(fr, fi), k))
+            fracs.append((max(fr, fi), min(fr, fi), fi, k))
         fracs.sort(key=lambda x: -x[0])
-        fMax1, fMin1, winner = fracs[0]
-        fMax2 = fracs[1][0] if len(fracs) > 1 else 0
+        fMax1, fMin1, _fi1, winner = fracs[0]
+        # 竞争者只看初始设计位置的占比：精调漂移进来的不算竞争
+        # （撇的中轴线漂进邻笔轮廓曾挡住正主的整体归属）
+        fMax2 = max((f[2] for f in fracs[1:]), default=0)
         if fMax1 < 0.55 or fMin1 < 0.35 or fMax2 >= 0.45:
             continue
         votes = {}
@@ -319,12 +350,11 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
     for k in range(nStrokes):
         arcs = strokeArcs[k]
         loops = []
-        retainedLen = 0.0
-        bridgeLen = 0.0
         for a in arcs:
             if a["closed"]:
-                loops.append({"segs": a["segs"], "bridges": 0})
-                retainedLen += sum(segLength(x) for x in a["segs"])
+                loops.append({"segs": a["segs"], "bridges": 0,
+                              "retained": sum(segLength(x) for x in a["segs"]),
+                              "bridgeL": 0.0})
         openArcs = [a for a in arcs if not a["closed"]]
         byContour = {}
         for a in openArcs:
@@ -339,16 +369,19 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
         for _, chainArcs in byContour.items():
             segs = []
             bridges = 0
+            retained = 0.0
+            bridgeL = 0.0
             for idx, a in enumerate(chainArcs):
                 segs.extend(a["segs"])
-                retainedLen += sum(segLength(x) for x in a["segs"])
+                retained += sum(segLength(x) for x in a["segs"])
                 if idx < len(chainArcs) - 1:
                     gap = bridge(a["segs"][-1][4], chainArcs[idx + 1]["segs"][0][1])
                     if gap:
                         segs.append(gap)
                         bridges += 1
-                        bridgeLen += segLength(gap)
-            chains.append({"segs": segs, "bridges": bridges})
+                        bridgeL += segLength(gap)
+            chains.append({"segs": segs, "bridges": bridges,
+                           "retained": retained, "bridgeL": bridgeL})
         joinLimit = max(widths[k] * 2.5, 160.0)
         while chains:
             cur = chains.pop(0)
@@ -366,15 +399,28 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
                 if gap:
                     cur["segs"].append(gap)
                     cur["bridges"] += 1
-                    bridgeLen += segLength(gap)
+                    cur["bridgeL"] += segLength(gap)
                 cur["segs"].extend(nxt["segs"])
                 cur["bridges"] += nxt["bridges"]
+                cur["retained"] += nxt["retained"]
+                cur["bridgeL"] += nxt["bridgeL"]
             wrap = bridge(cur["segs"][-1][4], cur["segs"][0][1])
             if wrap:
                 cur["segs"].append(wrap)
                 cur["bridges"] += 1
-                bridgeLen += segLength(wrap)
+                cur["bridgeL"] += segLength(wrap)
             loops.append(cur)
+
+        # 碎片环剪除：误标样本形成的junk环（保留弧长远小于主环）丢弃，
+        # 其面积由布尔收口的残差回填归还给真正的主人
+        if len(loops) > 1:
+            maxR = max(lp["retained"] for lp in loops)
+            kept = [lp for lp in loops
+                    if lp["retained"] >= max(60.0, 0.45 * maxR)]
+            if kept:
+                loops = kept
+        retainedLen = sum(lp["retained"] for lp in loops)
+        bridgeLen = sum(lp["bridgeL"] for lp in loops)
 
         pathD = " ".join(contourToPath(lp["segs"]) for lp in loops)
         strokes.append({
