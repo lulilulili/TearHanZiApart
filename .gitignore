@@ -1,0 +1,7 @@
+Fonts/
+makemeahanzi-master/
+hanzi_chaizi-master/
+pdf_pages/
+*.pdf
+StrokeLab/fontList.js
+__pycache__/

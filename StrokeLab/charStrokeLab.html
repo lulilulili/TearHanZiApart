@@ -1,0 +1,1990 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>汉字矢量笔画拆解实验台 · CharStrokeLab</title>
+<style>
+  :root {
+    --bg: #14161a; --panel: #1d2026; --panelHead: #262a31; --line: #33383f;
+    --text: #e8eaed; --dim: #9aa0a8; --accent: #4c8dff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif; }
+  header { padding: 14px 20px 10px; border-bottom: 1px solid var(--line); }
+  header h1 { margin: 0 0 2px; font-size: 19px; }
+  header .sub { color: var(--dim); font-size: 12px; }
+  #controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center;
+              padding: 10px 20px; border-bottom: 1px solid var(--line); background: #191c21; }
+  #controls label { color: var(--dim); margin-right: 6px; }
+  select, input[type=text] { background: var(--panel); color: var(--text);
+      border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font-size: 14px; }
+  #charChips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip { padding: 3px 9px; border: 1px solid var(--line); border-radius: 6px;
+          cursor: pointer; font-size: 16px; user-select: none; }
+  .chip:hover { border-color: var(--accent); }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+          gap: 14px; padding: 14px 20px 40px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+           overflow: hidden; display: flex; flex-direction: column; }
+  .panel > h2 { margin: 0; padding: 8px 14px; font-size: 14px; background: var(--panelHead);
+                border-bottom: 1px solid var(--line); font-weight: 600; }
+  .panel > h2 .tag { color: var(--dim); font-weight: 400; font-size: 12px; margin-left: 8px; }
+  .panelBody { padding: 12px 14px; flex: 1; }
+  .svgBox { background: #fff; border-radius: 8px; width: 100%; aspect-ratio: 1; max-width: 380px;
+            display: block; margin: 0 auto; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 12px;
+            color: var(--dim); }
+  .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+                margin-right: 4px; vertical-align: -1px; }
+  .btnRow { display: flex; gap: 8px; align-items: center; margin: 8px 0 0; flex-wrap: wrap; }
+  button { background: var(--panelHead); color: var(--text); border: 1px solid var(--line);
+           border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+           gap: 8px; max-height: 340px; overflow-y: auto; padding-right: 4px; }
+  .card { background: #22262d; border: 1px solid var(--line); border-radius: 8px;
+          padding: 6px; text-align: center; font-size: 11px; color: var(--dim); }
+  .card svg { background: #fff; border-radius: 5px; width: 100%; aspect-ratio: 1; }
+  .card .t { color: var(--text); font-size: 13px; margin-top: 3px; }
+  .card.primary { border-color: #d9a441; }
+  .card .badge { display: inline-block; border-radius: 4px; padding: 0 4px; font-size: 10px;
+                 margin-top: 2px; background: #333a44; }
+  .card.primary .badge.p { background: #6b5518; color: #ffd97a; }
+  .stepCaption { color: var(--dim); font-size: 12.5px; margin-top: 8px; min-height: 3em; }
+  table.info { border-collapse: collapse; width: 100%; font-size: 12.5px; margin-top: 8px; }
+  table.info td, table.info th { border: 1px solid var(--line); padding: 3px 8px; text-align: left; }
+  table.info th { background: var(--panelHead); font-weight: 600; }
+  .warn { color: #ffb454; }
+  .ok { color: #7ed491; }
+  .treeBox { font-size: 13px; margin-top: 8px; }
+  .treeBox ul { margin: 2px 0 2px 16px; padding: 0; list-style: none; border-left: 1px dotted #444; }
+  .treeBox li { padding-left: 8px; }
+  .muted { color: var(--dim); }
+  .statusLine { font-size: 12.5px; margin-top: 6px; color: var(--dim); }
+  #overlay { position: fixed; inset: 0; background: rgba(10,12,15,.88); z-index: 50;
+             display: flex; flex-direction: column; align-items: center; justify-content: center;
+             gap: 12px; font-size: 15px; }
+  #overlay .bar { width: 320px; height: 8px; background: #2a2e35; border-radius: 4px; overflow: hidden; }
+  #overlay .bar > div { height: 100%; width: 0%; background: var(--accent); transition: width .15s; }
+  #overlay.hidden { display: none; }
+  #dropHint { position: fixed; inset: 0; background: rgba(40,90,180,.25); z-index: 40;
+              display: none; align-items: center; justify-content: center; font-size: 22px;
+              border: 3px dashed var(--accent); pointer-events: none; }
+</style>
+<script src="opentype.min.js"></script>
+<script src="fontList.js"></script>
+</head>
+<body>
+<header>
+  <h1>汉字矢量笔画拆解实验台</h1>
+  <div class="sub">基于 MakeMeAHanzi（文鼎楷体基准）对任意矢量字体做纯矢量笔画拆解 ——
+    全程无像素/SDF 判定：全局对齐 → 标准笔画库 A/B → 中轴线引导的边界归属 →
+    De Casteljau 矢量切割 → C¹ 闭合重构。任意汉字即输即拆，可拖入自己的 ttf/otf。</div>
+</header>
+
+<div id="overlay"><div id="ovMsg">加载中…</div><div class="bar"><div id="ovBar"></div></div></div>
+<div id="dropHint">松开以加载字体文件 (ttf / otf)</div>
+
+<div id="controls">
+  <span><label>目标字体</label><select id="fontSelect"></select>
+    <button id="fontFileBtn" title="加载本地字体文件">＋ 加载字体…</button>
+    <input id="fontFileInput" type="file" accept=".ttf,.otf" style="display:none"></span>
+  <span id="charChips"></span>
+  <span><label>任意字符</label><input id="charInput" type="text" size="4" maxlength="2"
+        placeholder="输入汉字↵"></span>
+  <span id="topStatus" class="muted" style="font-size:12px"></span>
+</div>
+
+<div id="grid">
+  <div class="panel"><h2>① 目标字体的真实路径<span class="tag">子路径逐一着色</span></h2>
+    <div class="panelBody"><svg id="svgReal" class="svgBox" viewBox="0 0 1024 1024"></svg>
+      <div id="legendReal" class="legend"></div></div></div>
+
+  <div class="panel"><h2>② 文鼎楷体笔画（MakeMeAHanzi）<span class="tag">可播放</span></h2>
+    <div class="panelBody"><svg id="svgKai" class="svgBox" viewBox="0 0 1024 1024"></svg>
+      <div class="btnRow"><button id="kaiPlay" class="primary">▶ 播放</button>
+        <button id="kaiReset">↺ 重置</button>
+        <label>速度</label><select id="kaiSpeed"><option value="0.6">慢</option>
+          <option value="1" selected>中</option><option value="1.8">快</option></select>
+        <span id="kaiStatus" class="muted"></span></div>
+      <div id="legendKai" class="legend"></div></div></div>
+
+  <div class="panel"><h2>③ 标准笔画库<span class="tag">A=文鼎楷体 · B=目标字体，含来源</span></h2>
+    <div class="panelBody">
+      <div class="tabs"><button id="tabLibA" class="active">A 库（文鼎楷体）</button>
+        <button id="tabLibB">B 库（目标字体）</button>
+        <label style="margin-left:10px"><input type="checkbox" id="libFilter" checked>
+          只看当前字用到的类型</label></div>
+      <div id="libCards" class="cards"></div>
+      <div id="libNote" class="statusLine"></div></div></div>
+
+  <div class="panel"><h2>④ 字符结构与偏旁部首<span class="tag">层级可切换</span></h2>
+    <div class="panelBody">
+      <div class="tabs" id="levelTabs"></div>
+      <svg id="svgStruct" class="svgBox" viewBox="0 0 1024 1024"></svg>
+      <div id="legendStruct" class="legend"></div>
+      <div id="structInfo" class="treeBox"></div></div></div>
+
+  <div class="panel"><h2>⑤ 拆解流程逐步可视化</h2>
+    <div class="panelBody">
+      <div class="tabs" id="stepTabs"></div>
+      <svg id="svgStep" class="svgBox" viewBox="0 0 1024 1024"></svg>
+      <div id="stepCaption" class="stepCaption"></div></div></div>
+
+  <div class="panel"><h2>⑥ 目标字体笔画拆解结果 D′<span class="tag">按文鼎楷体笔顺播放</span></h2>
+    <div class="panelBody"><svg id="svgResult" class="svgBox" viewBox="0 0 1024 1024"></svg>
+      <div class="btnRow"><button id="resPlay" class="primary">▶ 播放</button>
+        <button id="resReset">↺ 重置</button>
+        <label>速度</label><select id="resSpeed"><option value="0.6">慢</option>
+          <option value="1" selected>中</option><option value="1.8">快</option></select>
+        <span id="resStatus" class="muted"></span></div>
+      <div id="resultInfo"></div></div></div>
+</div>
+
+<script>
+"use strict";
+/* ============================ 基础工具 ============================ */
+const SVG_NS = "http://www.w3.org/2000/svg";
+const PALETTE = ["#e6194b","#3cb44b","#4363d8","#f58231","#911eb4","#0f9b8e",
+                 "#f032e6","#9a6324","#1f6f43","#800000","#2b6fb3","#808000",
+                 "#c94f7c","#5a7d2a","#7a4fd0","#b8860b"];
+const DEFAULT_CHIPS = [..."十口头木中大天日水永汉字国你好我爱"];
+/* 用户整理的 32 类笔画 × 独立/少相交代表字规则表 —— B/A 库建库依据 */
+const PROBE_TABLE = {
+  "横": "一二三", "竖": "川旧", "撇": "八儿川", "点": "太犬", "捺": "八父又大人",
+  "提": "冰江打地红", "横折": "己尸匡口日", "横钩": "冗皮写军买", "横撇": "又双水支饭",
+  "横折钩": "刀力门月司", "横折提": "计订讨认记", "横折弯": "朵没设投沿",
+  "横折弯钩": "几九飞乞亢", "横斜钩": "凡风凤凰佩", "横折折": "凹卍卐",
+  "横折折撇": "及建延级极", "横折折折": "凸", "横折折折钩": "乃孕秀扬场",
+  "横撇弯钩": "队阳阴邓陈", "竖折": "山区凶画牙", "竖钩": "小水丁于寸",
+  "竖提": "长切氏良农", "竖弯": "四西酒酉栖", "竖弯钩": "儿七元光也",
+  "竖折撇": "专转传砖惠", "竖折折": "鼎弈弃弄弁", "竖折折钩": "马鸟丐与号",
+  "撇折": "台公云去私", "撇点": "巡巢女好如", "斜钩": "弋代我成浅",
+  "弯钩": "狄狗狐狮家", "卧钩": "心必志思念",
+};
+const TYPE_ORDER = Object.keys(PROBE_TABLE);
+const SINGLE_STROKE_TYPES = { "一":"横","丨":"竖","丶":"点","丿":"撇","亅":"竖钩","乙":"横折弯钩" };
+const IDS_OPS2 = "⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻", IDS_OPS3 = "⿲⿳";
+/* U+31C0..31E5 笔画区（Unicode 官方命名，中文名按缩写还原） */
+const CJK_STROKE_NAMES = {
+  0x31C0:"提",0x31C1:"弯钩",0x31C2:"斜钩",0x31C3:"扁斜钩",0x31C4:"竖弯",0x31C5:"横折折",
+  0x31C6:"横折钩",0x31C7:"横撇",0x31C8:"横折弯钩",0x31C9:"竖折弯钩",0x31CA:"横折提",
+  0x31CB:"横折折撇",0x31CC:"横撇弯钩",0x31CD:"横折弯",0x31CE:"横折折折",0x31CF:"捺",
+  0x31D0:"横",0x31D1:"竖",0x31D2:"撇",0x31D3:"竖撇",0x31D4:"点",0x31D5:"横折",
+  0x31D6:"横钩",0x31D7:"竖折",0x31D8:"竖弯左",0x31D9:"竖提",0x31DA:"竖钩",
+  0x31DB:"撇点",0x31DC:"撇折",0x31DD:"提捺",0x31DE:"竖折折",0x31DF:"竖弯钩",
+  0x31E0:"横斜弯钩",0x31E1:"横折折折钩",0x31E2:"撇钩",0x31E3:"圈",
+  0x31E4:"横斜钩",0x31E5:"竖折撇",
+};
+const CJK_STROKE_ABBR = {
+  0x31C0:"T",0x31C1:"WG",0x31C2:"XG",0x31C3:"BXG",0x31C4:"SW",0x31C5:"HZZ",
+  0x31C6:"HZG",0x31C7:"HP",0x31C8:"HZWG",0x31C9:"SZWG",0x31CA:"HZT",0x31CB:"HZZP",
+  0x31CC:"HPWG",0x31CD:"HZW",0x31CE:"HZZZ",0x31CF:"N",0x31D0:"H",0x31D1:"S",
+  0x31D2:"P",0x31D3:"SP",0x31D4:"D",0x31D5:"HZ",0x31D6:"HG",0x31D7:"SZ",
+  0x31D8:"SWZ",0x31D9:"ST",0x31DA:"SG",0x31DB:"PD",0x31DC:"PZ",0x31DD:"TN",
+  0x31DE:"SZZ",0x31DF:"SWG",0x31E0:"HXWG",0x31E1:"HZZZG",0x31E2:"PG",0x31E3:"Q",
+  0x31E4:"HXG",0x31E5:"SZP",
+};
+
+function colorOf(i) { return PALETTE[i % PALETTE.length]; }
+function el(name, attrs, parent) {
+  const node = document.createElementNS(SVG_NS, name);
+  for (const k in (attrs || {})) node.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(node);
+  return node;
+}
+function glyphGroup(svg) {
+  svg.innerHTML = "";
+  return el("g", { transform: "scale(1,-1) translate(0,-900)" }, svg);
+}
+
+/* ---------- 贝塞尔与折线几何 ---------- */
+function lineSeg(p0, p1) {
+  return { kind: "L", p0, c1: lerp(p0, p1, 1 / 3), c2: lerp(p0, p1, 2 / 3), p1 };
+}
+function cubicSeg(p0, c1, c2, p1) { return { kind: "C", p0, c1, c2, p1 }; }
+function lerp(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; }
+function dist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
+function bezPoint(s, t) {
+  const a = lerp(s.p0, s.c1, t), b = lerp(s.c1, s.c2, t), c = lerp(s.c2, s.p1, t);
+  return lerp(lerp(a, b, t), lerp(b, c, t), t);
+}
+function bezTangent(s, t) {
+  const a = lerp(s.p0, s.c1, t), b = lerp(s.c1, s.c2, t), c = lerp(s.c2, s.p1, t);
+  const d = lerp(a, b, t), e = lerp(b, c, t);
+  let v = [e[0] - d[0], e[1] - d[1]];
+  let L = Math.hypot(v[0], v[1]);
+  if (L < 1e-9) { v = [s.p1[0] - s.p0[0], s.p1[1] - s.p0[1]]; L = Math.hypot(v[0], v[1]) || 1; }
+  return [v[0] / L, v[1] / L];
+}
+function bezSplit(s, t) { /* De Casteljau：矢量精确切割 */
+  const a = lerp(s.p0, s.c1, t), b = lerp(s.c1, s.c2, t), c = lerp(s.c2, s.p1, t);
+  const d = lerp(a, b, t), e = lerp(b, c, t), m = lerp(d, e, t);
+  return [cubicSeg(s.p0, a, d, m), cubicSeg(m, e, c, s.p1)];
+}
+function bezSlice(s, t0, t1) {
+  if (t0 <= 1e-6 && t1 >= 1 - 1e-6) return { ...s };
+  let seg = s;
+  if (t0 > 1e-6) seg = bezSplit(seg, t0)[1];
+  const t1r = (t1 - t0) / (1 - t0);
+  if (t1r < 1 - 1e-6) seg = bezSplit(seg, Math.max(0, Math.min(1, t1r)))[0];
+  return seg;
+}
+function segLength(s) {
+  let L = 0, prev = s.p0;
+  for (let k = 1; k <= 8; k++) { const p = bezPoint(s, k / 8); L += dist(prev, p); prev = p; }
+  return L;
+}
+function contourToPath(segs, close) {
+  if (!segs.length) return "";
+  let d = `M ${fmt(segs[0].p0[0])} ${fmt(segs[0].p0[1])} `;
+  for (const s of segs) {
+    if (s.kind === "L") d += `L ${fmt(s.p1[0])} ${fmt(s.p1[1])} `;
+    else d += `C ${fmt(s.c1[0])} ${fmt(s.c1[1])} ${fmt(s.c2[0])} ${fmt(s.c2[1])} ${fmt(s.p1[0])} ${fmt(s.p1[1])} `;
+  }
+  return d + (close ? "Z" : "");
+}
+function fmt(v) { return Math.round(v * 10) / 10; }
+function parseContours(pathStr) { /* M/L/Q/C/Z → 轮廓段列表 */
+  const tk = pathStr.replace(/,/g, " ").split(/\s+/).filter(s => s.length);
+  const contours = [];
+  let cur = null, pos = [0, 0], start = [0, 0], i = 0;
+  const num = () => parseFloat(tk[i++]);
+  while (i < tk.length) {
+    const c = tk[i++];
+    if (c === "M") {
+      if (cur && cur.segs.length) contours.push(cur);
+      pos = [num(), num()]; start = pos; cur = { segs: [] };
+    } else if (c === "L") {
+      const p = [num(), num()];
+      cur.segs.push(lineSeg(pos, p)); pos = p;
+    } else if (c === "Q") {
+      const q = [num(), num()], p = [num(), num()];
+      cur.segs.push(cubicSeg(pos,
+        [pos[0] + 2 / 3 * (q[0] - pos[0]), pos[1] + 2 / 3 * (q[1] - pos[1])],
+        [p[0] + 2 / 3 * (q[0] - p[0]), p[1] + 2 / 3 * (q[1] - p[1])], p));
+      pos = p;
+    } else if (c === "C") {
+      const c1 = [num(), num()], c2 = [num(), num()], p = [num(), num()];
+      cur.segs.push(cubicSeg(pos, c1, c2, p)); pos = p;
+    } else if (c === "Z") {
+      if (dist(pos, start) > 0.6) cur.segs.push(lineSeg(pos, start));
+      pos = start;
+      if (cur.segs.length) contours.push(cur);
+      cur = null;
+    }
+  }
+  if (cur && cur.segs.length) contours.push(cur);
+  return contours;
+}
+function flattenSegs(segs, step) {
+  const pts = [];
+  for (const s of segs) {
+    const n = Math.max(1, Math.ceil(segLength(s) / (step || 12)));
+    for (let k = 0; k < n; k++) pts.push(bezPoint(s, k / n));
+  }
+  if (segs.length) pts.push(segs[segs.length - 1].p1);
+  return pts;
+}
+function bboxOfPoints(pts) {
+  let x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e18;
+  for (const p of pts) { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]);
+                         x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); }
+  return { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 };
+}
+function signedArea(pts) {
+  let s = 0;
+  for (let i = 0; i < pts.length - 1; i++)
+    s += pts[i][0] * pts[i + 1][1] - pts[i + 1][0] * pts[i][1];
+  return s / 2;
+}
+function pointInPolygon(pt, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > pt[1]) !== (yj > pt[1]) &&
+        pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function nearestOnPolyline(pt, poly) {
+  let best = { d: 1e18, pt: poly[0], tan: [1, 0], idx: 0 };
+  for (let i = 0; i < poly.length - 1; i++) {
+    const a = poly[i], b = poly[i + 1];
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const L2 = dx * dx + dy * dy;
+    let t = 0;
+    if (L2 > 1e-9) t = Math.max(0, Math.min(1,
+      ((pt[0] - a[0]) * dx + (pt[1] - a[1]) * dy) / L2));
+    const q = [a[0] + dx * t, a[1] + dy * t];
+    const d = dist(pt, q);
+    if (d < best.d) {
+      const L = Math.sqrt(L2) || 1;
+      best = { d, pt: q, tan: [dx / L, dy / L], idx: i };
+    }
+  }
+  return best;
+}
+function polylineLength(poly) {
+  let L = 0;
+  for (let i = 0; i < poly.length - 1; i++) L += dist(poly[i], poly[i + 1]);
+  return L;
+}
+/* 轮廓集合 → 外轮廓/孔洞/连通组标注。
+   包含测试用多采样点占比（≥80% 在内才算嵌套）——未做布尔并集的字体里
+   两笔轮廓会部分重叠，单点测试会把重叠误判为孔洞 */
+function analyzeContours(contours) {
+  contours.forEach(c => { c.poly = flattenSegs(c.segs, 10); c.area = signedArea(c.poly); });
+  const spreadPts = c => {
+    const pts = [], n = c.poly.length;
+    for (let i = 0; i < 8; i++) pts.push(c.poly[Math.floor(i * n / 8)]);
+    return pts;
+  };
+  const nested = (a, b) => {
+    let cnt = 0;
+    const pts = spreadPts(a);
+    for (const p of pts) if (pointInPolygon(p, b.poly)) cnt++;
+    return cnt >= pts.length * 0.8;
+  };
+  const depth = contours.map((c, i) => {
+    let d = 0;
+    for (let j = 0; j < contours.length; j++)
+      if (i !== j && nested(c, contours[j])) d++;
+    return d;
+  });
+  contours.forEach((c, i) => { c.isHole = depth[i] % 2 === 1; c.group = -1; });
+  let groupCount = 0;
+  contours.forEach(c => { if (!c.isHole) c.group = groupCount++; });
+  contours.forEach((c, i) => {
+    if (!c.isHole) return;
+    let best = -1, bestDepth = -1;
+    for (let j = 0; j < contours.length; j++)
+      if (!contours[j].isHole && nested(c, contours[j]) &&
+          depth[j] > bestDepth) { bestDepth = depth[j]; best = j; }
+    c.group = best >= 0 ? contours[best].group : 0;
+  });
+  return contours;
+}
+
+/* ============================ 笔画分类器 ============================ */
+function resamplePolyline(pts, step) {
+  if (pts.length < 2) return pts.slice();
+  const out = [pts[0].slice()];
+  let carry = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x1, y1] = pts[i], [x2, y2] = pts[i + 1];
+    const L = Math.hypot(x2 - x1, y2 - y1);
+    if (L < 1e-9) continue;
+    let t = step - carry;
+    while (t <= L) {
+      const u = t / L;
+      out.push([x1 + (x2 - x1) * u, y1 + (y2 - y1) * u]);
+      t += step;
+    }
+    carry = L - (t - step);
+  }
+  const last = pts[pts.length - 1];
+  if (dist(out[out.length - 1], last) > 1e-6) out.push(last.slice());
+  return out;
+}
+function polySecLen(sec) {
+  let L = 0;
+  for (let i = 0; i < sec.length - 1; i++) L += dist(sec[i], sec[i + 1]);
+  return L;
+}
+function netAngle(sec) {
+  return Math.atan2(sec[sec.length - 1][1] - sec[0][1],
+                    sec[sec.length - 1][0] - sec[0][0]) * 180 / Math.PI;
+}
+function elemOfAngle(ang) {
+  if (ang >= -20 && ang <= 38) return "横";
+  if (ang > 38 && ang <= 80) return "提";
+  if (ang >= -115 && ang < -65) return "竖";
+  if (ang >= -65 && ang < -20) return "捺";
+  if (ang < -115 || ang > 155) return "撇";
+  return "提";
+}
+function classifyMedian(median) {
+  /* 重采样 → 拐角分段(窗口化切向差) → 丢楷体起笔顿笔 → 判钩 → 净方向命名 */
+  const pts = resamplePolyline(median.map(p => p.slice()), 15);
+  const total = polySecLen(pts);
+  if (total < 1e-6 || pts.length < 2) return "点";
+  const angles = [];
+  for (let i = 0; i < pts.length - 1; i++)
+    angles.push(Math.atan2(pts[i + 1][1] - pts[i][1], pts[i + 1][0] - pts[i][0]) * 180 / Math.PI);
+  const angDiff = (a, b) => { let d = a - b; while (d > 180) d -= 360; while (d < -180) d += 360; return d; };
+  const w = 2, turns = [];
+  for (let i = 0; i < angles.length; i++)
+    turns.push(Math.abs(angDiff(angles[Math.min(angles.length - 1, i + w)],
+                                angles[Math.max(0, i - w)])));
+  const corners = [];
+  for (let i = 1; i < angles.length - 1; i++) {
+    if (turns[i] > 48 && turns[i] >= turns[i - 1] && turns[i] >= turns[i + 1]) {
+      if (!corners.length || i - corners[corners.length - 1] > w) { corners.push(i); i += w; }
+    }
+  }
+  let sections = [];
+  let last = 0;
+  for (const c of corners) {
+    if (c - last >= 1) sections.push(pts.slice(last, c + 1));
+    last = c;
+  }
+  sections.push(pts.slice(last));
+  sections = sections.filter(s => s.length >= 2);
+  const merged = [];
+  for (const s of sections) {
+    if (merged.length && polySecLen(s) < Math.max(22, total * 0.06))
+      merged[merged.length - 1] = merged[merged.length - 1].concat(s.slice(1));
+    else merged.push(s);
+  }
+  sections = merged;
+  if (sections.length >= 2 && polySecLen(sections[0]) < Math.max(55, total * 0.13))
+    sections = sections.slice(1);
+  let hook = false;
+  if (sections.length >= 2) {
+    const lastLen = polySecLen(sections[sections.length - 1]);
+    if (lastLen < Math.max(70, total * 0.24)) {
+      const ang = netAngle(sections[sections.length - 1]);
+      if (ang > 95 || ang < -155 ||
+          (ang > 70 && ang <= 95 && lastLen < Math.max(80, total * 0.15)) ||
+          (ang > 60 && ang <= 70 && lastLen < 60)) {
+        hook = true;
+        sections = sections.slice(0, -1);
+      }
+    }
+  }
+  const elems = [];
+  for (const s of sections) {
+    const e = elemOfAngle(netAngle(s));
+    if (!elems.length || elems[elems.length - 1] !== e) elems.push(e);
+  }
+  if (!elems.length) return "点";
+  let name;
+  if (elems.length === 1) {
+    name = elems[0];
+    if (["捺", "竖", "撇", "提"].includes(name) && total < 160) name = "点";
+    else if (name === "横" && total < 80) name = "点";
+  } else {
+    const parts = [elems[0]];
+    for (const e of elems.slice(1)) parts.push(e === "横" || e === "竖" ? "折" : e);
+    name = parts.join("");
+  }
+  if (hook) {
+    if (elems.length === 1 && elems[0] === "捺")
+      name = netAngle(pts) > -42 ? "卧钩" : "斜钩"; /* 浅弧=卧钩(心)，陡弧=斜钩(我) */
+    else name += "钩";
+  }
+  const alias = { "竖折钩": "竖弯钩", "撇提": "撇折", "捺钩": "斜钩", "横折捺": "横斜钩",
+                  "横折折钩": "横折弯钩", "点钩": "弯钩", "提钩": "弯钩",
+                  "横撇折钩": "横撇弯钩", "撇捺": "撇点" };
+  return alias[name] || name;
+}
+function typeOfStroke(ch, idx, medians) {
+  if (medians.length === 1 && SINGLE_STROKE_TYPES[ch]) return SINGLE_STROKE_TYPES[ch];
+  return classifyMedian(medians[idx]);
+}
+/* 笔画名骨架化：首元素 + 中间元素一律视作“折” + 钩后缀，用于宽容匹配 */
+function skeletonName(name) {
+  const hook = name.endsWith("钩");
+  const core = [...(hook ? name.slice(0, -1) : name)];
+  if (!core.length) return name;
+  let s = core[0];
+  for (let i = 1; i < core.length; i++) s += "折";
+  return s + (hook ? "钩" : "");
+}
+/* 分类器输出与规则表类型的匹配层级：1=完全一致 2=骨架一致 0=不匹配 */
+function matchTier(classified, tableType) {
+  if (classified === tableType) return 1;
+  if (skeletonName(classified) === skeletonName(tableType)) return 2;
+  return 0;
+}
+/* 按类型在库中取条目：先精确键，再骨架宽容键 */
+function findLibEntry(lib, type) {
+  if (lib[type]) return lib[type];
+  const sk = skeletonName(type);
+  for (const t in lib) if (skeletonName(t) === sk) return lib[t];
+  return null;
+}
+
+/* ============================ 尺度不变形状描述子 ============================ */
+/* 判断“不同尺寸/不同形态下是否同一种笔画”的特征值 —— 全部对平移/缩放不变，
+   刻意保留方向敏感（撇↙与捺↘必须区分）：
+   ① 切向直方图：轮廓按弧长加权的方向分布（mod 180°, 9 桶）——横竖撇捺的主特征；
+   ② 主轴角 + 伸长率：长度加权 PCA 的主方向与 √(λ1/λ2)——区分线状笔画与点/折；
+   ③ 充实率：|面积|/包围盒面积 —— 直笔高、折笔低。 */
+function shapeDescriptor(paths) {
+  const hist = new Array(9).fill(0);
+  let cx = 0, cy = 0, totalLen = 0, areaSum = 0;
+  let x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e18;
+  const pieces = [];
+  for (const d of paths) {
+    for (const c of parseContours(d)) {
+      const poly = flattenSegs(c.segs, 14);
+      areaSum += signedArea(poly);
+      for (let i = 0; i < poly.length - 1; i++) {
+        const a = poly[i], b = poly[i + 1];
+        const L = dist(a, b);
+        if (L < 1e-6) continue;
+        pieces.push({ x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2, len: L,
+                      ang: Math.atan2(b[1] - a[1], b[0] - a[0]) });
+        cx += (a[0] + b[0]) / 2 * L; cy += (a[1] + b[1]) / 2 * L; totalLen += L;
+        x0 = Math.min(x0, a[0]); y0 = Math.min(y0, a[1]);
+        x1 = Math.max(x1, a[0]); y1 = Math.max(y1, a[1]);
+      }
+    }
+  }
+  if (totalLen < 1e-6) return null;
+  cx /= totalLen; cy /= totalLen;
+  let sxx = 0, syy = 0, sxy = 0;
+  for (const q of pieces) {
+    const dx = q.x - cx, dy = q.y - cy;
+    sxx += dx * dx * q.len; syy += dy * dy * q.len; sxy += dx * dy * q.len;
+    let a = q.ang * 180 / Math.PI;
+    a = ((a % 180) + 180) % 180;
+    hist[Math.min(8, Math.floor(a / 20))] += q.len;
+  }
+  sxx /= totalLen; syy /= totalLen; sxy /= totalLen;
+  const tr = sxx + syy, det = sxx * syy - sxy * sxy;
+  const disc = Math.sqrt(Math.max(0, tr * tr / 4 - det));
+  const elong = Math.sqrt(Math.max(tr / 2 + disc, 1e-9) / Math.max(tr / 2 - disc, 1e-9));
+  const mainAngle = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+  const hsum = hist.reduce((a, b) => a + b, 0) || 1;
+  for (let i = 0; i < 9; i++) hist[i] /= hsum;
+  const bw = Math.max(1, x1 - x0), bh = Math.max(1, y1 - y0);
+  const fill = Math.min(1, Math.abs(areaSum) / (bw * bh));
+  return { hist, elong: Math.min(elong, 8), mainAngle, fill };
+}
+function shapeDistance(a, b) {
+  if (!a || !b) return 9;
+  let hd = 0;
+  for (let i = 0; i < 9; i++) hd += Math.abs(a.hist[i] - b.hist[i]);
+  let ad = Math.abs(a.mainAngle - b.mainAngle) * 180 / Math.PI;
+  ad = Math.min(ad, 180 - ad) / 90;
+  const ed = Math.min(1.5, Math.abs(Math.log(a.elong / b.elong)));
+  const fd = Math.abs(a.fill - b.fill);
+  return hd * 1.1 + ad * 0.9 + ed * 0.6 + fd * 1.2;
+}
+function shapeSimilarity(a, b) {
+  return Math.max(0, Math.round(100 * (1 - shapeDistance(a, b) / 3)));
+}
+
+/* ============================ 数据中心（makemeahanzi + chaizi） ============================ */
+const DataHub = {
+  graphicsIndex: new Map(), dictIndex: new Map(),
+  chaiziJt: new Map(), chaiziFt: new Map(),
+  kaiCache: new Map(), dictCache: new Map(), geomCache: new Map(),
+  libraryA: null,
+
+  async fetchText(url, onProgress) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("无法加载 " + url + "（请用 StrokeLab.bat 启动本页）");
+    if (!res.body || !onProgress) return await res.text();
+    const total = +res.headers.get("Content-Length") || 0;
+    const reader = res.body.getReader();
+    const chunks = [];
+    let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value); got += value.length;
+      onProgress(got, total);
+    }
+    const buf = new Uint8Array(got);
+    let off = 0;
+    for (const c of chunks) { buf.set(c, off); off += c.length; }
+    return new TextDecoder("utf-8").decode(buf);
+  },
+
+  indexByChar(text, map) {
+    for (const line of text.split("\n")) {
+      if (line.length < 16) continue;
+      const cp = line.codePointAt(14);
+      map.set(String.fromCodePoint(cp), line);
+    }
+  },
+  parseChaizi(text, map) {
+    for (const line of text.split("\n")) {
+      const cols = line.replace(/\r$/, "").split("\t");
+      if (cols.length >= 2) map.set(cols[0], cols.slice(1).map(c => c.trim().split(/\s+/)));
+    }
+  },
+
+  async init(setProgress) {
+    setProgress("加载 makemeahanzi 字典与拆字数据…", 5);
+    const [dictText, jtText, ftText] = await Promise.all([
+      this.fetchText("/makemeahanzi-master/dictionary.txt"),
+      this.fetchText("/hanzi_chaizi-master/raw_data/chaizi-jt.txt").catch(() => ""),
+      this.fetchText("/hanzi_chaizi-master/raw_data/chaizi-ft.txt").catch(() => ""),
+    ]);
+    this.indexByChar(dictText, this.dictIndex);
+    this.parseChaizi(jtText, this.chaiziJt);
+    this.parseChaizi(ftText, this.chaiziFt);
+    setProgress("加载 makemeahanzi 笔画数据（约 30MB，仅首次较慢）…", 15);
+    const gText = await this.fetchText("/makemeahanzi-master/graphics.txt", (got, total) => {
+      const pct = total ? got / total : 0;
+      setProgress(`加载笔画数据 ${(got / 1e6).toFixed(1)} MB…`, 15 + pct * 55);
+    });
+    setProgress("索引笔画数据…", 74);
+    this.indexByChar(gText, this.graphicsIndex);
+    setProgress("构建标准笔画库 A…", 80);
+    this.buildLibraryA();
+  },
+
+  hasKai(ch) { return this.graphicsIndex.has(ch); },
+  geom(ch) { /* {strokes, medians} */
+    if (this.geomCache.has(ch)) return this.geomCache.get(ch);
+    const line = this.graphicsIndex.get(ch);
+    const g = line ? JSON.parse(line) : null;
+    this.geomCache.set(ch, g);
+    return g;
+  },
+  dict(ch) {
+    if (this.dictCache.has(ch)) return this.dictCache.get(ch);
+    const line = this.dictIndex.get(ch);
+    const e = line ? JSON.parse(line) : null;
+    this.dictCache.set(ch, e);
+    return e;
+  },
+
+  buildStructureTree(ch, depth = 0, seen = new Set()) {
+    const node = { char: ch };
+    if (depth >= 4 || seen.has(ch)) return node;
+    const entry = this.dict(ch);
+    if (!entry) return node;
+    const nextSeen = new Set(seen); nextSeen.add(ch);
+    const ids = [...(entry.decomposition || "")];
+    if (!ids.length || !(IDS_OPS2 + IDS_OPS3).includes(ids[0])) return node;
+    let pos = 0;
+    const parse = () => {
+      const c = ids[pos++];
+      if (IDS_OPS2.includes(c)) return { op: c, children: [parse(), parse()] };
+      if (IDS_OPS3.includes(c)) return { op: c, children: [parse(), parse(), parse()] };
+      return { leaf: c };
+    };
+    let tree;
+    try { tree = parse(); } catch (e) { return node; }
+    const attach = (t, d) => {
+      if (t.leaf !== undefined) {
+        if (t.leaf === "？") return { char: "？" };
+        return this.buildStructureTree(t.leaf, d, nextSeen);
+      }
+      return { op: t.op, children: t.children.map(x => attach(x, d + 1)) };
+    };
+    const sub = attach(tree, depth + 1);
+    if (sub.op) { node.op = sub.op; node.children = sub.children; }
+    return node;
+  },
+
+  deepenMatches(ch, depth = 0) {
+    /* makemeahanzi 的 matches 只标第一层；递归用部件自身 matches 细化层级 */
+    const entry = this.dict(ch), g = this.geom(ch);
+    if (!entry || !g || !entry.matches) return null;
+    const result = entry.matches.map(p => p ? p.slice() : null);
+    if (depth >= 3) return result;
+    const tree = this.buildStructureTree(ch);
+    const children = tree.children || [];
+    const byComp = new Map();
+    entry.matches.forEach((p, si) => {
+      if (p) {
+        if (!byComp.has(p[0])) byComp.set(p[0], []);
+        byComp.get(p[0]).push(si);
+      }
+    });
+    for (const [ci, strokeIdxs] of byComp) {
+      if (ci >= children.length) continue;
+      const compChar = children[ci] && children[ci].char;
+      if (!compChar || compChar === "？") continue;
+      const sub = this.deepenMatches(compChar, depth + 1);
+      if (!sub || sub.length !== strokeIdxs.length) continue;
+      strokeIdxs.forEach((si, j) => {
+        if (sub[j]) result[si] = [ci, ...sub[j]];
+      });
+    }
+    return result;
+  },
+
+  kai(ch) {
+    if (this.kaiCache.has(ch)) return this.kaiCache.get(ch);
+    const g = this.geom(ch);
+    if (!g) { this.kaiCache.set(ch, null); return null; }
+    const entry = this.dict(ch) || {};
+    const data = {
+      strokes: g.strokes, medians: g.medians,
+      strokeTypes: g.medians.map((m, i) => typeOfStroke(ch, i, g.medians)),
+      radical: entry.radical || "", decomposition: entry.decomposition || "",
+      matches: this.deepenMatches(ch) || entry.matches || [],
+      structure: this.buildStructureTree(ch),
+      chaiziJt: this.chaiziJt.get(ch) || [], chaiziFt: this.chaiziFt.get(ch) || [],
+    };
+    this.kaiCache.set(ch, data);
+    return data;
+  },
+
+  buildLibraryA() {
+    /* A 库（文鼎楷体）：单笔画整字 + 规则表代表字中类型匹配的笔画 */
+    const lib = {};
+    for (const ch of "一丨丶丿乙亅") {
+      const g = this.geom(ch);
+      if (!g || g.strokes.length !== 1) continue;
+      const t = SINGLE_STROKE_TYPES[ch];
+      (lib[t] = lib[t] || []).push({
+        type: t, path: g.strokes[0], median: g.medians[0], tier: 1,
+        source: `整字「${ch}」(U+${ch.codePointAt(0).toString(16).toUpperCase()})`,
+        kind: "wholeChar",
+      });
+    }
+    for (const type of TYPE_ORDER) {
+      for (const ch of PROBE_TABLE[type]) {
+        const g = this.geom(ch);
+        if (!g) continue;
+        g.medians.forEach((m, idx) => {
+          const tier = matchTier(typeOfStroke(ch, idx, g.medians), type);
+          if (!tier) return;
+          (lib[type] = lib[type] || []).push({
+            type, path: g.strokes[idx], median: m, tier,
+            source: `「${ch}」第${idx + 1}笔`, kind: "charStroke",
+          });
+        });
+      }
+      if (lib[type]) {
+        lib[type].sort((a, b) => a.tier - b.tier);
+        lib[type] = lib[type].slice(0, 4);
+      }
+    }
+    this.libraryA = lib;
+  },
+  /* 当前字缺类型时把它自己的笔画临时补进 A 库视图 */
+  libraryAFor(ch) {
+    const g = this.geom(ch);
+    const extra = {};
+    if (g) g.medians.forEach((m, idx) => {
+      const t = typeOfStroke(ch, idx, g.medians);
+      if (!this.libraryA[t] && !extra[t])
+        extra[t] = [{ type: t, path: g.strokes[idx], median: m,
+                      source: `「${ch}」第${idx + 1}笔`, kind: "charStroke" }];
+    });
+    return Object.assign({}, this.libraryA, extra);
+  },
+};
+
+/* ============================ 字体中心（opentype.js） ============================ */
+const FontHub = {
+  cache: new Map(),
+
+  async load(key, setProgress) {
+    if (this.cache.has(key)) return this.cache.get(key);
+    setProgress(`解析字体 ${key}…`);
+    const buf = await (await fetch("/Fonts/" + encodeURIComponent(key))).arrayBuffer();
+    return this.register(key, buf, setProgress);
+  },
+  register(key, arrayBuffer, setProgress) {
+    const font = opentype.parse(arrayBuffer);
+    const entry = { key, font, upm: font.unitsPerEm, scale: 1024 / font.unitsPerEm,
+                    glyphCache: new Map(), libraryB: null, libraryBAll: null };
+    this.cache.set(key, entry);
+    setProgress(`构建 ${key} 的标准笔画库 B…`);
+    this.buildLibraryB(entry);
+    return entry;
+  },
+
+  hasChar(entry, ch) { return entry.font.charToGlyphIndex(ch) > 0; },
+
+  /* B库笔画骨架：把 A库（楷体）同类型中轴线 bbox 映射进 B 笔画轮廓，再单笔
+     迷你精调拟合 —— 得到目标字体自己的笔画形态骨架（A↔B 映射的核心产物）。 */
+  ensureSkeleton(entry) {
+    if (entry.skeleton) return entry.skeleton;
+    const contours = entry.contours.flatMap(d => parseContours(d));
+    const pts = [];
+    contours.forEach(c => pts.push(...flattenSegs(c.segs, 12)));
+    const bb = bboxOfPoints(pts);
+    entry.outlineBBox = bb;
+    const aList = DataHub.libraryA ? findLibEntry(DataHub.libraryA, entry.type) : null;
+    let med;
+    if (aList && aList[0]) {
+      const aPathPts = [];
+      for (const c of parseContours(aList[0].path)) aPathPts.push(...flattenSegs(c.segs, 20));
+      const ab = bboxOfPoints(aPathPts);
+      med = aList[0].median.map(p => [
+        bb.x0 + (p[0] - ab.x0) * bb.w / Math.max(1, ab.w),
+        bb.y0 + (p[1] - ab.y0) * bb.h / Math.max(1, ab.h)]);
+    } else {
+      med = [[bb.x0, bb.y1], [bb.x1, bb.y0]];
+    }
+    const samples = [];
+    contours.forEach(c => c.segs.forEach(seg => {
+      const n = Math.max(3, Math.min(20, Math.ceil(segLength(seg) / 12)));
+      for (let i = 0; i < n; i++) samples.push(bezPoint(seg, i / n));
+    }));
+    for (let it = 0; it < 3 && samples.length >= 6; it++) {
+      const ds = samples.map(p => nearestOnPolyline(p, med).d).sort((a, b) => a - b);
+      const w = Math.max(10, 2 * ds[Math.floor(ds.length / 2)]);
+      med = refineMedianFit(med, med.map(p => p.slice()), samples, w);
+    }
+    entry.skeleton = med;
+    return med;
+  },
+
+  glyphContours(entry, ch) { /* → [{segs}] 轮廓（已归一化到 makemeahanzi 空间） */
+    if (entry.glyphCache.has(ch)) return entry.glyphCache.get(ch);
+    if (!this.hasChar(entry, ch)) { entry.glyphCache.set(ch, null); return null; }
+    const glyph = entry.font.charToGlyph(ch);
+    const s = entry.scale;
+    const aw = (glyph.advanceWidth || entry.upm) * s;
+    const dx = (1024 - aw) / 2;
+    const tx = (x, y) => [x * s + dx, y * s];
+    const contours = [];
+    let cur = null, pos = null, start = null;
+    for (const c of glyph.path.commands) {
+      if (c.type === "M") {
+        if (cur && cur.segs.length) contours.push(cur);
+        pos = tx(c.x, c.y); start = pos; cur = { segs: [] };
+      } else if (c.type === "L") {
+        const p = tx(c.x, c.y);
+        if (dist(pos, p) > 0.01) cur.segs.push(lineSeg(pos, p));
+        pos = p;
+      } else if (c.type === "Q") {
+        const q = tx(c.x1, c.y1), p = tx(c.x, c.y);
+        cur.segs.push(cubicSeg(pos,
+          [pos[0] + 2 / 3 * (q[0] - pos[0]), pos[1] + 2 / 3 * (q[1] - pos[1])],
+          [p[0] + 2 / 3 * (q[0] - p[0]), p[1] + 2 / 3 * (q[1] - p[1])], p));
+        pos = p;
+      } else if (c.type === "C") {
+        const p = tx(c.x, c.y);
+        cur.segs.push(cubicSeg(pos, tx(c.x1, c.y1), tx(c.x2, c.y2), p));
+        pos = p;
+      } else if (c.type === "Z") {
+        if (pos && start && dist(pos, start) > 0.6) cur.segs.push(lineSeg(pos, start));
+        pos = start;
+        if (cur && cur.segs.length) contours.push(cur);
+        cur = null;
+      }
+    }
+    if (cur && cur.segs.length) contours.push(cur);
+    const result = contours.length ? contours : null;
+    entry.glyphCache.set(ch, result);
+    return result;
+  },
+
+  buildLibraryB(entry) {
+    const lib = {}, all = [];
+    /* 来源 1：U+31C0..31E5 笔画区（字体自带的权威标准笔画） */
+    for (let cp = 0x31C0; cp <= 0x31E5; cp++) {
+      const ch = String.fromCodePoint(cp);
+      if (!this.hasChar(entry, ch)) continue;
+      const contours = this.glyphContours(entry, ch);
+      if (!contours) continue;
+      const t = CJK_STROKE_NAMES[cp];
+      const e = { type: t, contours: contours.map(c => contourToPath(c.segs, true)),
+                  source: `U+${cp.toString(16).toUpperCase()} ${ch} ${CJK_STROKE_ABBR[cp] || ""}`,
+                  kind: "unicode", tier: 0 };
+      e.desc = shapeDescriptor(e.contours);
+      all.push(e);
+      if (!lib[t]) lib[t] = e;
+    }
+    /* 来源 2：按规则表（32 类 × 独立/少相交代表字）从孤立连通组拆取。
+       类型直接取自规则表，不再信任分类器对任意笔画的命名 —— 分类器只用来
+       在代表字内确认“这个孤立组对应的楷体笔画确实是该类型”（宽容到骨架级）。 */
+    const analyzed = new Map(); /* ch → 连通组与孤立性分析（跨类型复用） */
+    const analyzeChar = ch => {
+      const g = DataHub.geom(ch);
+      if (!g || !this.hasChar(entry, ch)) return null;
+      const contours = this.glyphContours(entry, ch);
+      if (!contours) return null;
+      const cs = contours.map(c => ({ segs: c.segs }));
+      analyzeContours(cs);
+      const nGroups = Math.max(0, ...cs.map(c => c.group + 1));
+      const groupSamples = Array.from({ length: nGroups }, () => []);
+      cs.forEach(c => groupSamples[c.group].push(...flattenSegs(c.segs, 18)));
+      const groupToStroke = new Array(nGroups).fill(-1);
+      const strokeHits = g.medians.map(() => new Set());
+      groupSamples.forEach((samples, gi) => {
+        if (!samples.length) return;
+        const votes = new Map();
+        for (const p of samples) {
+          let best = -1, bestD = 1e18;
+          g.medians.forEach((m, k) => {
+            const d = nearestOnPolyline(p, m).d;
+            if (d < bestD) { bestD = d; best = k; }
+          });
+          votes.set(best, (votes.get(best) || 0) + 1);
+        }
+        const [top, topCount] = [...votes.entries()].sort((a, b) => b[1] - a[1])[0];
+        if (topCount >= samples.length * 0.95) {
+          groupToStroke[gi] = top;
+          strokeHits[top].add(gi);
+        }
+      });
+      return { cs, nGroups, groupToStroke, strokeHits, g };
+    };
+    for (const type of TYPE_ORDER) {
+      const candidates = [];
+      for (const ch of PROBE_TABLE[type]) {
+        let an = analyzed.get(ch);
+        if (an === undefined) { an = analyzeChar(ch); analyzed.set(ch, an); }
+        if (!an) continue;
+        for (let gi = 0; gi < an.nGroups; gi++) {
+          const k = an.groupToStroke[gi];
+          if (k < 0 || an.strokeHits[k].size !== 1) continue; /* 非孤立 */
+          const tier = matchTier(typeOfStroke(ch, k, an.g.medians), type);
+          if (!tier) continue;
+          const cand = {
+            type, tier,
+            contours: an.cs.filter(c => c.group === gi).map(c => contourToPath(c.segs, true)),
+            source: `从「${ch}」第${k + 1}笔拆出`, kind: "extracted",
+          };
+          /* 尺度不变形状校验：与该类型的 Unicode 权威笔画（优先）或
+             楷体该笔轮廓比对 —— 形似度过低说明拆错了，剔除 */
+          cand.desc = shapeDescriptor(cand.contours);
+          const ref = (lib[type] && lib[type].desc) ||
+                      shapeDescriptor([an.g.strokes[k]]);
+          cand.shapeSim = shapeSimilarity(cand.desc, ref);
+          if (cand.shapeSim < 20) continue;
+          candidates.push(cand);
+        }
+      }
+      candidates.sort((a, b) => a.tier - b.tier || (b.shapeSim || 0) - (a.shapeSim || 0));
+      for (const e of candidates.slice(0, 4)) {
+        all.push(e);
+        if (!lib[type]) lib[type] = e; /* 有 unicode 条目时保持其首选地位 */
+      }
+    }
+    entry.libraryB = lib;
+    entry.libraryBAll = all;
+  },
+};
+
+/* ============================ 拆解管线 ============================ */
+/* 中轴线精调：直笔 → 平移+主方向伸缩；折笔 → 按拐角分段各自平移（拐角顶点取两侧均值）。
+   分段平移让“横折钩”这类折笔的横段/竖段能独立对准目标字体。两个稳定器：
+   ① 段偏移用分量中位数（少量误标样本拖不动）；② 每个顶点相对初始仿射位置
+   的累计位移设硬上限（防止逐轮迭代走远 —— 曾把“汉”的横撇拖到氵的点上）。 */
+function refineMedianFit(m, m0, pts, width) {
+  const maxDrift = Math.max(80, width * 1.3);
+  const clampDrift = (p, p0) => {
+    const dx = p[0] - p0[0], dy = p[1] - p0[1];
+    const L = Math.hypot(dx, dy);
+    if (L <= maxDrift) return p;
+    return [p0[0] + dx * maxDrift / L, p0[1] + dy * maxDrift / L];
+  };
+  const medOf = arr => {
+    const s = arr.slice().sort((a, b) => a - b);
+    return s[Math.floor(s.length / 2)];
+  };
+  const mLen = polylineLength(m);
+  const chord = dist(m[0], m[m.length - 1]);
+  const cap = width * 0.7;
+  const clampVec = (dx, dy) => {
+    const L = Math.hypot(dx, dy);
+    return L > cap ? [dx * cap / L, dy * cap / L] : [dx, dy];
+  };
+  const corners = [];
+  for (let i = 1; i < m.length - 1; i++) {
+    const a = [m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1]];
+    const b = [m[i + 1][0] - m[i][0], m[i + 1][1] - m[i][1]];
+    const la = Math.hypot(a[0], a[1]), lb = Math.hypot(b[0], b[1]);
+    if (la < 8 || lb < 8) continue;
+    const cos = (a[0] * b[0] + a[1] * b[1]) / (la * lb);
+    if (cos < Math.cos(35 * Math.PI / 180)) corners.push(i);
+  }
+  let result;
+  if (!corners.length && chord > 1e-6 && chord / mLen > 0.85) {
+    const mc = [m.reduce((s, p) => s + p[0], 0) / m.length,
+                m.reduce((s, p) => s + p[1], 0) / m.length];
+    const dxs = [], dys = [];
+    for (const p of pts) {
+      const nr = nearestOnPolyline(p, m);
+      dxs.push(p[0] - nr.pt[0]); dys.push(p[1] - nr.pt[1]);
+    }
+    const [dx, dy] = clampVec(medOf(dxs) * 0.55, medOf(dys) * 0.55);
+    const u = [(m[m.length - 1][0] - m[0][0]) / chord,
+               (m[m.length - 1][1] - m[0][1]) / chord];
+    const projS = pts.map(p => (p[0] - mc[0]) * u[0] + (p[1] - mc[1]) * u[1])
+                     .sort((a, b) => a - b);
+    const lo = projS[Math.floor(projS.length * 0.03)];
+    const hi = projS[Math.floor(projS.length * 0.97)];
+    const projM = m.map(p => (p[0] - mc[0]) * u[0] + (p[1] - mc[1]) * u[1]);
+    const mLo = Math.min(...projM), mHi = Math.max(...projM);
+    const span = Math.max(1, mHi - mLo);
+    const su = Math.max(0.7, Math.min(1.8, (hi - lo) / span));
+    const offU = (lo + hi) / 2 - (mLo + mHi) / 2 * su;
+    result = m.map(p => {
+      const a = (p[0] - mc[0]) * u[0] + (p[1] - mc[1]) * u[1];
+      const b = (p[0] - mc[0]) * -u[1] + (p[1] - mc[1]) * u[0];
+      const a2 = a * su + offU;
+      return [mc[0] + u[0] * a2 - u[1] * b + dx,
+              mc[1] + u[1] * a2 + u[0] * b + dy];
+    });
+  } else {
+    const bounds = [0, ...corners, m.length - 1];
+    const nSec = bounds.length - 1;
+    const secOfSeg = i => {
+      for (let s = 0; s < nSec; s++)
+        if (i >= bounds[s] && i < bounds[s + 1]) return s;
+      return nSec - 1;
+    };
+    const accX = Array.from({ length: nSec }, () => []);
+    const accY = Array.from({ length: nSec }, () => []);
+    for (const p of pts) {
+      const nr = nearestOnPolyline(p, m);
+      const s = secOfSeg(nr.idx);
+      accX[s].push(p[0] - nr.pt[0]); accY[s].push(p[1] - nr.pt[1]);
+    }
+    const offs = accX.map((xs, s) => xs.length >= 3
+      ? clampVec(medOf(xs) * 0.55, medOf(accY[s]) * 0.55) : null);
+    for (let s = 0; s < nSec; s++)
+      if (!offs[s]) offs[s] = offs[s - 1] || offs[s + 1] || [0, 0];
+    result = m.map((p, i) => {
+      let sA = null, sB = null;
+      for (let s = 0; s < nSec; s++)
+        if (i >= bounds[s] && i <= bounds[s + 1]) { if (sA === null) sA = s; else sB = s; }
+      const o1 = (sA !== null && offs[sA]) || [0, 0];
+      const o2 = (sB !== null && offs[sB]) || o1;
+      return [p[0] + (o1[0] + o2[0]) / 2, p[1] + (o1[1] + o2[1]) / 2];
+    });
+  }
+  return result.map((p, i) => clampDrift(p, m0[i]));
+}
+
+/* 输入：目标字体轮廓（矢量）、文鼎楷体中轴线（矢量）
+   输出：每个楷体笔画对应的目标字体矢量路径 D′（保留原始曲线段，仅在交叠处
+   用 De Casteljau 精确切割，缺口用 C¹ 三次贝塞尔桥接） */
+function runPipeline(fontEntry, ch) {
+  const kai = DataHub.kai(ch);
+  if (!kai) return { error: "MakeMeAHanzi 中没有「" + ch + "」的笔画数据" };
+  const raw = FontHub.glyphContours(fontEntry, ch);
+  if (!raw) return { error: "字体 " + fontEntry.key + " 中没有「" + ch + "」字形" };
+
+  const contours = raw.map(c => ({ segs: c.segs }));
+  analyzeContours(contours);
+
+  /* 全局仿射：楷体笔画外轮廓包围盒 → 目标字形包围盒；顺带记每笔周长与包围盒 */
+  const kaiPts = [];
+  const kaiPerims = kai.strokes.map(() => 0);
+  const kaiStrokeBBoxes = [];
+  kai.strokes.forEach((sp, k) => {
+    const strokePts = [];
+    for (const c of parseContours(sp)) {
+      const fl = flattenSegs(c.segs, 25);
+      strokePts.push(...fl);
+      kaiPerims[k] += polylineLength(fl);
+    }
+    kaiPts.push(...strokePts);
+    kaiStrokeBBoxes.push(bboxOfPoints(strokePts));
+  });
+  const perimTotal = kaiPerims.reduce((a, b) => a + b, 0) || 1;
+  const expectedShare = kaiPerims.map(p => Math.max(0.02, p / perimTotal));
+  const kb = bboxOfPoints(kaiPts);
+  const allPts = [];
+  for (const c of contours) for (const p of c.poly) allPts.push(p);
+  const tb = bboxOfPoints(allPts);
+  const sx = tb.w / kb.w, sy = tb.h / kb.h;
+  const affine = p => [tb.x0 + (p[0] - kb.x0) * sx, tb.y0 + (p[1] - kb.y0) * sy];
+  /* 每笔初始模板中轴线（= 用户流程的 D）：优先取 B库同类型笔画的骨架 ——
+     目标字体自己的笔画形态（A↔B 类型映射产物），按楷体结构 C 给出的该笔
+     包围盒定位；B库缺该类型时退回楷体中轴线。楷体只提供笔顺/类型/位置，
+     形态尽量来自目标字体本身。 */
+  let medians = kai.medians.map((m, k) => {
+    const type = kai.strokeTypes[k];
+    let ent = fontEntry && fontEntry.libraryB ? findLibEntry(fontEntry.libraryB, type) : null;
+    if (!ent && fontEntry && fontEntry.libraryB && type.endsWith("钩"))
+      ent = findLibEntry(fontEntry.libraryB, type.slice(0, -1));
+    if (ent) {
+      try {
+        const skel = FontHub.ensureSkeleton(ent);
+        const eb = ent.outlineBBox;
+        const kb2 = kaiStrokeBBoxes[k];
+        const c0 = affine([kb2.x0, kb2.y0]), c1 = affine([kb2.x1, kb2.y1]);
+        const tw = Math.max(1, c1[0] - c0[0]), th = Math.max(1, c1[1] - c0[1]);
+        return skel.map(p => [
+          c0[0] + (p[0] - eb.x0) * tw / Math.max(1, eb.w),
+          c0[1] + (p[1] - eb.y0) * th / Math.max(1, eb.h)]);
+      } catch (e) { /* 回退 */ }
+    }
+    return m.map(affine);
+  });
+  const initMedians = medians.map(m => m.map(p => p.slice())); /* 精调位移的锚点 */
+  const nStrokes = medians.length;
+
+  /* 笔宽初值：字形面积 / 中轴线总长 */
+  let glyphArea = 0;
+  for (const c of contours) glyphArea += c.isHole ? -Math.abs(c.area) : Math.abs(c.area);
+  const totalMedianLen = medians.reduce((s, m) => s + polylineLength(m), 0) || 1;
+  const w0 = Math.max(14, Math.min(180, Math.abs(glyphArea) / totalMedianLen));
+  let widths = new Array(nStrokes).fill(w0);
+  let scoreWidths = widths.slice(); /* 评分用（全局钳制，防“越宽越抢”正反馈） */
+  /* 评分用中轴线：两端沿切向虚拟延长（楷体笔画端点常比目标字体短一截），
+     仅参与归属评分，不参与展示/动画 */
+  const extendMedian = (m, ext) => {
+    if (m.length < 2 || ext <= 0) return m;
+    const t0 = [m[0][0] - m[1][0], m[0][1] - m[1][1]];
+    const L0 = Math.hypot(t0[0], t0[1]) || 1;
+    const tn = [m[m.length - 1][0] - m[m.length - 2][0], m[m.length - 1][1] - m[m.length - 2][1]];
+    const Ln = Math.hypot(tn[0], tn[1]) || 1;
+    return [[m[0][0] + t0[0] / L0 * ext, m[0][1] + t0[1] / L0 * ext], ...m,
+            [m[m.length - 1][0] + tn[0] / Ln * ext, m[m.length - 1][1] + tn[1] / Ln * ext]];
+  };
+  let scoreMedians = medians.map((m, k) => extendMedian(m, Math.min(70, widths[k] * 1.1)));
+
+  /* 边界采样（记录轮廓参数 s = 段号+t，便于矢量切割回溯） */
+  const sampleSets = contours.map(c => {
+    const arr = [];
+    c.segs.forEach((seg, si) => {
+      const n = Math.max(3, Math.min(26, Math.ceil(segLength(seg) / 9)));
+      for (let k = 0; k < n; k++) {
+        const t = k / n;
+        arr.push({ s: si + t, pt: bezPoint(seg, t), tan: bezTangent(seg, t) });
+      }
+    });
+    return arr;
+  });
+
+  const lambda = new Array(nStrokes).fill(1); /* 容量平衡系数：抢多加罚、饥饿减罚 */
+  const scoreOf = (pt, tan, k) => {
+    const near = nearestOnPolyline(pt, scoreMedians[k]);
+    const halfW = scoreWidths[k] * 0.5 + 6;
+    const dirPen = 1 - Math.abs(tan[0] * near.tan[0] + tan[1] * near.tan[1]);
+    return (near.d / halfW + 0.5 * dirPen) * lambda[k];
+  };
+  const labelOf = (pt, tan) => {
+    let best = 0, bestScore = 1e18;
+    for (let k = 0; k < nStrokes; k++) {
+      const sc = scoreOf(pt, tan, k);
+      if (sc < bestScore) { bestScore = sc; best = k; }
+    }
+    return best;
+  };
+
+  /* 迭代：归属 → 笔宽估计 → 容量平衡 → 中轴线精调（直笔伸缩 / 折笔分段平移） */
+  const ITERS = 5;
+  const totalSamples = sampleSets.reduce((a, s) => a + s.length, 0) || 1;
+  for (let iter = 0; iter < ITERS; iter++) {
+    const assigned = Array.from({ length: nStrokes }, () => []);
+    for (let ci = 0; ci < contours.length; ci++)
+      for (const sm of sampleSets[ci]) {
+        sm.label = labelOf(sm.pt, sm.tan);
+        assigned[sm.label].push(sm.pt);
+      }
+    for (let k = 0; k < nStrokes; k++) {
+      const pts = assigned[k];
+      if (!pts.length) continue;
+      const ds = pts.map(p => nearestOnPolyline(p, medians[k]).d).sort((a, b) => a - b);
+      widths[k] = Math.max(10, Math.min(220, 2 * ds[Math.floor(ds.length / 2)]));
+    }
+    const sorted = widths.slice().sort((a, b) => a - b);
+    const wMed = sorted[Math.floor(sorted.length / 2)] || w0;
+    scoreWidths = widths.map(w => Math.max(0.55 * wMed, Math.min(1.6 * wMed, w)));
+
+    if (iter >= ITERS - 1) break;
+    /* 容量平衡曾试过按楷体周长份额惩罚“抢多”的笔画，但现代字体的点画
+       占比天然远大于楷体，先验失真会误伤（如“汉”氵的点被瓜分），已弃用。 */
+    for (let k = 0; k < nStrokes; k++)
+      if (assigned[k].length >= 6)
+        medians[k] = refineMedianFit(medians[k], initMedians[k], assigned[k], widths[k]);
+    scoreMedians = medians.map((m, k) => extendMedian(m, Math.min(70, widths[k] * 1.1)));
+  }
+
+  /* 轮廓“主人判定”整体归属：对每条非孔洞轮廓，计算各笔中轴线落在其内部的
+     比例（初始与精调位置取较小值）。唯一主人（≥55%）且无第二竞争者（≥45%）
+     时整条轮廓判给主人 —— 覆盖两类场景：①孤立笔画（氵的点）不被邻笔抢边；
+     ②未做布尔并集的字体里互相叠压的完整笔画轮廓（如黑体“永”的捺压着竖）
+     不再被交叉而过的邻笔切开。融合字形（多笔中轴线都≥45%）自动跳过。 */
+  const resampledMedians = medians.map(m => resamplePolyline(m.map(p => p.slice()), 15));
+  const resampledInit = initMedians.map(m => resamplePolyline(m.map(p => p.slice()), 15));
+  const strokeSampleTotals = new Array(nStrokes).fill(0);
+  sampleSets.forEach(arr => arr.forEach(sm => strokeSampleTotals[sm.label]++));
+  const fracInside = (rm, poly) => {
+    let cnt = 0;
+    for (const p of rm) if (pointInPolygon(p, poly)) cnt++;
+    return cnt / (rm.length || 1);
+  };
+  contours.forEach((c, ci) => {
+    if (c.isHole) return;
+    const fracs = [];
+    for (let k = 0; k < nStrokes; k++) {
+      const fr = fracInside(resampledMedians[k], c.poly);
+      const fi = fracInside(resampledInit[k], c.poly);
+      fracs.push([Math.max(fr, fi), Math.min(fr, fi), k]);
+    }
+    fracs.sort((a, b) => b[0] - a[0]);
+    const [fMax1, fMin1, winner] = fracs[0];
+    const fMax2 = fracs.length > 1 ? fracs[1][0] : 0;
+    /* 主人：max≥0.55 且 min≥0.35（初始位置锚定防精调漂移/伸缩越界）；
+       竞争者按 max 判，≥0.45 视为共有轮廓（融合字形），跳过 */
+    if (fMax1 < 0.55 || fMin1 < 0.35 || fMax2 >= 0.45) return;
+    const votes = {};
+    sampleSets[ci].forEach(sm => votes[sm.label] = (votes[sm.label] || 0) + 1);
+    for (const kStr in votes) {
+      const k = +kStr;
+      if (k !== winner && strokeSampleTotals[k] - votes[k] < 6) return; /* 会饿死，放弃 */
+    }
+    sampleSets[ci].forEach(sm => {
+      if (sm.label !== winner) {
+        strokeSampleTotals[sm.label]--; strokeSampleTotals[winner]++;
+        sm.label = winner;
+      }
+    });
+  });
+
+  /* 孔洞边界标签径向对应：环形结构（口/国）中，内边属于正对的外边同一笔。
+     孔洞采样点的标签直接取最近的外边界采样点标签，保证内外一致 —— 这是
+     环形段“外弧+径向弦+内弧”能精确拼合、孔心不被误覆盖的前提。 */
+  contours.forEach((c, ci) => {
+    if (!c.isHole) return;
+    for (const sm of sampleSets[ci]) {
+      let best = -1, bestD = 1e18;
+      contours.forEach((c2, cj) => {
+        if (c2.isHole) return;
+        for (const sm2 of sampleSets[cj]) {
+          const d = dist(sm.pt, sm2.pt);
+          if (d < bestD) { bestD = d; best = sm2.label; }
+        }
+      });
+      if (best >= 0) sm.label = best;
+    }
+  });
+
+  /* 标签平滑：吸收轮廓上过短的标签游程 */
+  sampleSets.forEach(arr => {
+    if (arr.length < 4) return;
+    for (let pass = 0; pass < 3; pass++) {
+      const n = arr.length;
+      let changed = false;
+      let runs = [];
+      for (let i = 0; i < n; i++) {
+        if (runs.length && arr[i].label === runs[runs.length - 1].label)
+          runs[runs.length - 1].idx.push(i);
+        else runs.push({ label: arr[i].label, idx: [i] });
+      }
+      if (runs.length > 1 && runs[0].label === runs[runs.length - 1].label) {
+        runs[0].idx = runs[runs.length - 1].idx.concat(runs[0].idx);
+        runs.pop();
+      }
+      if (runs.length <= 1) break;
+      for (const r of runs) {
+        const runLen = r.idx.reduce((s, i) =>
+          s + dist(arr[i].pt, arr[(i + 1) % n].pt), 0);
+        if (r.idx.length <= 2 || runLen < 15) {
+          const prevIdx = (r.idx[0] - 1 + n) % n;
+          for (const i of r.idx) arr[i].label = arr[prevIdx].label;
+          changed = true;
+        }
+      }
+      if (!changed) break;
+    }
+  });
+
+  /* 矢量切割：在标签变化处二分求边界参数，De Casteljau 精确切段 */
+  const cutPoints = [];
+  const strokeArcs = Array.from({ length: nStrokes }, () => []);
+  contours.forEach((c, ci) => {
+    const arr = sampleSets[ci];
+    const n = arr.length, segCount = c.segs.length;
+    if (!n) return;
+    const uniform = arr.every(sm => sm.label === arr[0].label);
+    if (uniform) {
+      strokeArcs[arr[0].label].push({ segs: c.segs.map(s => ({ ...s })), closed: true, contour: ci });
+      return;
+    }
+    const paramAt = s => {
+      const si = Math.min(segCount - 1, Math.floor(s));
+      const t = Math.min(1, Math.max(0, s - si));
+      const seg = c.segs[si];
+      return { pt: bezPoint(seg, t), tan: bezTangent(seg, t) };
+    };
+    const bounds = [];
+    for (let i = 0; i < n; i++) {
+      const a = arr[i], b = arr[(i + 1) % n];
+      if (a.label === b.label) continue;
+      let s0 = a.s, s1 = b.s <= a.s ? b.s + segCount : b.s;
+      for (let it = 0; it < 22; it++) {
+        const mid = (s0 + s1) / 2;
+        const q = paramAt(mid % segCount);
+        if (labelOf(q.pt, q.tan) === a.label) s0 = mid; else s1 = mid;
+      }
+      const sCut = ((s0 + s1) / 2) % segCount;
+      bounds.push({ s: sCut, from: a.label, to: b.label });
+      cutPoints.push({ pt: paramAt(sCut).pt, from: a.label, to: b.label });
+    }
+    bounds.sort((a, b) => a.s - b.s);
+    for (let bi = 0; bi < bounds.length; bi++) {
+      const b0 = bounds[bi], b1 = bounds[(bi + 1) % bounds.length];
+      const label = b0.to;
+      let sStart = b0.s, sEnd = b1.s <= b0.s ? b1.s + segCount : b1.s;
+      const segs = [];
+      let s = sStart;
+      while (s < sEnd - 1e-6) {
+        const si = Math.floor(s) % segCount;
+        const t0 = s - Math.floor(s);
+        const segEndS = Math.floor(s) + 1;
+        const piece = bezSlice(c.segs[si], t0, Math.min(1, sEnd - Math.floor(s)));
+        if (segLength(piece) > 0.8) segs.push(piece);
+        s = Math.min(segEndS, sEnd);
+      }
+      if (segs.length) strokeArcs[label].push({ segs, closed: false, contour: ci });
+    }
+  });
+
+  /* 闭合重构（环路追踪）：同一条原始轮廓上属于本笔的弧段按轮廓参数顺序
+     首尾相连 —— 相邻弧段间的缺口正是交叠区被布尔并集抹除的隐蔽边界，用
+     桥接重建；不同轮廓（如孔洞）各成一环。之前的“端点就近串联”会把融合
+     字形中笔画的两条长边各自闭成零面积退化环，导致笔画中段大面积漏填。 */
+  const strokes = [];
+  for (let k = 0; k < nStrokes; k++) {
+    const arcs = strokeArcs[k].slice();
+    const loops = [];
+    let retainedLen = 0, bridgeLen = 0;
+    const closedArcs = arcs.filter(a => a.closed);
+    const open = arcs.filter(a => !a.closed);
+    for (const a of closedArcs) {
+      loops.push({ segs: a.segs, bridges: 0 });
+      retainedLen += a.segs.reduce((s, x) => s + segLength(x), 0);
+    }
+    const byContour = new Map();
+    for (const a of open) {
+      if (!byContour.has(a.contour)) byContour.set(a.contour, []);
+      byContour.get(a.contour).push(a); /* 已按轮廓参数升序生成 */
+    }
+    /* 直割线弦：桥接一律用两个切割点之间的直线段。这是能严格保证
+       “所有笔画并集 = 原字形（不多不少）”的唯一桥接方式 —— 弦在字形
+       内部，各笔的弦共同把原区域切成划分，交叠区被相邻笔画同时包含
+       （双重归属）。曲线桥/切线延伸桥会外凸或探出字形，已弃用。 */
+    const bridge = (pA, pB) => {
+      const d = dist(pA, pB);
+      if (d < 1.2) return null;
+      return lineSeg(pA, pB);
+    };
+    /* 第一步：每条轮廓内按轮廓顺序串成开放链（弧段间缺口补弦，先不闭合） */
+    const chains = [];
+    for (const [, chainArcs] of byContour) {
+      const segs = [];
+      let bridges = 0;
+      for (let idx = 0; idx < chainArcs.length; idx++) {
+        const a = chainArcs[idx];
+        segs.push(...a.segs);
+        retainedLen += a.segs.reduce((s, x) => s + segLength(x), 0);
+        if (idx < chainArcs.length - 1) {
+          const gap = bridge(a.segs[a.segs.length - 1].p1, chainArcs[idx + 1].segs[0].p0);
+          if (gap) { segs.push(gap); bridges++; bridgeLen += segLength(gap); }
+        }
+      }
+      chains.push({ segs, bridges });
+    }
+    /* 第二步：跨轮廓并环 —— 环形笔画（如“口”的横折）在外轮廓和孔洞上各有
+       一条链，须用两条径向弦并成一个环形段，否则孔心会被误覆盖。仅在链间
+       距离合理（≤max(2.5笔宽,160)）时合并，防止碎片被长弦硬连。 */
+    const joinLimit = Math.max(widths[k] * 2.5, 160);
+    while (chains.length) {
+      const cur = chains.shift();
+      for (;;) {
+        if (!chains.length) break;
+        const end = cur.segs[cur.segs.length - 1].p1;
+        let bestI = -1, bestD = 1e18;
+        for (let i = 0; i < chains.length; i++) {
+          const d = dist(end, chains[i].segs[0].p0);
+          if (d < bestD) { bestD = d; bestI = i; }
+        }
+        if (bestD > joinLimit) break;
+        const nxt = chains.splice(bestI, 1)[0];
+        const gap = bridge(end, nxt.segs[0].p0);
+        if (gap) { cur.segs.push(gap); cur.bridges++; bridgeLen += segLength(gap); }
+        cur.segs.push(...nxt.segs);
+        cur.bridges += nxt.bridges;
+      }
+      const wrap = bridge(cur.segs[cur.segs.length - 1].p1, cur.segs[0].p0);
+      if (wrap) { cur.segs.push(wrap); cur.bridges++; bridgeLen += segLength(wrap); }
+      loops.push(cur);
+    }
+    const pathD = loops.map(lp => contourToPath(lp.segs, true)).join(" ");
+    strokes.push({
+      index: k, type: kai.strokeTypes[k], color: colorOf(k),
+      path: pathD, loops: loops.length,
+      bridges: loops.reduce((s, l) => s + l.bridges, 0),
+      retainRatio: retainedLen / ((retainedLen + bridgeLen) || 1),
+      median: medians[k], width: widths[k],
+      failed: !pathD,
+    });
+  }
+
+  /* 重并集校验（Re-Union Validation）：所有笔画并集应与原字形恒等 ——
+     覆盖 = 原形内部被任一笔覆盖的比例（应 100%），溢出 = 笔画面积中
+     落在原形之外的比例（应 0%）。网格抽样估计；每笔按其各环的奇偶
+     包含数判内外（孔洞环自然扣除）。 */
+  const strokeLoopPolys = strokes.map(s =>
+    parseContours(s.path).map(c => flattenSegs(c.segs, 16)));
+  const outersP = contours.filter(c => !c.isHole).map(c => c.poly);
+  const holesP = contours.filter(c => c.isHole).map(c => c.poly);
+  const inStrokeAt = p => strokeLoopPolys.some(loops => {
+    let cnt = 0;
+    for (const lp of loops) if (pointInPolygon(p, lp)) cnt++;
+    return cnt % 2 === 1;
+  });
+  let nIn = 0, nCov = 0, nStroke = 0, nExcess = 0;
+  const G = 36;
+  for (let gi = 0; gi < G; gi++) for (let gj = 0; gj < G; gj++) {
+    const p = [tb.x0 + tb.w * (gi + 0.5) / G, tb.y0 + tb.h * (gj + 0.5) / G];
+    const inGlyph = outersP.some(o => pointInPolygon(p, o)) &&
+                    !holesP.some(h => pointInPolygon(p, h));
+    const inStroke = inStrokeAt(p);
+    if (inGlyph) { nIn++; if (inStroke) nCov++; }
+    if (inStroke) { nStroke++; if (!inGlyph) nExcess++; }
+  }
+  const unionCheck = { cover: nIn ? Math.round(nCov / nIn * 1000) / 10 : 100,
+                       excess: nStroke ? Math.round(nExcess / nStroke * 1000) / 10 : 0 };
+
+  return { ch, contours, medians, widths, strokes, cutPoints, sampleSets, kai,
+           bbox: tb, unionCheck };
+}
+
+/* ============================ 笔顺动画器 ============================ */
+class StrokeAnimator {
+  constructor(svg, statusEl) {
+    this.svg = svg; this.statusEl = statusEl;
+    this.items = []; this.playing = false; this.raf = 0; this.speed = 1;
+    this.cursor = 0; this.progress = 0; this.tracks = [];
+  }
+  load(items, idPrefix) {
+    cancelAnimationFrame(this.raf); this.playing = false;
+    this.items = items; this.cursor = 0; this.progress = 0;
+    const g = glyphGroup(this.svg);
+    const defs = el("defs", {}, this.svg);
+    this.tracks = items.map((it, i) => {
+      const cid = idPrefix + "_clip" + i;
+      const cp = el("clipPath", { id: cid }, defs);
+      el("path", { d: it.clipPath, "clip-rule": "nonzero" }, cp);
+      const base = el("path", { d: it.clipPath, fill: "#e8e8e8",
+                               "fill-rule": "nonzero" }, g); // 底形=精确 D′
+      const mp = it.median.map((p, j) => (j ? "L" : "M") + fmt(p[0]) + " " + fmt(p[1])).join(" ");
+      const track = el("path", {
+        d: mp, fill: "none", stroke: it.color,
+        "stroke-width": Math.max(90, it.width * 2.2),
+        "stroke-linecap": "round", "stroke-linejoin": "round",
+        "clip-path": "url(#" + cid + ")",
+      }, g);
+      const len = polylineLength(it.median) + Math.max(90, it.width * 2.2);
+      track.setAttribute("stroke-dasharray", len + " " + len);
+      track.setAttribute("stroke-dashoffset", len);
+      return { track, len, base, color: it.color };
+    });
+    this.updateStatus();
+  }
+  updateStatus() {
+    if (!this.statusEl) return;
+    this.statusEl.textContent = this.items.length
+      ? `笔画 ${Math.min(this.cursor + (this.progress > 0 ? 1 : 0), this.items.length)} / ${this.items.length}`
+      : "";
+  }
+  play() {
+    if (!this.items.length) return;
+    if (this.cursor >= this.items.length) this.reset();
+    this.playing = true;
+    let last = performance.now();
+    const step = now => {
+      if (!this.playing) return;
+      const dt = (now - last) / 1000; last = now;
+      const tr = this.tracks[this.cursor];
+      if (!tr) { this.playing = false; return; }
+      const dur = Math.max(0.35, tr.len / (900 * this.speed));
+      this.progress += dt / dur;
+      if (this.progress >= 1) {
+        tr.track.setAttribute("stroke-dashoffset", 0);
+        tr.base.setAttribute("fill", tr.color); /* 播完整笔 → 精确 D′ 整体上色 */
+        this.cursor++; this.progress = 0;
+        this.updateStatus();
+        if (this.cursor >= this.items.length) { this.playing = false; return; }
+      } else {
+        tr.track.setAttribute("stroke-dashoffset", tr.len * (1 - this.progress));
+      }
+      this.raf = requestAnimationFrame(step);
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+  pause() { this.playing = false; cancelAnimationFrame(this.raf); }
+  reset() {
+    this.pause(); this.cursor = 0; this.progress = 0;
+    this.tracks.forEach(t => {
+      t.track.setAttribute("stroke-dashoffset", t.len);
+      t.base.setAttribute("fill", "#e8e8e8");
+    });
+    this.updateStatus();
+  }
+}
+
+/* ============================ UI ============================ */
+const state = { fontKey: null, ch: "永", libTab: "A", structLevel: 1, stepTab: 0, result: null };
+const kaiAnimator = new StrokeAnimator(document.getElementById("svgKai"),
+                                       document.getElementById("kaiStatus"));
+const resAnimator = new StrokeAnimator(document.getElementById("svgResult"),
+                                       document.getElementById("resStatus"));
+
+function setOverlay(msg, pct) {
+  const ov = document.getElementById("overlay");
+  if (msg === null) { ov.classList.add("hidden"); return; }
+  ov.classList.remove("hidden");
+  document.getElementById("ovMsg").textContent = msg;
+  if (pct !== undefined) document.getElementById("ovBar").style.width = pct + "%";
+}
+
+function currentFont() { return FontHub.cache.get(state.fontKey); }
+
+async function selectFont(key) {
+  try {
+    setOverlay("加载字体 " + key + "…", 90);
+    await FontHub.load(key, m => setOverlay(m, 92));
+    state.fontKey = key;
+    setOverlay(null);
+    refresh();
+  } catch (e) {
+    setOverlay(null);
+    alert("字体加载失败：" + e.message);
+  }
+}
+
+function addFontOption(key, label) {
+  const fs = document.getElementById("fontSelect");
+  if ([...fs.options].some(o => o.value === key)) return;
+  const o = document.createElement("option");
+  o.value = key; o.textContent = label || key;
+  fs.appendChild(o);
+}
+
+function initControls() {
+  const fs = document.getElementById("fontSelect");
+  (window.FONT_LIST || []).forEach(f => addFontOption(f));
+  fs.onchange = () => selectFont(fs.value);
+
+  const fileInput = document.getElementById("fontFileInput");
+  document.getElementById("fontFileBtn").onclick = () => fileInput.click();
+  fileInput.onchange = () => { if (fileInput.files[0]) loadFontFile(fileInput.files[0]); };
+  document.addEventListener("dragover", e => {
+    e.preventDefault();
+    document.getElementById("dropHint").style.display = "flex";
+  });
+  document.addEventListener("dragleave", e => {
+    if (!e.relatedTarget) document.getElementById("dropHint").style.display = "none";
+  });
+  document.addEventListener("drop", e => {
+    e.preventDefault();
+    document.getElementById("dropHint").style.display = "none";
+    const f = [...e.dataTransfer.files].find(f => /\.(ttf|otf)$/i.test(f.name));
+    if (f) loadFontFile(f);
+  });
+
+  const chips = document.getElementById("charChips");
+  for (const ch of DEFAULT_CHIPS) {
+    const s = document.createElement("span");
+    s.className = "chip"; s.textContent = ch;
+    s.onclick = () => { state.ch = ch; refresh(); };
+    chips.appendChild(s);
+  }
+  const inp = document.getElementById("charInput");
+  const commit = () => {
+    const v = [...inp.value.trim()];
+    if (!v.length) return;
+    const ch = v[0];
+    if (!DataHub.hasKai(ch)) {
+      alert("MakeMeAHanzi 数据集中没有「" + ch + "」（约含 9500 常用字）。");
+      return;
+    }
+    state.ch = ch; inp.value = ""; refresh();
+  };
+  inp.onkeydown = e => { if (e.key === "Enter") commit(); };
+  inp.onblur = commit;
+
+  document.getElementById("tabLibA").onclick = () => { state.libTab = "A"; renderLibrary(); };
+  document.getElementById("tabLibB").onclick = () => { state.libTab = "B"; renderLibrary(); };
+  document.getElementById("libFilter").onchange = renderLibrary;
+
+  document.getElementById("kaiPlay").onclick = () =>
+    kaiAnimator.playing ? kaiAnimator.pause() : kaiAnimator.play();
+  document.getElementById("kaiReset").onclick = () => kaiAnimator.reset();
+  document.getElementById("kaiSpeed").onchange = e => kaiAnimator.speed = +e.target.value;
+  document.getElementById("resPlay").onclick = () =>
+    resAnimator.playing ? resAnimator.pause() : resAnimator.play();
+  document.getElementById("resReset").onclick = () => resAnimator.reset();
+  document.getElementById("resSpeed").onchange = e => resAnimator.speed = +e.target.value;
+}
+
+async function loadFontFile(file) {
+  try {
+    setOverlay("解析字体 " + file.name + "…", 92);
+    const buf = await file.arrayBuffer();
+    FontHub.register(file.name, buf, m => setOverlay(m, 95));
+    addFontOption(file.name, "本地: " + file.name);
+    document.getElementById("fontSelect").value = file.name;
+    state.fontKey = file.name;
+    setOverlay(null);
+    refresh();
+  } catch (e) {
+    setOverlay(null);
+    alert("字体解析失败：" + e.message);
+  }
+}
+
+function refresh() {
+  document.querySelectorAll("#charChips .chip").forEach(c =>
+    c.classList.toggle("active", c.textContent === state.ch));
+  const t0 = performance.now();
+  state.result = runPipeline(currentFont(), state.ch);
+  const ms = (performance.now() - t0).toFixed(0);
+  document.getElementById("topStatus").textContent =
+    state.result.error ? "" : `拆解耗时 ${ms} ms`;
+  renderRealPaths();
+  renderKaiPanel();
+  renderLibrary();
+  renderStructure();
+  renderSteps();
+  renderResult();
+}
+
+/* ---------- ① 真实路径 ---------- */
+function renderRealPaths() {
+  const svg = document.getElementById("svgReal");
+  const legend = document.getElementById("legendReal");
+  const r = state.result;
+  legend.innerHTML = "";
+  if (r.error) { svg.innerHTML = ""; legend.textContent = r.error; return; }
+  const g = glyphGroup(svg);
+  r.contours.forEach((c, i) => {
+    el("path", {
+      d: contourToPath(c.segs, true), fill: colorOf(i), "fill-opacity": 0.13,
+      stroke: colorOf(i), "stroke-width": 5, "vector-effect": "non-scaling-stroke",
+    }, g);
+    const p0 = c.segs[0].p0;
+    el("circle", { cx: p0[0], cy: p0[1], r: 8, fill: colorOf(i) }, g);
+  });
+  r.contours.forEach((c, i) => {
+    const item = document.createElement("span");
+    item.innerHTML = `<span class="sw" style="background:${colorOf(i)}"></span>` +
+      `子路径${i + 1} · ${c.isHole ? "孔洞" : "外轮廓"} · 组${c.group + 1} · ${c.segs.length}段` +
+      ` · ${c.area >= 0 ? "逆" : "顺"}时针`;
+    legend.appendChild(item);
+  });
+}
+
+/* ---------- ② 楷体笔画（可播放） ---------- */
+function renderKaiPanel() {
+  const legend = document.getElementById("legendKai");
+  legend.innerHTML = "";
+  const kai = DataHub.kai(state.ch);
+  if (!kai) { document.getElementById("svgKai").innerHTML = ""; return; }
+  kaiAnimator.load(kai.strokes.map((s, i) => ({
+    clipPath: s, median: kai.medians[i], width: 110, color: colorOf(i),
+  })), "kai");
+  kai.strokeTypes.forEach((t, i) => {
+    const item = document.createElement("span");
+    item.innerHTML = `<span class="sw" style="background:${colorOf(i)}"></span>第${i + 1}笔 ${t}`;
+    legend.appendChild(item);
+  });
+}
+
+/* ---------- ③ 标准笔画库 ---------- */
+function miniGlyphSvg(parent, paths, color) {
+  const svg = el("svg", { viewBox: "0 0 1024 1024" });
+  const g = el("g", { transform: "scale(1,-1) translate(0,-900)" }, svg);
+  for (const d of paths) el("path", { d, fill: color || "#222", "fill-rule": "nonzero" }, g);
+  parent.appendChild(svg);
+  return svg;
+}
+function renderLibrary() {
+  document.getElementById("tabLibA").classList.toggle("active", state.libTab === "A");
+  document.getElementById("tabLibB").classList.toggle("active", state.libTab === "B");
+  const box = document.getElementById("libCards");
+  const note = document.getElementById("libNote");
+  box.innerHTML = "";
+  const onlyUsed = document.getElementById("libFilter").checked;
+  const kai = DataHub.kai(state.ch);
+  const usedTypes = new Set(kai ? kai.strokeTypes : []);
+
+  const typeRank = t => {
+    const i = TYPE_ORDER.indexOf(t);
+    return i < 0 ? 999 : i;
+  };
+  if (state.libTab === "A") {
+    const libA = DataHub.libraryAFor(state.ch);
+    let shown = 0;
+    const types = Object.keys(libA).sort((a, b) => typeRank(a) - typeRank(b));
+    for (const type of types) {
+      if (onlyUsed && !usedTypes.has(type) &&
+          ![...usedTypes].some(u => skeletonName(u) === skeletonName(type))) continue;
+      for (const entry of libA[type]) {
+        const card = document.createElement("div");
+        card.className = "card" + (entry === libA[type][0] ? " primary" : "");
+        miniGlyphSvg(card, [entry.path]);
+        card.innerHTML += `<div class="t">${type}</div><div>${entry.source}</div>` +
+          `<span class="badge${entry === libA[type][0] ? " p" : ""}">${
+            entry.kind === "wholeChar" ? "单笔画整字"
+            : entry.tier === 2 ? "规则表·骨架匹配" : "规则表"}</span>`;
+        box.appendChild(card); shown++;
+      }
+    }
+    note.textContent = `A 库（文鼎楷体 / MakeMeAHanzi，按规则表建库）共 ${Object.keys(libA).length} 类；` +
+      (onlyUsed ? `当前显示「${state.ch}」相关的 ${shown} 条。` : `共显示 ${shown} 条。`);
+  } else {
+    const fd = currentFont();
+    if (!fd) { note.textContent = "未加载字体"; return; }
+    let shown = 0;
+    const entries = fd.libraryBAll.slice().sort((a, b) =>
+      typeRank(a.type) - typeRank(b.type) || (a.kind === "unicode" ? -1 : 1));
+    for (const entry of entries) {
+      if (onlyUsed && !usedTypes.has(entry.type) &&
+          ![...usedTypes].some(u => skeletonName(u) === skeletonName(entry.type))) continue;
+      const isPrimary = fd.libraryB[entry.type] === entry;
+      const card = document.createElement("div");
+      card.className = "card" + (isPrimary ? " primary" : "");
+      miniGlyphSvg(card, entry.contours);
+      card.innerHTML += `<div class="t">${entry.type}</div><div>${entry.source}</div>` +
+        `<span class="badge${isPrimary ? " p" : ""}">${entry.kind === "unicode"
+          ? "U+31C0 区标准笔画" : entry.tier === 2 ? "规则表·骨架匹配" : "规则表拆取"}${
+          entry.shapeSim !== undefined ? " · 形似" + entry.shapeSim + "%" : ""}${
+          isPrimary ? " · 首选" : ""}</span>`;
+      box.appendChild(card); shown++;
+    }
+    note.textContent = `B 库（${fd.key}，按规则表建库）覆盖 ${Object.keys(fd.libraryB).length}/32+ 类 / ` +
+      `${fd.libraryBAll.length} 条来源；` +
+      (onlyUsed ? `当前显示与「${state.ch}」相关的 ${shown} 条。` : `共显示 ${shown} 条。`) +
+      (Object.keys(fd.libraryB).length === 0 ? " —— 该字体无 U+31C0 区且规则表拆取失败。" : "");
+  }
+}
+
+/* ---------- ④ 结构与偏旁 ---------- */
+function componentAtPath(node, path) {
+  let cur = node;
+  for (const idx of path) {
+    if (!cur.children || !cur.children[idx]) return cur;
+    cur = cur.children[idx];
+  }
+  return cur;
+}
+function labelOfNode(n) {
+  if (!n) return "？";
+  if (n.char) return n.char;
+  if (n.op) return n.op + (n.children || []).map(labelOfNode).join("");
+  return "？";
+}
+function renderStructure() {
+  const kai = DataHub.kai(state.ch);
+  const tabs = document.getElementById("levelTabs");
+  const svg = document.getElementById("svgStruct");
+  const legend = document.getElementById("legendStruct");
+  const info = document.getElementById("structInfo");
+  tabs.innerHTML = ""; legend.innerHTML = ""; info.innerHTML = "";
+  if (!kai) { svg.innerHTML = ""; return; }
+
+  const maxLevel = Math.max(1, ...(kai.matches || []).filter(Boolean).map(p => p.length));
+  if (state.structLevel > maxLevel) state.structLevel = 1;
+  for (let L = 1; L <= maxLevel; L++) {
+    const b = document.createElement("button");
+    b.textContent = "第" + L + "层";
+    b.className = L === state.structLevel ? "active" : "";
+    b.onclick = () => { state.structLevel = L; renderStructure(); };
+    tabs.appendChild(b);
+  }
+
+  const groups = new Map();
+  (kai.matches || []).forEach((p, i) => {
+    const key = p ? JSON.stringify(p.slice(0, state.structLevel)) : "null";
+    if (!groups.has(key)) groups.set(key, { path: p ? p.slice(0, state.structLevel) : null, strokes: [] });
+    groups.get(key).strokes.push(i);
+  });
+  const g = glyphGroup(svg);
+  let gi = 0;
+  for (const [, grp] of groups) {
+    grp.color = colorOf(gi++);
+    for (const si of grp.strokes)
+      el("path", { d: kai.strokes[si], fill: grp.color, "fill-opacity": 0.9 }, g);
+  }
+  for (const [, grp] of groups) {
+    const comp = grp.path ? componentAtPath(kai.structure, grp.path) : null;
+    const item = document.createElement("span");
+    item.innerHTML = `<span class="sw" style="background:${grp.color}"></span>` +
+      `${comp ? labelOfNode(comp) : "未标注"} · 笔画 ${grp.strokes.map(i => i + 1).join(",")}`;
+    legend.appendChild(item);
+  }
+
+  const treeHtml = n => {
+    if (!n) return "？";
+    let s = n.char ? `<b>${n.char}</b>` : (n.op || "");
+    if (n.op && n.char) s += ` <span class="muted">${n.op}</span>`;
+    if (n.children)
+      s += "<ul>" + n.children.map(c => "<li>" + treeHtml(c) + "</li>").join("") + "</ul>";
+    return s;
+  };
+  info.innerHTML =
+    `<div>IDS 分解：<b>${kai.decomposition || "（无）"}</b>　部首：<b>${kai.radical || "？"}</b></div>` +
+    `<div>结构树：${treeHtml(kai.structure)}</div>` +
+    `<div class="muted">hanzi_chaizi（简）：${(kai.chaiziJt || []).map(a => a.join(" ")).join(" ／ ") || "无"}` +
+    `　（繁）：${(kai.chaiziFt || []).map(a => a.join(" ")).join(" ／ ") || "无"}</div>`;
+}
+
+/* ---------- ⑤ 流程步骤 ---------- */
+const STEP_DEFS = [
+  { name: "S1 对齐", caption: "对齐与 D 构建：目标字形轮廓（灰）与每笔的 D 骨架（彩色虚线）。D 骨架 = B库同类型笔画（目标字体自己的形态，A↔B 类型映射）按楷体结构 C 给出的该笔包围盒定位；B库缺该类型时退回楷体中轴线。楷体只提供笔顺/类型/位置，形态来自目标字体本身。随后迭代做逐笔平移/伸缩微调 + 笔宽估计。" },
+  { name: "S2 建库/D", caption: "笔画结构信息 D：按楷体每笔的类型，从目标字体标准笔画库 B 取同类笔画（缺失时回退 A 库），仿射放置到该笔中轴线的包围盒上。D 只是形态先验，用于预测与校验，真正的拆解在 S3–S5 用真实轮廓完成。" },
+  { name: "S3 归属", caption: "边界归属：对每条子路径按曲率密度采样（纯矢量参数点），逐点计算到各笔中轴线的宽度归一化距离 + 切向一致性罚项，取最优笔画标签。图中每个采样点按所属笔画着色 —— 笔画交叠区两侧会出现标签跳变。" },
+  { name: "S4 切割", caption: "矢量切割：在标签跳变处沿轮廓参数二分（22 次迭代），用 De Casteljau 把原始贝塞尔段一分为二 —— 保留区段与字形原路径完全一致，无任何像素判定。黑圈为切割点。" },
+  { name: "S5 重构 D′", caption: "闭合重构（环路追踪）：同一条原始轮廓上属于本笔的弧段按轮廓顺序首尾相连，缺口用切割点间的直割线弦桥接 —— 弦在字形内部，各笔的弦把原区域切成划分，交叠区被相邻笔画同时包含（双重归属），保证所有笔画并集与原字形恒等（不多不少）。" },
+  { name: "S6 校验", caption: "一致性校验：彩色为 D′ 各笔填充（半透明，交叠区显示为混色=双重归属），黑色细线为目标字体原始轮廓。保留区段与原轮廓逐点重合（De Casteljau 精确切片）；桥接弦全部位于字形内部 —— 并集覆盖率/溢出率见⑥面板“重并集校验”。" },
+];
+function renderSteps() {
+  const tabs = document.getElementById("stepTabs");
+  tabs.innerHTML = "";
+  STEP_DEFS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.name;
+    b.className = i === state.stepTab ? "active" : "";
+    b.onclick = () => { state.stepTab = i; renderSteps(); };
+    tabs.appendChild(b);
+  });
+  const svg = document.getElementById("svgStep");
+  const cap = document.getElementById("stepCaption");
+  const r = state.result;
+  cap.textContent = STEP_DEFS[state.stepTab].caption;
+  if (r.error) { svg.innerHTML = ""; cap.textContent = r.error; return; }
+  const g = glyphGroup(svg);
+  const drawOutline = (opacity, grey) => r.contours.forEach(c =>
+    el("path", { d: contourToPath(c.segs, true), fill: grey || "#777",
+                 "fill-opacity": opacity, "fill-rule": "nonzero" }, g));
+  const drawMedians = dash => r.medians.forEach((m, k) =>
+    el("path", {
+      d: m.map((p, j) => (j ? "L" : "M") + fmt(p[0]) + " " + fmt(p[1])).join(" "),
+      fill: "none", stroke: colorOf(k), "stroke-width": 9,
+      "stroke-dasharray": dash || "none", "stroke-linecap": "round",
+    }, g));
+
+  if (state.stepTab === 0) {
+    drawOutline(0.25); drawMedians("22 14");
+  } else if (state.stepTab === 1) {
+    drawOutline(0.12);
+    const fd = currentFont();
+    const kai = r.kai;
+    const libA = DataHub.libraryAFor(state.ch);
+    kai.strokeTypes.forEach((type, k) => {
+      let contoursOfB = null;
+      let entry = fd && findLibEntry(fd.libraryB, type);
+      if (!entry && fd && type.endsWith("钩")) entry = findLibEntry(fd.libraryB, type.slice(0, -1));
+      if (!entry && fd && fd.libraryBAll.length) {
+        /* 名称找不到 → 尺度不变形状描述子跨类型兜底（缩放无关的“同种笔画”判定） */
+        const kd = shapeDescriptor([kai.strokes[k]]);
+        let best = null, bestD = 1e18;
+        for (const e of fd.libraryBAll) {
+          const d = shapeDistance(kd, e.desc);
+          if (d < bestD) { bestD = d; best = e; }
+        }
+        if (best && bestD < 1.6) entry = best;
+      }
+      if (entry) contoursOfB = entry.contours;
+      else {
+        const aList = findLibEntry(libA, type);
+        if (aList && aList.length) contoursOfB = [aList[0].path];
+        else contoursOfB = [kai.strokes[k]];
+      }
+      const src = [];
+      for (const cs of contoursOfB) for (const c of parseContours(cs)) src.push(c);
+      const sPts = []; src.forEach(c => sPts.push(...flattenSegs(c.segs, 20)));
+      if (!sPts.length) return;
+      const sb = bboxOfPoints(sPts);
+      const mb = bboxOfPoints(r.medians[k]);
+      const half = r.widths[k] * 0.55;
+      const db = { x0: mb.x0 - half, y0: mb.y0 - half,
+                   w: mb.w + 2 * half, h: mb.h + 2 * half };
+      const fx = db.w / Math.max(1, sb.w), fy = db.h / Math.max(1, sb.h);
+      for (const c of src) {
+        const mv = p => [db.x0 + (p[0] - sb.x0) * fx, db.y0 + (p[1] - sb.y0) * fy];
+        const moved = c.segs.map(sg =>
+          ({ kind: sg.kind, p0: mv(sg.p0), c1: mv(sg.c1), c2: mv(sg.c2), p1: mv(sg.p1) }));
+        el("path", { d: contourToPath(moved, true), fill: colorOf(k),
+                     "fill-opacity": 0.45, "fill-rule": "nonzero" }, g);
+      }
+    });
+    drawMedians("22 14");
+  } else if (state.stepTab === 2) {
+    drawOutline(0.10); drawMedians("22 14");
+    r.sampleSets.forEach(arr => arr.forEach(sm =>
+      el("circle", { cx: sm.pt[0], cy: sm.pt[1], r: 5.5, fill: colorOf(sm.label) }, g)));
+  } else if (state.stepTab === 3) {
+    r.strokes.forEach(st => el("path", {
+      d: st.path, fill: "none", stroke: st.color, "stroke-width": 7 }, g));
+    r.cutPoints.forEach(cp => {
+      el("circle", { cx: cp.pt[0], cy: cp.pt[1], r: 13, fill: "none",
+                     stroke: "#111", "stroke-width": 5 }, g);
+    });
+  } else if (state.stepTab === 4) {
+    r.strokes.forEach(st => el("path", {
+      d: st.path, fill: st.color, "fill-opacity": 0.85, "fill-rule": "nonzero",
+      stroke: "#fff", "stroke-width": 3 }, g));
+  } else {
+    /* S6：D′ 填充 + 原始轮廓描边叠加，可视化“保留区段与原轮廓完全重合” */
+    r.strokes.forEach(st => el("path", {
+      d: st.path, fill: st.color, "fill-opacity": 0.5, "fill-rule": "nonzero" }, g));
+    r.contours.forEach(c => el("path", {
+      d: contourToPath(c.segs, true), fill: "none", stroke: "#111",
+      "stroke-width": 4 }, g));
+  }
+}
+
+/* ---------- ⑥ 结果动画 ---------- */
+function renderResult() {
+  const info = document.getElementById("resultInfo");
+  const r = state.result;
+  if (r.error) {
+    document.getElementById("svgResult").innerHTML = "";
+    info.innerHTML = `<div class="warn">${r.error}</div>`;
+    return;
+  }
+  resAnimator.load(r.strokes.filter(s => !s.failed).map(s => ({
+    clipPath: s.path, median: s.median, width: s.width, color: s.color,
+  })), "res");
+  const kaiDescs = r.kai.strokes.map(sp => shapeDescriptor([sp]));
+  const rows = r.strokes.map(s => {
+    const sim = s.failed ? 0
+      : shapeSimilarity(shapeDescriptor([s.path]), kaiDescs[s.index]);
+    return `<tr><td><span class="sw" style="background:${s.color}"></span>${s.index + 1}</td>` +
+      `<td>${s.type}</td><td>${Math.round(s.width)}</td><td>${s.loops}</td>` +
+      `<td>${s.bridges}</td><td>${Math.round((s.retainRatio || 0) * 100)}%</td>` +
+      `<td>${sim < 35 ? `<span class="warn">${sim}%</span>` : sim + "%"}</td><td>${s.failed
+        ? '<span class="warn">失败(无归属边界)</span>' : '<span class="ok">✓</span>'}</td></tr>`;
+  }).join("");
+  const avgRetain = r.strokes.length
+    ? r.strokes.reduce((a, s) => a + (s.retainRatio || 0), 0) / r.strokes.length : 0;
+  const uc = r.unionCheck || { cover: 0, excess: 0 };
+  const ucOk = uc.cover >= 99 && uc.excess <= 1;
+  info.innerHTML = `<table class="info"><tr><th>笔顺</th><th>类型(楷体基准)</th>` +
+    `<th>估计笔宽</th><th>闭合环</th><th>桥接段</th><th>原轮廓保留</th><th>形状匹配</th><th>状态</th></tr>${rows}</table>` +
+    `<div class="statusLine"><b class="${ucOk ? "ok" : "warn"}">重并集校验：原形覆盖 ${uc.cover}%、` +
+    `溢出 ${uc.excess}%</b>（要求=100%/0%：所有笔画融合后与原始路径恒等，不多不少）。` +
+    `保留区段=原字形贝塞尔段的精确切片；桥接段=切割点间的直割线弦，位于字形内部，` +
+    `交叠区被相邻笔画同时包含（双重归属）。“形状匹配”低于 35% 提示该笔切分可疑。</div>`;
+}
+
+/* ============================ 启动 ============================ */
+async function boot() {
+  try {
+    setOverlay("初始化…", 0);
+    await DataHub.init(setOverlay);
+    initControls();
+    const first = (window.FONT_LIST || [])[0];
+    if (!first) throw new Error("Fonts 目录下没有字体（fontList.js 为空）");
+    setOverlay("加载默认字体…", 85);
+    await FontHub.load(first, m => setOverlay(m, 90));
+    state.fontKey = first;
+    document.getElementById("fontSelect").value = first;
+    setOverlay(null);
+    refresh();
+  } catch (e) {
+    setOverlay(null);
+    document.body.insertAdjacentHTML("beforeend",
+      `<div style="position:fixed;inset:0;background:#14161a;z-index:60;padding:60px;font-size:15px">
+       <h2>启动失败</h2><p>${e.message}</p>
+       <p class="muted">请双击 <b>StrokeLab.bat</b> 启动（它会在本机开一个静态服务，
+       页面需要通过 http:// 访问 makemeahanzi 数据与字体文件）。</p></div>`);
+  }
+}
+boot();
+</script>
+</body>
+</html>
