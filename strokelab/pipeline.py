@@ -10,7 +10,8 @@
 
 import math
 
-from .geometry import (dist, lineSeg, parseContours, contourToPath, flattenSegs,
+from .geometry import (dist, lineSeg, cubicSeg, parseContours, contourToPath,
+                       flattenSegs,
                        bboxOfPoints, pointInPolygon, nearestOnPolyline,
                        polylineLength, resamplePolyline, analyzeContours,
                        bezPoint, bezTangent, bezSlice, segLength,
@@ -22,7 +23,92 @@ from . import boolean as booleanClamp
 ITERS = 5
 
 
-def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
+def _reMedianFromStroke(median, strokePath, width):
+    """自洽回灌的种子提取：用笔画自身几何重提中轴——轻平滑（拐角除外）+
+    对本笔轮廓断面居中，迭代两轮。B 骨架抖动、只按己方样本拟合造成的
+    贴边/锯齿都会被实际笔画区域的断面中点洗掉。"""
+    cons = []
+    for c in parseContours(strokePath):
+        poly = flattenSegs(c["segs"], 10)
+        if len(poly) >= 3:
+            cons.append({"poly": poly, "isHole": False})
+    m = [tuple(p) for p in median]
+    if not cons or len(m) < 2:
+        return None
+    cap = max(1.6 * width, 40.0)
+    cos35 = math.cos(math.radians(35))
+    for _ in range(2):
+        if len(m) >= 3:
+            sm = [m[0]]
+            for i in range(1, len(m) - 1):
+                v1 = (m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1])
+                v2 = (m[i + 1][0] - m[i][0], m[i + 1][1] - m[i][1])
+                l1, l2 = math.hypot(*v1), math.hypot(*v2)
+                if l1 > 1e-6 and l2 > 1e-6 and \
+                   (v1[0] * v2[0] + v1[1] * v2[1]) / (l1 * l2) < cos35:
+                    sm.append(m[i])
+                else:
+                    sm.append((0.25 * m[i - 1][0] + 0.5 * m[i][0] + 0.25 * m[i + 1][0],
+                               0.25 * m[i - 1][1] + 0.5 * m[i][1] + 0.25 * m[i + 1][1]))
+            sm.append(m[-1])
+            m = sm
+        m = recenterMedian(m, cons, cap)
+    return m
+
+
+def _selfSeeds(result):
+    seeds = []
+    changed = False
+    for s in result["strokes"]:
+        rm = None
+        if not s["failed"] and s["path"]:
+            rm = _reMedianFromStroke(s["median"], s["path"], s["width"])
+        if rm is None:
+            seeds.append(s["median"])
+        else:
+            seeds.append(rm)
+            changed = True
+    return seeds if changed else None
+
+
+def _meanOf(result, key):
+    ss = result["strokes"]
+    return sum(s[key] for s in ss) / (len(ss) or 1)
+
+
+def _strokeCenter(path):
+    pts = []
+    for c in parseContours(path):
+        pts.extend(flattenSegs(c["segs"], 40))
+    if not pts:
+        return None
+    b = bboxOfPoints(pts)
+    return ((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2)
+
+
+def _secondPassBetter(r2, r1, expCenters, diag):
+    f1 = sum(1 for s in r1["strokes"] if s["failed"])
+    f2 = sum(1 for s in r2["strokes"] if s["failed"])
+    # 结构位置守卫：每笔质心对楷体映射位置的偏差不得比第一遍显著恶化——
+    # shapeSim 尺度不变、看不见"整笔挪去别人地盘"（爱的竖曾被换到左下角
+    # 反而 sim 升高）
+    for a, b, exp in zip(r1["strokes"], r2["strokes"], expCenters):
+        if a["failed"] or b["failed"] or exp is None:
+            continue
+        ca, cb = _strokeCenter(a["path"]), _strokeCenter(b["path"])
+        if ca is None or cb is None:
+            continue
+        if dist(cb, exp) > dist(ca, exp) + 0.04 * diag:
+            return False
+    if f2 != f1:
+        return f2 < f1
+    # retain 升但 sim 明显降可能是"整块吞并"式虚高，双指标把关
+    return (_meanOf(r2, "retainRatio") > _meanOf(r1, "retainRatio") + 0.005
+            and _meanOf(r2, "shapeSim") >= _meanOf(r1, "shapeSim") - 1.0)
+
+
+def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
+                seedMedians=None, selfConsistent=True):
     kai = dataHub.kai(ch)
     if not kai:
         return {"error": "MakeMeAHanzi 中没有「%s」的笔画数据" % ch}
@@ -90,6 +176,12 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
             templateSources.append("楷体中轴线(B库缺类型)")
             templateEnts.append(None)
         medians.append(placed)
+    if seedMedians is not None:
+        # 自洽回灌：第一遍逐笔干净中轴替换 B 库定位的 D（结构先验已由
+        # 第一遍消化进种子里）
+        medians = [[tuple(p) for p in m] for m in seedMedians]
+        templateSources = ["自洽回灌"] * len(medians)
+        templateEnts = [None] * len(medians)
     initMedians = [[tuple(p) for p in m] for m in medians]
     nStrokes = len(medians)
 
@@ -501,9 +593,31 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
         for a in openArcs:
             byContour.setdefault(a["contour"], []).append(a)
 
-        def bridge(pA, pB):
-            if dist(pA, pB) < 1.2:
+        def bridge(prevSeg, nextSeg):
+            pA, pB = prevSeg[4], nextSeg[1]
+            chord = dist(pA, pB)
+            if chord < 1.2:
                 return None
+            # 笔锋修复：直割线弦切口有"刀削"感，改用三次贝塞尔——两端切线
+            # 延长交于 CP，以两个中点为控制点（大力智能/MMH 的桥修复法）。
+            # 切线近平行、交点在反方向或过远时退回直线；越界由布尔收口兜底
+            if chord >= 14.0:
+                tA = bezTangent(prevSeg, 1.0)
+                tB = bezTangent(nextSeg, 0.0)
+                det = tA[0] * (-tB[1]) - (-tB[0]) * tA[1]
+                if abs(det) > 1e-9:
+                    rx, ry = pB[0] - pA[0], pB[1] - pA[1]
+                    s = (rx * (-tB[1]) - (-tB[0]) * ry) / det
+                    u = (tA[0] * ry - tA[1] * rx) / det
+                    if s > 0 and u < 0:
+                        cp = (pA[0] + tA[0] * s, pA[1] + tA[1] * s)
+                        if dist(pA, cp) <= 1.2 * chord and \
+                           dist(pB, cp) <= 1.2 * chord:
+                            return cubicSeg(
+                                pA,
+                                ((pA[0] + cp[0]) / 2, (pA[1] + cp[1]) / 2),
+                                ((pB[0] + cp[0]) / 2, (pB[1] + cp[1]) / 2),
+                                pB)
             return lineSeg(pA, pB)
 
         chains = []
@@ -516,7 +630,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
                 segs.extend(a["segs"])
                 retained += sum(segLength(x) for x in a["segs"])
                 if idx < len(chainArcs) - 1:
-                    gap = bridge(a["segs"][-1][4], chainArcs[idx + 1]["segs"][0][1])
+                    gap = bridge(a["segs"][-1], chainArcs[idx + 1]["segs"][0])
                     if gap:
                         segs.append(gap)
                         bridges += 1
@@ -536,7 +650,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
                 if bestD > joinLimit:
                     break
                 nxt = chains.pop(bestI)
-                gap = bridge(end, nxt["segs"][0][1])
+                gap = bridge(cur["segs"][-1], nxt["segs"][0])
                 if gap:
                     cur["segs"].append(gap)
                     cur["bridges"] += 1
@@ -545,7 +659,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
                 cur["bridges"] += nxt["bridges"]
                 cur["retained"] += nxt["retained"]
                 cur["bridgeL"] += nxt["bridgeL"]
-            wrap = bridge(cur["segs"][-1][4], cur["segs"][0][1])
+            wrap = bridge(cur["segs"][-1], cur["segs"][0])
             if wrap:
                 cur["segs"].append(wrap)
                 cur["bridges"] += 1
@@ -592,7 +706,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
                 shapeDescriptor([s["path"]]),
                 shapeDescriptor([kai["strokes"][s["index"]]]))
 
-    return {
+    result = {
         "ch": ch, "font": fontEntry.key,
         "contours": [{"path": contourToPath(c["segs"]), "isHole": c["isHole"],
                       "group": c["group"], "segCount": len(c["segs"]),
@@ -608,4 +722,20 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
                 "decomposition": kai["decomposition"], "matches": kai["matches"],
                 "structure": kai["structure"], "chaiziJt": kai["chaiziJt"],
                 "chaiziFt": kai["chaiziFt"]},
+        "pass": 1 if seedMedians is None else 2,
     }
+    # ------------------------------------------------------------ 自洽回灌
+    # 第一遍拆完后，用每笔自身几何重提干净中轴作种子重跑一遍匹配；
+    # 双指标（失败笔数、retain+shapeSim）择优采用，防止吞并式虚高
+    if selfConsistent and seedMedians is None:
+        seeds = _selfSeeds(result)
+        if seeds:
+            r2 = runPipeline(dataHub, fontEntry, ch, applyBooleanClamp,
+                             seedMedians=seeds, selfConsistent=False)
+            expCenters = [affine(((bb.x0 + bb.x1) / 2, (bb.y0 + bb.y1) / 2))
+                          for bb in kaiStrokeBBoxes]
+            diag = math.hypot(tb.w, tb.h)
+            if "error" not in r2 and _secondPassBetter(r2, result,
+                                                      expCenters, diag):
+                return r2
+    return result
