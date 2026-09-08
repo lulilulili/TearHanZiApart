@@ -123,6 +123,7 @@
     <div class="panelBody">
       <div class="tabs" id="stepTabs"></div>
       <svg id="svgStep" class="svgBox" viewBox="0 0 1024 1024"></svg>
+      <div id="stepLegend" class="legend"></div>
       <div id="stepCaption" class="stepCaption"></div></div></div>
 
   <div class="panel"><h2>⑥ 目标字体笔画拆解结果 D′<span class="tag">按文鼎楷体笔顺播放</span></h2>
@@ -508,6 +509,27 @@ function renderSteps() {
     r.contours.forEach(c => el("path", {
       d: c.path, fill: "none", stroke: "#111", "stroke-width": 4 }, g));
   }
+  /* 每条线/每笔的类型标注：画布内文字（白描边保证可读）+ 图例 */
+  const lg = el("g", {}, svg);
+  r.strokes.forEach((s, k) => {
+    const m = s.median;
+    const p = m[Math.floor(m.length / 2)];
+    const t = el("text", {
+      x: p[0], y: 900 - p[1], fill: colorOf(k),
+      "font-size": 40, "font-weight": 700, "text-anchor": "middle",
+      stroke: "#fff", "stroke-width": 6, "paint-order": "stroke",
+      "font-family": "'Microsoft YaHei', sans-serif",
+    }, lg);
+    t.textContent = (k + 1) + " " + s.type;
+  });
+  const legend = document.getElementById("stepLegend");
+  legend.innerHTML = "";
+  r.strokes.forEach((s, k) => {
+    const item = document.createElement("span");
+    item.innerHTML = `<span class="sw" style="background:${colorOf(k)}"></span>` +
+      `第${k + 1}笔 ${s.type} ← ${s.template}`;
+    legend.appendChild(item);
+  });
 }
 
 /* ---------------- ⑥ 结果 ---------------- */

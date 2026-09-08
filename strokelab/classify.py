@@ -133,7 +133,10 @@ def classifyMedian(median):
             ang = _netAngle(sections[-1])
             if ang > 95 or ang < -155 \
                or (70 < ang <= 95 and lastLen < max(80.0, total * 0.15)) \
-               or (60 < ang <= 70 and lastLen < 60):
+               or (60 < ang <= 70 and lastLen < 60) \
+               or (-155 <= ang < -95 and lastLen < max(60.0, total * 0.2)):
+                # 最后一种：短尾段朝左下 —— 横钩/横折钩的钩常指向左下方，
+                # 不能与真正的长撇段（横撇）混淆，故长度阈更紧
                 hook = True
                 sections = sections[:-1]
 
