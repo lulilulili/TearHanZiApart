@@ -15,7 +15,7 @@ from .geometry import (dist, lineSeg, parseContours, contourToPath, flattenSegs,
                        polylineLength, resamplePolyline, analyzeContours,
                        bezPoint, bezTangent, bezSlice, segLength,
                        shapeDescriptor, shapeSimilarity, refineMedianFit,
-                       recenterMedian)
+                       recenterMedian, corridorPoint)
 from .classify import findLibEntry
 from . import boolean as booleanClamp
 
@@ -232,18 +232,20 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
             fi = fracInside(resampledInit[k], c["poly"])
             fracs.append((max(fr, fi), min(fr, fi), fi, fr, k))
         fracs.sort(key=lambda x: -x[0])
-        fMax1, fMin1, _fi1, _fr1, winner = fracs[0]
-        # 竞争者：初始设计位置占比达标即算竞争；仅精调漂移进来的默认不算
-        # （撇的中轴线漂进邻笔轮廓曾挡住正主的整体归属），但若该笔精调后
-        # 确实占住轮廓且实际拥有可观样本份额，则是真主而非漂移，必须算竞争
-        # （口的左竖曾因初始 D 落进字腔 fi≈0，被横折整体吞并）
+        fMax1, fMin1, _fi1, fr1, winner = fracs[0]
+        # 竞争者：设计位置（初始或精调后）确实占住轮廓，且实际拥有本轮廓
+        # 可观样本份额（≥20%）才算——中轴线只是路过/起点搭在别人身上而
+        # 抢不到样本的（天的捺起点在撇杆内）不算竞争，不该挡住正主整体归属
         fMax2 = 0.0
         for f in fracs[1:]:
-            comp = f[2]
-            if f[3] >= 0.45 and votes.get(f[4], 0) >= 0.2 * nSamp:
-                comp = max(comp, f[3])
-            fMax2 = max(fMax2, comp)
-        if fMax1 < 0.55 or fMin1 < 0.35 or fMax2 >= 0.45:
+            if votes.get(f[4], 0) >= 0.2 * nSamp:
+                fMax2 = max(fMax2, f[0])
+        if fMax2 >= 0.45:
+            continue
+        # 主人资格：初始+精调都占住（常规）；或初始落位失败但精调深度收敛
+        # 且已实际拥有多数样本（天的撇 fi=0 fr=0.88、握有 69% 样本）
+        if not ((fMax1 >= 0.55 and fMin1 >= 0.35) or
+                (fr1 >= 0.8 and votes.get(winner, 0) >= 0.6 * nSamp)):
             continue
         # 饿死保护：接管会令某笔别处仅剩极少样本（绝对），或一次夺走该笔
         # 过半样本（相对——被夺一半以上说明它在此轮廓有实质领地）都跳过
@@ -258,27 +260,12 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
                 strokeSampleTotals[winner] += 1
                 sm["label"] = winner
 
-    # 孔洞边界标签径向对应（环形结构内外一致）
-    for ci, c in enumerate(contours):
-        if not c["isHole"]:
-            continue
-        for sm in sampleSets[ci]:
-            best, bestD = -1, 1e18
-            for cj, c2 in enumerate(contours):
-                if c2["isHole"]:
-                    continue
-                for sm2 in sampleSets[cj]:
-                    d = dist(sm["pt"], sm2["pt"])
-                    if d < bestD:
-                        bestD, best = d, sm2["label"]
-            if best >= 0:
-                sm["label"] = best
-
     # ------------------------------------------------------------ 边弧整体归属
     # 印刷字形的笔画边界天然落在轮廓角点：按角点把轮廓切成边弧，整条边弧
     # 按平均得分整体归属——直边中途不再出现碎片切换（口的左竖外缘曾被
     # 横的端部评分蚕食出多段）。无角点的平滑字体、以及确有成块分歧的长弧
-    # 保留逐样本标签
+    # 保留逐样本标签。顺序：先外轮廓收敛 → 孔洞径向对应 → 孔洞按多数票
+    # （径向对应必须继承整弧修正后的外缘标签，反过来会带病投票）
     cornerSets = []
     for c in contours:
         segs = c["segs"]
@@ -295,11 +282,13 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
     for arr in sampleSets:
         for sm in arr:
             arcTotals[sm["label"]] += 1
-    for ci, c in enumerate(contours):
+
+    def consolidateContour(ci):
+        c = contours[ci]
         arr = sampleSets[ci]
         cs = sorted(cornerSets[ci])
         if len(cs) < 2 or not arr:
-            continue
+            return
         arcs = {}
         for i, sm in enumerate(arr):
             j = 0
@@ -317,15 +306,50 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
                 continue
             arcLen = sum(dist(arr[idxs[t]]["pt"], arr[idxs[t + 1]]["pt"])
                          for t in range(len(idxs) - 1))
-            domShare = max(labels.count(l) for l in set(labels)) / len(labels)
-            if arcLen > 3.0 * wMedFinal and domShare < 0.75:
-                continue
+            # 直边（弧内切向累计转角小）必然单主，整弧归属；弯弧（平滑字体
+            # 的连笔过渡可能真跨笔画）长且分歧成块时保留逐样本标签
+            turn = 0.0
+            for t in range(len(idxs) - 1):
+                tA = arr[idxs[t]]["tan"]
+                tB = arr[idxs[t + 1]]["tan"]
+                turn += math.degrees(math.acos(max(-1.0, min(1.0,
+                    tA[0] * tB[0] + tA[1] * tB[1]))))
+            if turn > 40.0:
+                domShare = max(labels.count(l) for l in set(labels)) / len(labels)
+                if arcLen > 3.0 * wMedFinal and domShare < 0.75:
+                    continue
             bestK, bestSc = labels[0], 1e18
-            for k in range(nStrokes):
-                sc = sum(scoreOf(arr[i]["pt"], arr[i]["tan"], k)
-                         for i in idxs) / len(idxs)
-                if sc < bestSc:
-                    bestSc, bestK = sc, k
+            if c["isHole"]:
+                # 孔洞边弧看"断面中心"归属：从弧上取点向墨侧探到对面边界，
+                # 用通道中点对各笔打分——口的内缘断面中心是竖条中心（径向
+                # 对应的正确场景），日的孔顶边断面中心正落在中横中轴线上
+                # （径向对应会把它分给外框近邻、中横颗粒无收的场景）。
+                # 探不到通道（宽交叠区）退回径向对应标签的多数票
+                capH = max(2.0 * wMedFinal, 1.2 * w0, 60.0)
+                probes = []
+                for q in (len(idxs) // 4, len(idxs) // 2, 3 * len(idxs) // 4):
+                    sm = arr[idxs[q]]
+                    cp = corridorPoint(sm["pt"], sm["tan"], contours, capH,
+                                       max(8.0, capH * 0.15))
+                    if cp is not None:
+                        probes.append((cp, sm["tan"]))
+                if probes:
+                    for k in range(nStrokes):
+                        sc = sum(scoreOf(cp, tn, k) for cp, tn in probes) \
+                            / len(probes)
+                        if sc < bestSc:
+                            bestSc, bestK = sc, k
+                else:
+                    cnt = {}
+                    for l in labels:
+                        cnt[l] = cnt.get(l, 0) + 1
+                    bestK = max(cnt, key=cnt.get)
+            else:
+                for k in range(nStrokes):
+                    sc = sum(scoreOf(arr[i]["pt"], arr[i]["tan"], k)
+                             for i in idxs) / len(idxs)
+                    if sc < bestSc:
+                        bestSc, bestK = sc, k
             # 饿死保护：整弧改判会把某笔总样本压到极少时跳过（小点的孤立
             # 轮廓曾被整弧划给邻笔，正主颗粒无收）
             lost = {}
@@ -339,6 +363,33 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
                     arcTotals[arr[i]["label"]] -= 1
                     arcTotals[bestK] += 1
                     arr[i]["label"] = bestK
+
+    for ci, c in enumerate(contours):
+        if not c["isHole"]:
+            consolidateContour(ci)
+
+    # 孔洞边界标签径向对应（环形结构内外一致，继承已收敛的外缘标签）
+    for ci, c in enumerate(contours):
+        if not c["isHole"]:
+            continue
+        for sm in sampleSets[ci]:
+            best, bestD = -1, 1e18
+            for cj, c2 in enumerate(contours):
+                if c2["isHole"]:
+                    continue
+                for sm2 in sampleSets[cj]:
+                    d = dist(sm["pt"], sm2["pt"])
+                    if d < bestD:
+                        bestD, best = d, sm2["label"]
+            if best >= 0:
+                sm["label"] = best
+    arcTotals = [0] * nStrokes
+    for arr in sampleSets:
+        for sm in arr:
+            arcTotals[sm["label"]] += 1
+    for ci, c in enumerate(contours):
+        if c["isHole"]:
+            consolidateContour(ci)
 
     # ------------------------------------------------------------ 标签平滑
     for arr in sampleSets:

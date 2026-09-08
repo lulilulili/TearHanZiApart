@@ -374,19 +374,68 @@ def shapeSimilarity(a, b):
 
 # ---------------------------------------------------------------- 中轴线精调
 
+def corridorOffset(pt, tanDir, contours, cap, touch):
+    """沿 pt 处法向找字形边界双侧交点，返回 pt 所在（或紧邻）实体断面的
+    中点偏移量（沿法向的带符号距离）；断面过宽或找不到则返回 None。"""
+    dx, dy = tanDir
+    L = math.hypot(dx, dy)
+    if L < 1e-6:
+        return None
+    nx, ny = -dy / L, dx / L
+    px, py = pt
+
+    def filled(q):
+        cnt = 0
+        for c in contours:
+            if pointInPolygon(q, c["poly"]):
+                cnt += -1 if c["isHole"] else 1
+        return cnt > 0
+
+    ts = []
+    for c in contours:
+        poly = c["poly"]
+        for j in range(len(poly) - 1):
+            x1, y1 = poly[j]
+            x2, y2 = poly[j + 1]
+            ex, ey = x2 - x1, y2 - y1
+            det = ex * ny - ey * nx
+            if abs(det) < 1e-12:
+                continue
+            t = (ex * (y1 - py) - ey * (x1 - px)) / det
+            s = (nx * (y1 - py) - ny * (x1 - px)) / det
+            if 0.0 <= s < 1.0 and abs(t) <= cap:
+                ts.append(t)
+    ts.sort()
+    best = None
+    for j in range(len(ts) - 1):
+        t0, t1 = ts[j], ts[j + 1]
+        if t1 - t0 < 2.0 or t1 - t0 > cap * 1.5:
+            continue
+        if t0 > touch or t1 < -touch:
+            continue
+        mid = (t0 + t1) / 2
+        if not filled((px + nx * mid, py + ny * mid)):
+            continue
+        if best is None or abs(mid) < abs(best):
+            best = mid
+    return best
+
+
+def corridorPoint(pt, tanDir, contours, cap, touch):
+    """corridorOffset 的取点版：返回断面中点坐标，找不到返回 None。"""
+    off = corridorOffset(pt, tanDir, contours, cap, touch)
+    if off is None:
+        return None
+    dx, dy = tanDir
+    L = math.hypot(dx, dy) or 1.0
+    return (pt[0] - dy / L * off, pt[1] + dx / L * off)
+
+
 def recenterMedian(m, contours, cap):
     """中轴线垂直断面居中：沿各点法向找字形边界双侧交点，移到所在实体
     断面的中点。治精调只按己方样本拟合导致的贴边漂移（口的竖曾贴住
     内侧缘，外缘样本反被邻笔评分抢走）。拐角点与断面过宽（跨越交叠
     区/邻笔）处不动。"""
-
-    def filled(pt):
-        cnt = 0
-        for c in contours:
-            if pointInPolygon(pt, c["poly"]):
-                cnt += -1 if c["isHole"] else 1
-        return cnt > 0
-
     n = len(m)
     out = list(m)
     cos35 = math.cos(math.radians(35))
@@ -394,9 +443,6 @@ def recenterMedian(m, contours, cap):
     for i in range(n):
         a, b = m[max(0, i - 1)], m[min(n - 1, i + 1)]
         dx, dy = b[0] - a[0], b[1] - a[1]
-        L = math.hypot(dx, dy)
-        if L < 1e-6:
-            continue
         if 0 < i < n - 1:
             v1 = (m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1])
             v2 = (m[i + 1][0] - m[i][0], m[i + 1][1] - m[i][1])
@@ -404,37 +450,10 @@ def recenterMedian(m, contours, cap):
             if l1 > 1e-6 and l2 > 1e-6 and \
                (v1[0] * v2[0] + v1[1] * v2[1]) / (l1 * l2) < cos35:
                 continue
-        nx, ny = -dy / L, dx / L
-        px, py = m[i]
-        ts = []
-        for c in contours:
-            poly = c["poly"]
-            for j in range(len(poly) - 1):
-                x1, y1 = poly[j]
-                x2, y2 = poly[j + 1]
-                ex, ey = x2 - x1, y2 - y1
-                det = ex * ny - ey * nx
-                if abs(det) < 1e-12:
-                    continue
-                t = (ex * (y1 - py) - ey * (x1 - px)) / det
-                s = (nx * (y1 - py) - ny * (x1 - px)) / det
-                if 0.0 <= s < 1.0 and abs(t) <= cap:
-                    ts.append(t)
-        ts.sort()
-        best = None
-        for j in range(len(ts) - 1):
-            t0, t1 = ts[j], ts[j + 1]
-            if t1 - t0 < 2.0 or t1 - t0 > cap * 1.5:
-                continue
-            if t0 > touch or t1 < -touch:
-                continue
-            mid = (t0 + t1) / 2
-            if not filled((px + nx * mid, py + ny * mid)):
-                continue
-            if best is None or abs(mid) < abs(best):
-                best = mid
-        if best is not None and abs(best) > 0.5:
-            out[i] = (px + nx * best, py + ny * best)
+        off = corridorOffset(m[i], (dx, dy), contours, cap, touch)
+        if off is not None and abs(off) > 0.5:
+            L = math.hypot(dx, dy)
+            out[i] = (m[i][0] - dy / L * off, m[i][1] + dx / L * off)
     return out
 
 
