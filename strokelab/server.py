@@ -47,6 +47,9 @@ def _getFont(name):
         if name not in _state["fonts"]:
             fe = FontEntry(os.path.join(_fontsDir(), name))
             fe.buildLibraryB(_state["hub"])
+            added = fe.completeLibraryB(_state["hub"])
+            if added:
+                print("  %s 自举补全 %d 类: %s" % (name, len(added), " ".join(added)))
             _state["fonts"][name] = fe
     return _state["fonts"][name]
 

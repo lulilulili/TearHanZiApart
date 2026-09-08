@@ -222,6 +222,62 @@ class FontEntry:
         self.libraryB = lib
         self.libraryBAll = all_
 
+    # ------------------------------------------------------------ 自举回灌
+    def completeLibraryB(self, dataHub, maxCharsPerType=3,
+                         simGate=40, retainGate=0.55, coverGate=99.0):
+        """补全 B库：孤立提取在融合/连笔字体上先天贫血（可能连撇都提不出），
+        对缺失类型用当前管线拆规则表代表字，质量闸（原轮廓保留率、形状匹配、
+        并集覆盖率）通过的 D′ 笔画作为库条目回灌。管线有布尔收口保证并集
+        恒等，回灌是安全的。"""
+        from .pipeline import runPipeline  # 延迟导入避免循环
+        added = {}
+        resultCache = {}
+        for t in TYPE_ORDER:
+            if findLibEntry(self.libraryB, t) is not None:
+                continue
+            tried = 0
+            for ch in PROBE_TABLE[t]:
+                if tried >= maxCharsPerType:
+                    break
+                if not self.hasChar(ch) or not dataHub.hasKai(ch):
+                    continue
+                tried += 1
+                if ch not in resultCache:
+                    try:
+                        resultCache[ch] = runPipeline(dataHub, self, ch)
+                    except Exception:
+                        resultCache[ch] = None
+                r = resultCache[ch]
+                if not r or "error" in r:
+                    continue
+                if r["unionCheck"]["cover"] < coverGate:
+                    continue
+                best = None
+                for s in r["strokes"]:
+                    if s["failed"] or not matchTier(s["type"], t):
+                        continue
+                    # 保留率≥90% ≈ 整条孤立轮廓，就是该字体笔画的真身，
+                    # 不再要求与楷体形似（风格化字体恰恰在这里最不像楷体）
+                    trusted = s["retainRatio"] >= 0.9
+                    gated = s["retainRatio"] >= retainGate and s["shapeSim"] >= simGate
+                    if not (trusted or gated):
+                        continue
+                    score = s["retainRatio"] * 100 + s["shapeSim"]
+                    if best is None or score > best[0]:
+                        best = (score, s)
+                if best:
+                    best = best[1]
+                    entry = {"type": t, "contours": [best["path"]],
+                             "source": "自举：拆「%s」第%d笔" % (ch, best["index"] + 1),
+                             "kind": "bootstrap", "tier": 2,
+                             "shapeSim": best["shapeSim"]}
+                    entry["desc"] = shapeDescriptor(entry["contours"])
+                    self.libraryBAll.append(entry)
+                    self.libraryB.setdefault(t, entry)
+                    added[t] = entry["source"]
+                    break
+        return added
+
     # ------------------------------------------------------------ A↔B 骨架映射
     def ensureSkeleton(self, entry, dataHub):
         """把 A库（楷体）同类型中轴线 bbox 映射进 B 笔画轮廓并单笔精调拟合，

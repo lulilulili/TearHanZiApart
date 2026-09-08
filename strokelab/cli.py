@@ -46,6 +46,9 @@ def main(argv=None):
     hub = DataHub(args.root)
     fe = FontEntry(args.font)
     fe.buildLibraryB(hub)
+    added = fe.completeLibraryB(hub)
+    if added:
+        print("B库自举补全 %d 类" % len(added))
     os.makedirs(args.out, exist_ok=True)
 
     for ch in args.chars:
