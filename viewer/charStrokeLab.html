@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>汉字矢量笔画拆解实验台 · CharStrokeLab</title>
+<style>
+  :root {
+    --bg: #14161a; --panel: #1d2026; --panelHead: #262a31; --line: #33383f;
+    --text: #e8eaed; --dim: #9aa0a8; --accent: #4c8dff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif; }
+  header { padding: 14px 20px 10px; border-bottom: 1px solid var(--line); }
+  header h1 { margin: 0 0 2px; font-size: 19px; }
+  header .sub { color: var(--dim); font-size: 12px; }
+  #controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center;
+              padding: 10px 20px; border-bottom: 1px solid var(--line); background: #191c21; }
+  #controls label { color: var(--dim); margin-right: 6px; }
+  select, input[type=text] { background: var(--panel); color: var(--text);
+      border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font-size: 14px; }
+  #charChips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip { padding: 3px 9px; border: 1px solid var(--line); border-radius: 6px;
+          cursor: pointer; font-size: 16px; user-select: none; }
+  .chip:hover { border-color: var(--accent); }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+          gap: 14px; padding: 14px 20px 40px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+           overflow: hidden; display: flex; flex-direction: column; }
+  .panel > h2 { margin: 0; padding: 8px 14px; font-size: 14px; background: var(--panelHead);
+                border-bottom: 1px solid var(--line); font-weight: 600; }
+  .panel > h2 .tag { color: var(--dim); font-weight: 400; font-size: 12px; margin-left: 8px; }
+  .panelBody { padding: 12px 14px; flex: 1; }
+  .svgBox { background: #fff; border-radius: 8px; width: 100%; aspect-ratio: 1; max-width: 380px;
+            display: block; margin: 0 auto; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 12px;
+            color: var(--dim); }
+  .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+                margin-right: 4px; vertical-align: -1px; }
+  .btnRow { display: flex; gap: 8px; align-items: center; margin: 8px 0 0; flex-wrap: wrap; }
+  button { background: var(--panelHead); color: var(--text); border: 1px solid var(--line);
+           border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+           gap: 8px; max-height: 340px; overflow-y: auto; padding-right: 4px; }
+  .card { background: #22262d; border: 1px solid var(--line); border-radius: 8px;
+          padding: 6px; text-align: center; font-size: 11px; color: var(--dim); }
+  .card svg { background: #fff; border-radius: 5px; width: 100%; aspect-ratio: 1; }
+  .card .t { color: var(--text); font-size: 13px; margin-top: 3px; }
+  .card.primary { border-color: #d9a441; }
+  .card .badge { display: inline-block; border-radius: 4px; padding: 0 4px; font-size: 10px;
+                 margin-top: 2px; background: #333a44; }
+  .stepCaption { color: var(--dim); font-size: 12.5px; margin-top: 8px; min-height: 3em; }
+  table.info { border-collapse: collapse; width: 100%; font-size: 12.5px; margin-top: 8px; }
+  table.info td, table.info th { border: 1px solid var(--line); padding: 3px 8px; text-align: left; }
+  table.info th { background: var(--panelHead); font-weight: 600; }
+  .warn { color: #ffb454; }
+  .ok { color: #7ed491; }
+  .treeBox { font-size: 13px; margin-top: 8px; }
+  .treeBox ul { margin: 2px 0 2px 16px; padding: 0; list-style: none; border-left: 1px dotted #444; }
+  .treeBox li { padding-left: 8px; }
+  .muted { color: var(--dim); }
+  .statusLine { font-size: 12.5px; margin-top: 6px; color: var(--dim); }
+  #overlay { position: fixed; inset: 0; background: rgba(10,12,15,.85); z-index: 50;
+             display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  #overlay.hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>汉字矢量笔画拆解实验台</h1>
+  <div class="sub">算法在本地 Python 服务（strokelab 包）中运行；本页为可视化前端。
+    流程：A↔B 标准笔画映射 → D（目标字体形态骨架，按楷体结构定位）→ 与实际路径匹配 →
+    De Casteljau 矢量切割 → 划分式重构 → shapely 布尔收口（并集与原字形恒等）。</div>
+</header>
+
+<div id="overlay"><div id="ovMsg">连接本地服务…</div></div>
+
+<div id="controls">
+  <span><label>目标字体</label><select id="fontSelect"></select>
+    <span class="muted" style="font-size:11px">（新字体放入 Fonts 目录后重启服务）</span></span>
+  <span id="charChips"></span>
+  <span><label>任意字符</label><input id="charInput" type="text" size="4" maxlength="2"
+        placeholder="输入汉字↵"></span>
+  <span id="topStatus" class="muted" style="font-size:12px"></span>
+</div>
+
+<div id="grid">
+  <div class="panel"><h2>① 目标字体的真实路径<span class="tag">子路径逐一着色</span></h2>
+    <div class="panelBody"><svg id="svgReal" class="svgBox" viewBox="0 0 1024 1024"></svg>
+      <div id="legendReal" class="legend"></div></div></div>
+
+  <div class="panel"><h2>② 文鼎楷体笔画（MakeMeAHanzi）<span class="tag">可播放</span></h2>
+    <div class="panelBody"><svg id="svgKai" class="svgBox" viewBox="0 0 1024 1024"></svg>
+      <div class="btnRow"><button id="kaiPlay" class="primary">▶ 播放</button>
+        <button id="kaiReset">↺ 重置</button>
+        <label>速度</label><select id="kaiSpeed"><option value="0.6">慢</option>
+          <option value="1" selected>中</option><option value="1.8">快</option></select>
+        <span id="kaiStatus" class="muted"></span></div>
+      <div id="legendKai" class="legend"></div></div></div>
+
+  <div class="panel"><h2>③ 标准笔画库<span class="tag">A=文鼎楷体 · B=目标字体，含来源</span></h2>
+    <div class="panelBody">
+      <div class="tabs"><button id="tabLibA" class="active">A 库（文鼎楷体）</button>
+        <button id="tabLibB">B 库（目标字体）</button>
+        <label style="margin-left:10px"><input type="checkbox" id="libFilter" checked>
+          只看当前字用到的类型</label></div>
+      <div id="libCards" class="cards"></div>
+      <div id="libNote" class="statusLine"></div></div></div>
+
+  <div class="panel"><h2>④ 字符结构与偏旁部首<span class="tag">层级可切换</span></h2>
+    <div class="panelBody">
+      <div class="tabs" id="levelTabs"></div>
+      <svg id="svgStruct" class="svgBox" viewBox="0 0 1024 1024"></svg>
+      <div id="legendStruct" class="legend"></div>
+      <div id="structInfo" class="treeBox"></div></div></div>
+
+  <div class="panel"><h2>⑤ 拆解流程逐步可视化</h2>
+    <div class="panelBody">
+      <div class="tabs" id="stepTabs"></div>
+      <svg id="svgStep" class="svgBox" viewBox="0 0 1024 1024"></svg>
+      <div id="stepCaption" class="stepCaption"></div></div></div>
+
+  <div class="panel"><h2>⑥ 目标字体笔画拆解结果 D′<span class="tag">按文鼎楷体笔顺播放</span></h2>
+    <div class="panelBody"><svg id="svgResult" class="svgBox" viewBox="0 0 1024 1024"></svg>
+      <div class="btnRow"><button id="resPlay" class="primary">▶ 播放</button>
+        <button id="resReset">↺ 重置</button>
+        <label>速度</label><select id="resSpeed"><option value="0.6">慢</option>
+          <option value="1" selected>中</option><option value="1.8">快</option></select>
+        <span id="resStatus" class="muted"></span></div>
+      <div id="resultInfo"></div></div></div>
+</div>
+
+<script>
+"use strict";
+const SVG_NS = "http://www.w3.org/2000/svg";
+const PALETTE = ["#e6194b","#3cb44b","#4363d8","#f58231","#911eb4","#0f9b8e",
+                 "#f032e6","#9a6324","#1f6f43","#800000","#2b6fb3","#808000",
+                 "#c94f7c","#5a7d2a","#7a4fd0","#b8860b"];
+const colorOf = i => PALETTE[i % PALETTE.length];
+const fmt = v => Math.round(v * 10) / 10;
+
+function el(name, attrs, parent) {
+  const node = document.createElementNS(SVG_NS, name);
+  for (const k in (attrs || {})) node.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(node);
+  return node;
+}
+function glyphGroup(svg) {
+  svg.innerHTML = "";
+  return el("g", { transform: "scale(1,-1) translate(0,-900)" }, svg);
+}
+function polylineLen(m) {
+  let L = 0;
+  for (let i = 0; i < m.length - 1; i++)
+    L += Math.hypot(m[i+1][0]-m[i][0], m[i+1][1]-m[i][1]);
+  return L;
+}
+async function api(path) {
+  const res = await fetch(path);
+  const j = await res.json();
+  if (j.error) throw new Error(j.error);
+  return j;
+}
+
+/* ---------------- 笔顺动画器 ---------------- */
+class StrokeAnimator {
+  constructor(svg, statusEl) {
+    this.svg = svg; this.statusEl = statusEl;
+    this.items = []; this.playing = false; this.raf = 0; this.speed = 1;
+    this.cursor = 0; this.progress = 0; this.tracks = [];
+  }
+  load(items, idPrefix) {
+    cancelAnimationFrame(this.raf); this.playing = false;
+    this.items = items; this.cursor = 0; this.progress = 0;
+    const g = glyphGroup(this.svg);
+    const defs = el("defs", {}, this.svg);
+    this.tracks = items.map((it, i) => {
+      const cid = idPrefix + "_clip" + i;
+      const cp = el("clipPath", { id: cid }, defs);
+      el("path", { d: it.clipPath, "clip-rule": "nonzero" }, cp);
+      const base = el("path", { d: it.clipPath, fill: "#e8e8e8",
+                                "fill-rule": "nonzero" }, g);
+      const mp = it.median.map((p, j) => (j ? "L" : "M") + fmt(p[0]) + " " + fmt(p[1])).join(" ");
+      const track = el("path", {
+        d: mp, fill: "none", stroke: it.color,
+        "stroke-width": Math.max(90, it.width * 2.2),
+        "stroke-linecap": "round", "stroke-linejoin": "round",
+        "clip-path": "url(#" + cid + ")",
+      }, g);
+      const len = polylineLen(it.median) + Math.max(90, it.width * 2.2);
+      track.setAttribute("stroke-dasharray", len + " " + len);
+      track.setAttribute("stroke-dashoffset", len);
+      return { track, len, base, color: it.color };
+    });
+    this.updateStatus();
+  }
+  updateStatus() {
+    if (this.statusEl) this.statusEl.textContent = this.items.length
+      ? `笔画 ${Math.min(this.cursor + (this.progress > 0 ? 1 : 0), this.items.length)} / ${this.items.length}` : "";
+  }
+  play() {
+    if (!this.items.length) return;
+    if (this.cursor >= this.items.length) this.reset();
+    this.playing = true;
+    let last = performance.now();
+    const step = now => {
+      if (!this.playing) return;
+      const dt = (now - last) / 1000; last = now;
+      const tr = this.tracks[this.cursor];
+      if (!tr) { this.playing = false; return; }
+      const dur = Math.max(0.35, tr.len / (900 * this.speed));
+      this.progress += dt / dur;
+      if (this.progress >= 1) {
+        tr.track.setAttribute("stroke-dashoffset", 0);
+        tr.base.setAttribute("fill", tr.color);
+        this.cursor++; this.progress = 0;
+        this.updateStatus();
+        if (this.cursor >= this.items.length) { this.playing = false; return; }
+      } else {
+        tr.track.setAttribute("stroke-dashoffset", tr.len * (1 - this.progress));
+      }
+      this.raf = requestAnimationFrame(step);
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+  pause() { this.playing = false; cancelAnimationFrame(this.raf); }
+  reset() {
+    this.pause(); this.cursor = 0; this.progress = 0;
+    this.tracks.forEach(t => {
+      t.track.setAttribute("stroke-dashoffset", t.len);
+      t.base.setAttribute("fill", "#e8e8e8");
+    });
+    this.updateStatus();
+  }
+}
+
+/* ---------------- 状态 ---------------- */
+const state = { fontKey: null, ch: "永", libTab: "A", structLevel: 1, stepTab: 0,
+                result: null, library: null };
+const libraryCache = new Map();
+const kaiAnimator = new StrokeAnimator(document.getElementById("svgKai"),
+                                       document.getElementById("kaiStatus"));
+const resAnimator = new StrokeAnimator(document.getElementById("svgResult"),
+                                       document.getElementById("resStatus"));
+
+function setOverlay(msg) {
+  const ov = document.getElementById("overlay");
+  if (msg === null) { ov.classList.add("hidden"); return; }
+  ov.classList.remove("hidden");
+  document.getElementById("ovMsg").textContent = msg;
+}
+
+async function refresh() {
+  document.querySelectorAll("#charChips .chip").forEach(c =>
+    c.classList.toggle("active", c.textContent === state.ch));
+  setOverlay("拆解中…");
+  try {
+    const t0 = performance.now();
+    if (!libraryCache.has(state.fontKey)) {
+      setOverlay("构建 " + state.fontKey + " 标准笔画库…");
+      libraryCache.set(state.fontKey,
+        await api("/api/library?font=" + encodeURIComponent(state.fontKey)));
+    }
+    state.library = libraryCache.get(state.fontKey);
+    state.result = await api("/api/decompose?font=" + encodeURIComponent(state.fontKey)
+                             + "&char=" + encodeURIComponent(state.ch));
+    document.getElementById("topStatus").textContent =
+      `耗时 ${(performance.now() - t0).toFixed(0)} ms`;
+    setOverlay(null);
+    renderAll();
+  } catch (e) {
+    setOverlay(null);
+    document.getElementById("topStatus").textContent = "错误: " + e.message;
+  }
+}
+
+function renderAll() {
+  renderRealPaths();
+  renderKaiPanel();
+  renderLibrary();
+  renderStructure();
+  renderSteps();
+  renderResult();
+}
+
+/* ---------------- ① 真实路径 ---------------- */
+function renderRealPaths() {
+  const svg = document.getElementById("svgReal");
+  const legend = document.getElementById("legendReal");
+  const r = state.result;
+  legend.innerHTML = "";
+  const g = glyphGroup(svg);
+  r.contours.forEach((c, i) => {
+    el("path", { d: c.path, fill: colorOf(i), "fill-opacity": 0.13,
+                 stroke: colorOf(i), "stroke-width": 5 }, g);
+  });
+  r.contours.forEach((c, i) => {
+    const item = document.createElement("span");
+    item.innerHTML = `<span class="sw" style="background:${colorOf(i)}"></span>` +
+      `子路径${i + 1} · ${c.isHole ? "孔洞" : "外轮廓"} · 组${c.group + 1} · ${c.segCount}段` +
+      ` · ${c.ccw ? "逆" : "顺"}时针`;
+    legend.appendChild(item);
+  });
+}
+
+/* ---------------- ② 楷体笔画 ---------------- */
+function renderKaiPanel() {
+  const legend = document.getElementById("legendKai");
+  legend.innerHTML = "";
+  const kai = state.result.kai;
+  kaiAnimator.load(kai.strokes.map((s, i) => ({
+    clipPath: s, median: kai.medians[i], width: 110, color: colorOf(i),
+  })), "kai");
+  kai.strokeTypes.forEach((t, i) => {
+    const item = document.createElement("span");
+    item.innerHTML = `<span class="sw" style="background:${colorOf(i)}"></span>第${i + 1}笔 ${t}`;
+    legend.appendChild(item);
+  });
+}
+
+/* ---------------- ③ 标准笔画库 ---------------- */
+function miniGlyphSvg(parent, paths) {
+  const svg = el("svg", { viewBox: "0 0 1024 1024" });
+  const g = el("g", { transform: "scale(1,-1) translate(0,-900)" }, svg);
+  for (const d of paths) el("path", { d, fill: "#222", "fill-rule": "nonzero" }, g);
+  parent.appendChild(svg);
+}
+function skeletonName(name) {
+  const hook = name.endsWith("钩");
+  const core = [...(hook ? name.slice(0, -1) : name)];
+  if (!core.length) return name;
+  return core[0] + "折".repeat(core.length - 1) + (hook ? "钩" : "");
+}
+function renderLibrary() {
+  document.getElementById("tabLibA").classList.toggle("active", state.libTab === "A");
+  document.getElementById("tabLibB").classList.toggle("active", state.libTab === "B");
+  const box = document.getElementById("libCards");
+  const note = document.getElementById("libNote");
+  box.innerHTML = "";
+  const onlyUsed = document.getElementById("libFilter").checked;
+  const usedTypes = new Set(state.result.kai.strokeTypes);
+  const usedSk = new Set([...usedTypes].map(skeletonName));
+  const relevant = t => !onlyUsed || usedTypes.has(t) || usedSk.has(skeletonName(t));
+  let shown = 0;
+  if (state.libTab === "A") {
+    const libA = state.library.A;
+    for (const type in libA) {
+      if (!relevant(type)) continue;
+      for (const entry of libA[type]) {
+        const card = document.createElement("div");
+        card.className = "card" + (entry === libA[type][0] ? " primary" : "");
+        miniGlyphSvg(card, [entry.path]);
+        card.innerHTML += `<div class="t">${type}</div><div>${entry.source}</div>` +
+          `<span class="badge">${entry.kind === "wholeChar" ? "单笔画整字"
+            : entry.tier === 2 ? "规则表·骨架匹配" : "规则表"}</span>`;
+        box.appendChild(card); shown++;
+      }
+    }
+    note.textContent = `A 库（文鼎楷体，按规则表建库）共 ${Object.keys(libA).length} 类；显示 ${shown} 条。`;
+  } else {
+    const all = state.library.B;
+    const primaryTypes = new Set();
+    for (const entry of all) {
+      if (!relevant(entry.type)) continue;
+      const isPrimary = !primaryTypes.has(entry.type);
+      primaryTypes.add(entry.type);
+      const card = document.createElement("div");
+      card.className = "card" + (isPrimary ? " primary" : "");
+      miniGlyphSvg(card, entry.contours);
+      card.innerHTML += `<div class="t">${entry.type}</div><div>${entry.source}</div>` +
+        `<span class="badge">${entry.kind === "unicode" ? "U+31C0 区标准笔画"
+          : entry.tier === 2 ? "规则表·骨架匹配" : "规则表拆取"}${
+          entry.shapeSim !== undefined ? " · 形似" + entry.shapeSim + "%" : ""}${
+          isPrimary ? " · 首选" : ""}</span>`;
+      box.appendChild(card); shown++;
+    }
+    note.textContent = `B 库（${state.fontKey}）覆盖 ${state.library.Btypes.length} 类 / ` +
+      `${all.length} 条来源；显示 ${shown} 条。`;
+  }
+}
+
+/* ---------------- ④ 结构与偏旁 ---------------- */
+function componentAtPath(node, path) {
+  let cur = node;
+  for (const idx of path) {
+    if (!cur.children || !cur.children[idx]) return cur;
+    cur = cur.children[idx];
+  }
+  return cur;
+}
+function labelOfNode(n) {
+  if (!n) return "？";
+  if (n.char) return n.char;
+  if (n.op) return n.op + (n.children || []).map(labelOfNode).join("");
+  return "？";
+}
+function renderStructure() {
+  const kai = state.result.kai;
+  const tabs = document.getElementById("levelTabs");
+  const svg = document.getElementById("svgStruct");
+  const legend = document.getElementById("legendStruct");
+  const info = document.getElementById("structInfo");
+  tabs.innerHTML = ""; legend.innerHTML = ""; info.innerHTML = "";
+  const maxLevel = Math.max(1, ...(kai.matches || []).filter(Boolean).map(p => p.length));
+  if (state.structLevel > maxLevel) state.structLevel = 1;
+  for (let L = 1; L <= maxLevel; L++) {
+    const b = document.createElement("button");
+    b.textContent = "第" + L + "层";
+    b.className = L === state.structLevel ? "active" : "";
+    b.onclick = () => { state.structLevel = L; renderStructure(); };
+    tabs.appendChild(b);
+  }
+  const groups = new Map();
+  (kai.matches || []).forEach((p, i) => {
+    const key = p ? JSON.stringify(p.slice(0, state.structLevel)) : "null";
+    if (!groups.has(key)) groups.set(key, { path: p ? p.slice(0, state.structLevel) : null, strokes: [] });
+    groups.get(key).strokes.push(i);
+  });
+  const g = glyphGroup(svg);
+  let gi = 0;
+  for (const [, grp] of groups) {
+    grp.color = colorOf(gi++);
+    for (const si of grp.strokes)
+      el("path", { d: kai.strokes[si], fill: grp.color, "fill-opacity": 0.9 }, g);
+  }
+  for (const [, grp] of groups) {
+    const comp = grp.path ? componentAtPath(kai.structure, grp.path) : null;
+    const item = document.createElement("span");
+    item.innerHTML = `<span class="sw" style="background:${grp.color}"></span>` +
+      `${comp ? labelOfNode(comp) : "未标注"} · 笔画 ${grp.strokes.map(i => i + 1).join(",")}`;
+    legend.appendChild(item);
+  }
+  const treeHtml = n => {
+    if (!n) return "？";
+    let s = n.char ? `<b>${n.char}</b>` : (n.op || "");
+    if (n.children)
+      s += "<ul>" + n.children.map(c => "<li>" + treeHtml(c) + "</li>").join("") + "</ul>";
+    return s;
+  };
+  info.innerHTML =
+    `<div>IDS 分解：<b>${kai.decomposition || "（无）"}</b>　部首：<b>${kai.radical || "？"}</b></div>` +
+    `<div>结构树：${treeHtml(kai.structure)}</div>` +
+    `<div class="muted">hanzi_chaizi（简）：${(kai.chaiziJt || []).map(a => a.join(" ")).join(" ／ ") || "无"}` +
+    `　（繁）：${(kai.chaiziFt || []).map(a => a.join(" ")).join(" ／ ") || "无"}</div>`;
+}
+
+/* ---------------- ⑤ 流程步骤 ---------------- */
+const STEP_DEFS = [
+  { name: "S1 对齐/D", caption: "对齐与 D 构建：目标字形轮廓（灰）与每笔的 D 骨架（彩色虚线）。D 骨架 = B库同类型笔画（目标字体自己的形态，A↔B 类型映射）按楷体结构 C 给出的该笔包围盒定位；B库缺该类型时退回楷体中轴线。" },
+  { name: "S2 模板", caption: "D 的形态模板：B库同类型笔画（半透明彩色）放置到各笔位置 —— 形态先验，用于归属评分与校验；真正的拆解在 S3–S5 用真实轮廓完成。无填充的笔表示 B库缺该类型（退回楷体中轴线）。" },
+  { name: "S3 归属", caption: "边界归属：轮廓按曲率密度采样，逐点按“宽度归一化距离 + 切向一致性”归属到 D 各笔骨架，含主人判定整体归属、孔洞径向对应、标签平滑。" },
+  { name: "S4 切割", caption: "矢量切割：标签跳变处沿轮廓参数二分（22 次迭代），De Casteljau 把原始贝塞尔段精确切开 —— 保留区段与原路径逐点恒等。黑圈为切割点。" },
+  { name: "S5 重构 D′", caption: "划分式重构：环路追踪（按轮廓顺序串联弧段）+ 直割线弦桥接 + 环形笔画跨轮廓并环，交叠区双重归属；shapely 布尔收口保证所有笔画并集与原字形恒等（不多不少）。" },
+  { name: "S6 校验", caption: "一致性校验：彩色为 D′ 各笔填充（半透明，交叠区=混色=双重归属），黑色细线为原始轮廓。并集覆盖率/溢出率见⑥面板 Re-Union 校验（布尔收口后应为 100%/0%）。" },
+];
+function renderSteps() {
+  const tabs = document.getElementById("stepTabs");
+  tabs.innerHTML = "";
+  STEP_DEFS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.name;
+    b.className = i === state.stepTab ? "active" : "";
+    b.onclick = () => { state.stepTab = i; renderSteps(); };
+    tabs.appendChild(b);
+  });
+  const svg = document.getElementById("svgStep");
+  const cap = document.getElementById("stepCaption");
+  const r = state.result;
+  cap.textContent = STEP_DEFS[state.stepTab].caption;
+  const g = glyphGroup(svg);
+  const drawOutline = op => r.contours.forEach(c =>
+    el("path", { d: c.path, fill: "#777", "fill-opacity": op, "fill-rule": "nonzero" }, g));
+  const drawMedians = () => r.strokes.forEach((s, k) =>
+    el("path", { d: s.median.map((p, j) => (j ? "L" : "M") + p[0] + " " + p[1]).join(" "),
+                 fill: "none", stroke: colorOf(k), "stroke-width": 9,
+                 "stroke-dasharray": "22 14", "stroke-linecap": "round" }, g));
+  if (state.stepTab === 0) {
+    drawOutline(0.25); drawMedians();
+  } else if (state.stepTab === 1) {
+    drawOutline(0.12);
+    r.strokes.forEach((s, k) => {
+      if (s.templatePath)
+        el("path", { d: s.templatePath, fill: colorOf(k), "fill-opacity": 0.45,
+                     "fill-rule": "nonzero" }, g);
+    });
+    drawMedians();
+  } else if (state.stepTab === 2) {
+    drawOutline(0.10); drawMedians();
+    r.samples.forEach(arr => arr.forEach(sm =>
+      el("circle", { cx: sm[0], cy: sm[1], r: 5.5, fill: colorOf(sm[2]) }, g)));
+  } else if (state.stepTab === 3) {
+    r.strokes.forEach((s, k) => el("path", {
+      d: s.path, fill: "none", stroke: colorOf(k), "stroke-width": 7 }, g));
+    r.cutPoints.forEach(cp => el("circle", {
+      cx: cp[0], cy: cp[1], r: 13, fill: "none", stroke: "#111", "stroke-width": 5 }, g));
+  } else if (state.stepTab === 4) {
+    r.strokes.forEach((s, k) => el("path", {
+      d: s.path, fill: colorOf(k), "fill-opacity": 0.85, "fill-rule": "nonzero",
+      stroke: "#fff", "stroke-width": 3 }, g));
+  } else {
+    r.strokes.forEach((s, k) => el("path", {
+      d: s.path, fill: colorOf(k), "fill-opacity": 0.5, "fill-rule": "nonzero" }, g));
+    r.contours.forEach(c => el("path", {
+      d: c.path, fill: "none", stroke: "#111", "stroke-width": 4 }, g));
+  }
+}
+
+/* ---------------- ⑥ 结果 ---------------- */
+function renderResult() {
+  const info = document.getElementById("resultInfo");
+  const r = state.result;
+  resAnimator.load(r.strokes.filter(s => !s.failed).map((s) => ({
+    clipPath: s.path, median: s.median, width: s.width, color: colorOf(s.index),
+  })), "res");
+  const rows = r.strokes.map(s =>
+    `<tr><td><span class="sw" style="background:${colorOf(s.index)}"></span>${s.index + 1}</td>` +
+    `<td>${s.type}</td><td>${Math.round(s.width)}</td><td>${s.loops}</td>` +
+    `<td>${s.bridges}</td><td>${Math.round(s.retainRatio * 100)}%</td>` +
+    `<td>${s.shapeSim < 35 ? `<span class="warn">${s.shapeSim}%</span>` : s.shapeSim + "%"}</td>` +
+    `<td>${s.clamped ? "布尔裁剪" : "贝塞尔精确"}</td>` +
+    `<td>${s.failed ? '<span class="warn">失败</span>' : '<span class="ok">✓</span>'}</td></tr>`).join("");
+  const uc = r.unionCheck || { cover: 0, excess: 0 };
+  const ucOk = uc.cover >= 99.5 && Math.abs(uc.excess) <= 0.5;
+  info.innerHTML = `<table class="info"><tr><th>笔顺</th><th>类型</th><th>笔宽</th>` +
+    `<th>环</th><th>桥</th><th>原轮廓保留</th><th>形状匹配</th><th>路径来源</th><th>状态</th></tr>${rows}</table>` +
+    `<div class="statusLine"><b class="${ucOk ? "ok" : "warn"}">Re-Union 校验：原形覆盖 ${uc.cover}%、` +
+    `溢出 ${uc.excess}%</b>（要求 100%/0%：所有笔画并集与原始路径恒等）。` +
+    `“贝塞尔精确”= 该笔全部保留原字形精确切片 + 内部直弦；“布尔裁剪”= 经 shapely 收口修正。</div>`;
+}
+
+/* ---------------- 启动 ---------------- */
+async function boot() {
+  try {
+    setOverlay("连接本地服务…");
+    const meta = await api("/api/fonts");
+    const fs = document.getElementById("fontSelect");
+    meta.fonts.forEach(f => {
+      const o = document.createElement("option");
+      o.value = f; o.textContent = f;
+      fs.appendChild(o);
+    });
+    if (!meta.fonts.length) throw new Error("Fonts 目录为空");
+    state.fontKey = meta.fonts[0];
+    fs.value = state.fontKey;
+    fs.onchange = () => { state.fontKey = fs.value; refresh(); };
+    const chips = document.getElementById("charChips");
+    for (const ch of meta.chips) {
+      const s = document.createElement("span");
+      s.className = "chip"; s.textContent = ch;
+      s.onclick = () => { state.ch = ch; refresh(); };
+      chips.appendChild(s);
+    }
+    const inp = document.getElementById("charInput");
+    const commit = () => {
+      const v = [...inp.value.trim()];
+      if (v.length) { state.ch = v[0]; inp.value = ""; refresh(); }
+    };
+    inp.onkeydown = e => { if (e.key === "Enter") commit(); };
+    document.getElementById("tabLibA").onclick = () => { state.libTab = "A"; renderLibrary(); };
+    document.getElementById("tabLibB").onclick = () => { state.libTab = "B"; renderLibrary(); };
+    document.getElementById("libFilter").onchange = renderLibrary;
+    document.getElementById("kaiPlay").onclick = () =>
+      kaiAnimator.playing ? kaiAnimator.pause() : kaiAnimator.play();
+    document.getElementById("kaiReset").onclick = () => kaiAnimator.reset();
+    document.getElementById("kaiSpeed").onchange = e => kaiAnimator.speed = +e.target.value;
+    document.getElementById("resPlay").onclick = () =>
+      resAnimator.playing ? resAnimator.pause() : resAnimator.play();
+    document.getElementById("resReset").onclick = () => resAnimator.reset();
+    document.getElementById("resSpeed").onchange = e => resAnimator.speed = +e.target.value;
+    await refresh();
+  } catch (e) {
+    setOverlay("启动失败：" + e.message + "（请用 StrokeLab.bat 启动本地服务）");
+  }
+}
+boot();
+</script>
+</body>
+</html>

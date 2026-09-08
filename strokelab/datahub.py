@@ -1,0 +1,207 @@
+# -*- coding: utf-8 -*-
+"""strokelab.datahub — makemeahanzi / hanzi_chaizi 数据中心 + A库（文鼎楷体）。"""
+
+import json
+import os
+
+from .classify import (PROBE_TABLE, TYPE_ORDER, SINGLE_STROKE_TYPES,
+                       IDS_OPS2, IDS_OPS3, typeOfStroke, matchTier, findLibEntry)
+
+DEFAULT_CHIPS = list("十口头木中大天日水永汉字国你好我爱")
+
+
+class DataHub:
+    def __init__(self, root):
+        self.root = root
+        self.graphicsIndex = {}
+        self.dictIndex = {}
+        self.chaiziJt = {}
+        self.chaiziFt = {}
+        self._kaiCache = {}
+        self._geomCache = {}
+        self._dictCache = {}
+        self.libraryA = None
+        self._load()
+
+    # ------------------------------------------------------------ 加载
+    def _indexByChar(self, path, target):
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                if len(line) < 16:
+                    continue
+                target[line[14]] = line
+
+    def _loadChaizi(self, path, target):
+        if not os.path.exists(path):
+            return
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                cols = line.rstrip("\n").rstrip("\r").split("\t")
+                if len(cols) >= 2:
+                    target[cols[0]] = [c.split() for c in cols[1:]]
+
+    def _load(self):
+        mmh = os.path.join(self.root, "makemeahanzi-master")
+        self._indexByChar(os.path.join(mmh, "graphics.txt"), self.graphicsIndex)
+        self._indexByChar(os.path.join(mmh, "dictionary.txt"), self.dictIndex)
+        cz = os.path.join(self.root, "hanzi_chaizi-master", "raw_data")
+        self._loadChaizi(os.path.join(cz, "chaizi-jt.txt"), self.chaiziJt)
+        self._loadChaizi(os.path.join(cz, "chaizi-ft.txt"), self.chaiziFt)
+        self.buildLibraryA()
+
+    # ------------------------------------------------------------ 查询
+    def hasKai(self, ch):
+        return ch in self.graphicsIndex
+
+    def geom(self, ch):
+        if ch not in self._geomCache:
+            line = self.graphicsIndex.get(ch)
+            self._geomCache[ch] = json.loads(line) if line else None
+        return self._geomCache[ch]
+
+    def dictEntry(self, ch):
+        if ch not in self._dictCache:
+            line = self.dictIndex.get(ch)
+            self._dictCache[ch] = json.loads(line) if line else None
+        return self._dictCache[ch]
+
+    # ------------------------------------------------------------ 结构
+    def buildStructureTree(self, ch, depth=0, seen=None):
+        if seen is None:
+            seen = set()
+        node = {"char": ch}
+        if depth >= 4 or ch in seen:
+            return node
+        entry = self.dictEntry(ch)
+        if not entry:
+            return node
+        seen = seen | {ch}
+        ids = list(entry.get("decomposition") or "")
+        if not ids or ids[0] not in (IDS_OPS2 + IDS_OPS3):
+            return node
+        pos = [0]
+
+        def parse():
+            c = ids[pos[0]]
+            pos[0] += 1
+            if c in IDS_OPS2:
+                return {"op": c, "children": [parse(), parse()]}
+            if c in IDS_OPS3:
+                return {"op": c, "children": [parse(), parse(), parse()]}
+            return {"leaf": c}
+
+        try:
+            tree = parse()
+        except IndexError:
+            return node
+
+        def attach(t, d):
+            if "leaf" in t:
+                if t["leaf"] == "？":
+                    return {"char": "？"}
+                return self.buildStructureTree(t["leaf"], d, seen)
+            return {"op": t["op"], "children": [attach(x, d + 1) for x in t["children"]]}
+
+        sub = attach(tree, depth + 1)
+        if "op" in sub:
+            node["op"] = sub["op"]
+            node["children"] = sub["children"]
+        return node
+
+    def deepenMatches(self, ch, depth=0):
+        """matches 只标第一层部件；递归用部件自身 matches 细化层级。"""
+        entry = self.dictEntry(ch)
+        g = self.geom(ch)
+        if not entry or not g or not entry.get("matches"):
+            return None
+        result = [list(p) if p else None for p in entry["matches"]]
+        if depth >= 3:
+            return result
+        tree = self.buildStructureTree(ch)
+        children = tree.get("children") or []
+        byComp = {}
+        for si, p in enumerate(entry["matches"]):
+            if p:
+                byComp.setdefault(p[0], []).append(si)
+        for ci, strokeIdxs in byComp.items():
+            if ci >= len(children):
+                continue
+            compChar = children[ci].get("char")
+            if not compChar or compChar == "？":
+                continue
+            sub = self.deepenMatches(compChar, depth + 1)
+            if sub is None or len(sub) != len(strokeIdxs):
+                continue
+            for j, si in enumerate(strokeIdxs):
+                if sub[j]:
+                    result[si] = [ci] + sub[j]
+        return result
+
+    def kai(self, ch):
+        if ch in self._kaiCache:
+            return self._kaiCache[ch]
+        g = self.geom(ch)
+        if not g:
+            self._kaiCache[ch] = None
+            return None
+        entry = self.dictEntry(ch) or {}
+        medians = g["medians"]
+        data = {
+            "strokes": g["strokes"],
+            "medians": medians,
+            "strokeTypes": [typeOfStroke(ch, i, medians) for i in range(len(medians))],
+            "radical": entry.get("radical", ""),
+            "decomposition": entry.get("decomposition", ""),
+            "matches": self.deepenMatches(ch) or entry.get("matches", []),
+            "structure": self.buildStructureTree(ch),
+            "chaiziJt": self.chaiziJt.get(ch, []),
+            "chaiziFt": self.chaiziFt.get(ch, []),
+        }
+        self._kaiCache[ch] = data
+        return data
+
+    # ------------------------------------------------------------ A 库
+    def buildLibraryA(self):
+        lib = {}
+        for ch in "一丨丶丿乙亅":
+            g = self.geom(ch)
+            if not g or len(g["strokes"]) != 1:
+                continue
+            t = SINGLE_STROKE_TYPES[ch]
+            lib.setdefault(t, []).append({
+                "type": t, "path": g["strokes"][0], "median": g["medians"][0],
+                "tier": 1, "source": "整字「%s」(U+%04X)" % (ch, ord(ch)),
+                "kind": "wholeChar",
+            })
+        for t in TYPE_ORDER:
+            for ch in PROBE_TABLE[t]:
+                g = self.geom(ch)
+                if not g:
+                    continue
+                for idx, m in enumerate(g["medians"]):
+                    tier = matchTier(typeOfStroke(ch, idx, g["medians"]), t)
+                    if not tier:
+                        continue
+                    lib.setdefault(t, []).append({
+                        "type": t, "path": g["strokes"][idx], "median": m,
+                        "tier": tier, "source": "「%s」第%d笔" % (ch, idx + 1),
+                        "kind": "charStroke",
+                    })
+            if t in lib:
+                lib[t].sort(key=lambda e: e["tier"])
+                lib[t] = lib[t][:4]
+        self.libraryA = lib
+
+    def libraryAFor(self, ch):
+        g = self.geom(ch)
+        extra = {}
+        if g:
+            for idx, m in enumerate(g["medians"]):
+                t = typeOfStroke(ch, idx, g["medians"])
+                if t not in self.libraryA and t not in extra:
+                    extra[t] = [{"type": t, "path": g["strokes"][idx], "median": m,
+                                 "tier": 2, "source": "「%s」第%d笔" % (ch, idx + 1),
+                                 "kind": "charStroke"}]
+        merged = dict(self.libraryA)
+        merged.update(extra)
+        return merged

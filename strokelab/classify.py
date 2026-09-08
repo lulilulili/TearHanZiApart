@@ -1,0 +1,199 @@
+# -*- coding: utf-8 -*-
+"""strokelab.classify — 笔画分类器、规则表、Unicode 笔画区命名、类型匹配。"""
+
+import math
+
+from .geometry import resamplePolyline, dist
+
+# 用户整理的 32 类笔画 × 独立/少相交代表字规则表（B/A 库建库依据）
+PROBE_TABLE = {
+    "横": "一二三", "竖": "川旧", "撇": "八儿川", "点": "太犬", "捺": "八父又大人",
+    "提": "冰江打地红", "横折": "己尸匡口日", "横钩": "冗皮写军买", "横撇": "又双水支饭",
+    "横折钩": "刀力门月司", "横折提": "计订讨认记", "横折弯": "朵没设投沿",
+    "横折弯钩": "几九飞乞亢", "横斜钩": "凡风凤凰佩", "横折折": "凹卍卐",
+    "横折折撇": "及建延级极", "横折折折": "凸", "横折折折钩": "乃孕秀扬场",
+    "横撇弯钩": "队阳阴邓陈", "竖折": "山区凶画牙", "竖钩": "小水丁于寸",
+    "竖提": "长切氏良农", "竖弯": "四西酒酉栖", "竖弯钩": "儿七元光也",
+    "竖折撇": "专转传砖惠", "竖折折": "鼎弈弃弄弁", "竖折折钩": "马鸟丐与号",
+    "撇折": "台公云去私", "撇点": "巡巢女好如", "斜钩": "弋代我成浅",
+    "弯钩": "狄狗狐狮家", "卧钩": "心必志思念",
+}
+TYPE_ORDER = list(PROBE_TABLE.keys())
+
+SINGLE_STROKE_TYPES = {"一": "横", "丨": "竖", "丶": "点", "丿": "撇",
+                       "亅": "竖钩", "乙": "横折弯钩"}
+
+IDS_OPS2 = "⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻"
+IDS_OPS3 = "⿲⿳"
+
+# U+31C0..31E5 笔画区（Unicode 官方命名，中文名按缩写还原）
+CJK_STROKE_NAMES = {
+    0x31C0: "提", 0x31C1: "弯钩", 0x31C2: "斜钩", 0x31C3: "扁斜钩", 0x31C4: "竖弯",
+    0x31C5: "横折折", 0x31C6: "横折钩", 0x31C7: "横撇", 0x31C8: "横折弯钩",
+    0x31C9: "竖折弯钩", 0x31CA: "横折提", 0x31CB: "横折折撇", 0x31CC: "横撇弯钩",
+    0x31CD: "横折弯", 0x31CE: "横折折折", 0x31CF: "捺", 0x31D0: "横", 0x31D1: "竖",
+    0x31D2: "撇", 0x31D3: "竖撇", 0x31D4: "点", 0x31D5: "横折", 0x31D6: "横钩",
+    0x31D7: "竖折", 0x31D8: "竖弯左", 0x31D9: "竖提", 0x31DA: "竖钩", 0x31DB: "撇点",
+    0x31DC: "撇折", 0x31DD: "提捺", 0x31DE: "竖折折", 0x31DF: "竖弯钩",
+    0x31E0: "横斜弯钩", 0x31E1: "横折折折钩", 0x31E2: "撇钩", 0x31E3: "圈",
+    0x31E4: "横斜钩", 0x31E5: "竖折撇",
+}
+CJK_STROKE_ABBR = {
+    0x31C0: "T", 0x31C1: "WG", 0x31C2: "XG", 0x31C3: "BXG", 0x31C4: "SW",
+    0x31C5: "HZZ", 0x31C6: "HZG", 0x31C7: "HP", 0x31C8: "HZWG", 0x31C9: "SZWG",
+    0x31CA: "HZT", 0x31CB: "HZZP", 0x31CC: "HPWG", 0x31CD: "HZW", 0x31CE: "HZZZ",
+    0x31CF: "N", 0x31D0: "H", 0x31D1: "S", 0x31D2: "P", 0x31D3: "SP", 0x31D4: "D",
+    0x31D5: "HZ", 0x31D6: "HG", 0x31D7: "SZ", 0x31D8: "SWZ", 0x31D9: "ST",
+    0x31DA: "SG", 0x31DB: "PD", 0x31DC: "PZ", 0x31DD: "TN", 0x31DE: "SZZ",
+    0x31DF: "SWG", 0x31E0: "HXWG", 0x31E1: "HZZZG", 0x31E2: "PG", 0x31E3: "Q",
+    0x31E4: "HXG", 0x31E5: "SZP",
+}
+
+_ALIAS = {"竖折钩": "竖弯钩", "撇提": "撇折", "横折捺": "横斜钩",
+          "横折折钩": "横折弯钩", "点钩": "弯钩", "提钩": "弯钩",
+          "横撇折钩": "横撇弯钩", "撇捺": "撇点"}
+
+
+def _polyLen(sec):
+    return sum(dist(sec[i], sec[i + 1]) for i in range(len(sec) - 1))
+
+
+def _netAngle(sec):
+    return math.degrees(math.atan2(sec[-1][1] - sec[0][1], sec[-1][0] - sec[0][0]))
+
+
+def _elemOfAngle(ang):
+    if -20 <= ang <= 38:
+        return "横"
+    if 38 < ang <= 80:
+        return "提"
+    if -115 <= ang < -65:
+        return "竖"
+    if -65 <= ang < -20:
+        return "捺"
+    if ang < -115 or ang > 155:
+        return "撇"
+    return "提"
+
+
+def classifyMedian(median):
+    """中轴线 → 笔画名：重采样 → 拐角分段(窗口化切向差) → 丢楷体起笔顿笔 →
+    判钩 → 每段净方向 → 折/钩组合命名。y 向上坐标系。"""
+    pts = resamplePolyline([tuple(p) for p in median], 15)
+    total = _polyLen(pts)
+    if total < 1e-6 or len(pts) < 2:
+        return "点"
+    angles = [math.degrees(math.atan2(pts[i + 1][1] - pts[i][1],
+                                      pts[i + 1][0] - pts[i][0]))
+              for i in range(len(pts) - 1)]
+
+    def angDiff(a, b):
+        d = a - b
+        while d > 180:
+            d -= 360
+        while d < -180:
+            d += 360
+        return d
+
+    w = 2
+    turns = [abs(angDiff(angles[min(len(angles) - 1, i + w)],
+                         angles[max(0, i - w)])) for i in range(len(angles))]
+    corners = []
+    i = 1
+    while i < len(angles) - 1:
+        if turns[i] > 48 and turns[i] >= turns[i - 1] and turns[i] >= turns[i + 1]:
+            if not corners or i - corners[-1] > w:
+                corners.append(i)
+                i += w
+        i += 1
+
+    sections = []
+    last = 0
+    for c in corners:
+        if c - last >= 1:
+            sections.append(pts[last:c + 1])
+        last = c
+    sections.append(pts[last:])
+    sections = [s for s in sections if len(s) >= 2]
+
+    merged = []
+    for s in sections:
+        if merged and _polyLen(s) < max(22.0, total * 0.06):
+            merged[-1] = merged[-1] + s[1:]
+        else:
+            merged.append(s)
+    sections = merged
+    if len(sections) >= 2 and _polyLen(sections[0]) < max(55.0, total * 0.13):
+        sections = sections[1:]
+
+    hook = False
+    if len(sections) >= 2:
+        lastLen = _polyLen(sections[-1])
+        if lastLen < max(70.0, total * 0.24):
+            ang = _netAngle(sections[-1])
+            if ang > 95 or ang < -155 \
+               or (70 < ang <= 95 and lastLen < max(80.0, total * 0.15)) \
+               or (60 < ang <= 70 and lastLen < 60):
+                hook = True
+                sections = sections[:-1]
+
+    elems = []
+    for s in sections:
+        e = _elemOfAngle(_netAngle(s))
+        if not elems or elems[-1] != e:
+            elems.append(e)
+    if not elems:
+        return "点"
+    if len(elems) == 1:
+        name = elems[0]
+        if name in ("捺", "竖", "撇", "提") and total < 160:
+            name = "点"
+        elif name == "横" and total < 80:
+            name = "点"
+    else:
+        parts = [elems[0]]
+        for e in elems[1:]:
+            parts.append("折" if e in ("横", "竖") else e)
+        name = "".join(parts)
+    if hook:
+        if len(elems) == 1 and elems[0] == "捺":
+            name = "卧钩" if _netAngle(pts) > -42 else "斜钩"
+        else:
+            name += "钩"
+    return _ALIAS.get(name, name)
+
+
+def typeOfStroke(ch, idx, medians):
+    if len(medians) == 1 and ch in SINGLE_STROKE_TYPES:
+        return SINGLE_STROKE_TYPES[ch]
+    return classifyMedian(medians[idx])
+
+
+def skeletonName(name):
+    """笔画名骨架化：首元素 + 中间元素一律视作折 + 钩后缀（宽容匹配用）。"""
+    hook = name.endswith("钩")
+    core = name[:-1] if hook else name
+    if not core:
+        return name
+    s = core[0] + "折" * (len(core) - 1)
+    return s + ("钩" if hook else "")
+
+
+def matchTier(classified, tableType):
+    """1=完全一致 2=骨架一致 0=不匹配。"""
+    if classified == tableType:
+        return 1
+    if skeletonName(classified) == skeletonName(tableType):
+        return 2
+    return 0
+
+
+def findLibEntry(lib, t):
+    """先精确键，再骨架宽容键。"""
+    if t in lib:
+        return lib[t]
+    sk = skeletonName(t)
+    for key in lib:
+        if skeletonName(key) == sk:
+            return lib[key]
+    return None
