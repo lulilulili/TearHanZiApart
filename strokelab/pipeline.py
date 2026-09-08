@@ -14,7 +14,8 @@ from .geometry import (dist, lineSeg, parseContours, contourToPath, flattenSegs,
                        bboxOfPoints, pointInPolygon, nearestOnPolyline,
                        polylineLength, resamplePolyline, analyzeContours,
                        bezPoint, bezTangent, bezSlice, segLength,
-                       shapeDescriptor, shapeSimilarity, refineMedianFit)
+                       shapeDescriptor, shapeSimilarity, refineMedianFit,
+                       recenterMedian)
 from .classify import findLibEntry
 from . import boolean as booleanClamp
 
@@ -170,6 +171,10 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
                     mcy = sum(p[1] for p in m) / len(m)
                     medians[k] = [(mcx + (p[0] - mcx) * f,
                                    mcy + (p[1] - mcy) * f) for p in m]
+                # 垂直断面居中：矫正只按己方样本拟合造成的贴边
+                medians[k] = recenterMedian(
+                    medians[k], contours,
+                    max(1.6 * widths[k], 1.2 * w0, 40.0))
         scoreMedians = [extendMedian(m, min(70.0, widths[k] * 1.1))
                         for k, m in enumerate(medians)]
 
@@ -217,22 +222,33 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
     for ci, c in enumerate(contours):
         if c["isHole"]:
             continue
+        votes = {}
+        for sm in sampleSets[ci]:
+            votes[sm["label"]] = votes.get(sm["label"], 0) + 1
+        nSamp = len(sampleSets[ci]) or 1
         fracs = []
         for k in range(nStrokes):
             fr = fracInside(resampledMedians[k], c["poly"])
             fi = fracInside(resampledInit[k], c["poly"])
-            fracs.append((max(fr, fi), min(fr, fi), fi, k))
+            fracs.append((max(fr, fi), min(fr, fi), fi, fr, k))
         fracs.sort(key=lambda x: -x[0])
-        fMax1, fMin1, _fi1, winner = fracs[0]
-        # 竞争者只看初始设计位置的占比：精调漂移进来的不算竞争
-        # （撇的中轴线漂进邻笔轮廓曾挡住正主的整体归属）
-        fMax2 = max((f[2] for f in fracs[1:]), default=0)
+        fMax1, fMin1, _fi1, _fr1, winner = fracs[0]
+        # 竞争者：初始设计位置占比达标即算竞争；仅精调漂移进来的默认不算
+        # （撇的中轴线漂进邻笔轮廓曾挡住正主的整体归属），但若该笔精调后
+        # 确实占住轮廓且实际拥有可观样本份额，则是真主而非漂移，必须算竞争
+        # （口的左竖曾因初始 D 落进字腔 fi≈0，被横折整体吞并）
+        fMax2 = 0.0
+        for f in fracs[1:]:
+            comp = f[2]
+            if f[3] >= 0.45 and votes.get(f[4], 0) >= 0.2 * nSamp:
+                comp = max(comp, f[3])
+            fMax2 = max(fMax2, comp)
         if fMax1 < 0.55 or fMin1 < 0.35 or fMax2 >= 0.45:
             continue
-        votes = {}
-        for sm in sampleSets[ci]:
-            votes[sm["label"]] = votes.get(sm["label"], 0) + 1
-        starve = any(k != winner and strokeSampleTotals[k] - v < 6
+        # 饿死保护：接管会令某笔别处仅剩极少样本（绝对），或一次夺走该笔
+        # 过半样本（相对——被夺一半以上说明它在此轮廓有实质领地）都跳过
+        starve = any(k != winner and (strokeSampleTotals[k] - v < 6
+                     or v >= 0.5 * strokeSampleTotals[k])
                      for k, v in votes.items())
         if starve:
             continue
@@ -257,6 +273,72 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
                         bestD, best = d, sm2["label"]
             if best >= 0:
                 sm["label"] = best
+
+    # ------------------------------------------------------------ 边弧整体归属
+    # 印刷字形的笔画边界天然落在轮廓角点：按角点把轮廓切成边弧，整条边弧
+    # 按平均得分整体归属——直边中途不再出现碎片切换（口的左竖外缘曾被
+    # 横的端部评分蚕食出多段）。无角点的平滑字体、以及确有成块分歧的长弧
+    # 保留逐样本标签
+    cornerSets = []
+    for c in contours:
+        segs = c["segs"]
+        nSeg = len(segs)
+        corners = set()
+        for j in range(nSeg):
+            tA = bezTangent(segs[j - 1], 1.0)
+            tB = bezTangent(segs[j], 0.0)
+            if tA[0] * tB[0] + tA[1] * tB[1] < math.cos(math.radians(40)):
+                corners.add(j % nSeg)
+        cornerSets.append(corners)
+    wMedFinal = sorted(widths)[len(widths) // 2] or w0
+    arcTotals = [0] * nStrokes
+    for arr in sampleSets:
+        for sm in arr:
+            arcTotals[sm["label"]] += 1
+    for ci, c in enumerate(contours):
+        arr = sampleSets[ci]
+        cs = sorted(cornerSets[ci])
+        if len(cs) < 2 or not arr:
+            continue
+        arcs = {}
+        for i, sm in enumerate(arr):
+            j = 0
+            for jj, cv in enumerate(cs):
+                if cv <= sm["s"]:
+                    j = jj
+                elif cv > sm["s"]:
+                    break
+            if sm["s"] < cs[0]:
+                j = len(cs) - 1
+            arcs.setdefault(j, []).append(i)
+        for idxs in arcs.values():
+            labels = [arr[i]["label"] for i in idxs]
+            if len(set(labels)) <= 1:
+                continue
+            arcLen = sum(dist(arr[idxs[t]]["pt"], arr[idxs[t + 1]]["pt"])
+                         for t in range(len(idxs) - 1))
+            domShare = max(labels.count(l) for l in set(labels)) / len(labels)
+            if arcLen > 3.0 * wMedFinal and domShare < 0.75:
+                continue
+            bestK, bestSc = labels[0], 1e18
+            for k in range(nStrokes):
+                sc = sum(scoreOf(arr[i]["pt"], arr[i]["tan"], k)
+                         for i in idxs) / len(idxs)
+                if sc < bestSc:
+                    bestSc, bestK = sc, k
+            # 饿死保护：整弧改判会把某笔总样本压到极少时跳过（小点的孤立
+            # 轮廓曾被整弧划给邻笔，正主颗粒无收）
+            lost = {}
+            for l in labels:
+                if l != bestK:
+                    lost[l] = lost.get(l, 0) + 1
+            if any(arcTotals[l] - n_ < 6 for l, n_ in lost.items()):
+                continue
+            for i in idxs:
+                if arr[i]["label"] != bestK:
+                    arcTotals[arr[i]["label"]] -= 1
+                    arcTotals[bestK] += 1
+                    arr[i]["label"] = bestK
 
     # ------------------------------------------------------------ 标签平滑
     for arr in sampleSets:
@@ -314,14 +396,22 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True):
                 continue
             s0 = a["s"]
             s1 = b["s"] if b["s"] > a["s"] else b["s"] + segCount
-            for _ in range(22):
-                mid = (s0 + s1) / 2
-                pt, tan = paramAt(mid % segCount)
-                if labelOf(pt, tan) == a["label"]:
-                    s0 = mid
-                else:
-                    s1 = mid
-            sCut = ((s0 + s1) / 2) % segCount
+            # 切点吸附角点：两样本之间恰有轮廓角点时直接在角点切
+            sCut = None
+            for cj in sorted(cornerSets[ci]):
+                cjj = cj if cj > s0 else cj + segCount
+                if s0 < cjj <= s1 + 1e-9:
+                    sCut = cjj % segCount
+                    break
+            if sCut is None:
+                for _ in range(22):
+                    mid = (s0 + s1) / 2
+                    pt, tan = paramAt(mid % segCount)
+                    if labelOf(pt, tan) == a["label"]:
+                        s0 = mid
+                    else:
+                        s1 = mid
+                sCut = ((s0 + s1) / 2) % segCount
             bounds.append({"s": sCut, "to": b["label"]})
             pt, _tan = paramAt(sCut)
             cutPoints.append({"pt": pt, "from": a["label"], "to": b["label"]})

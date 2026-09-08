@@ -374,16 +374,73 @@ def shapeSimilarity(a, b):
 
 # ---------------------------------------------------------------- 中轴线精调
 
+def recenterMedian(m, contours, cap):
+    """中轴线垂直断面居中：沿各点法向找字形边界双侧交点，移到所在实体
+    断面的中点。治精调只按己方样本拟合导致的贴边漂移（口的竖曾贴住
+    内侧缘，外缘样本反被邻笔评分抢走）。拐角点与断面过宽（跨越交叠
+    区/邻笔）处不动。"""
+
+    def filled(pt):
+        cnt = 0
+        for c in contours:
+            if pointInPolygon(pt, c["poly"]):
+                cnt += -1 if c["isHole"] else 1
+        return cnt > 0
+
+    n = len(m)
+    out = list(m)
+    cos35 = math.cos(math.radians(35))
+    touch = max(8.0, cap * 0.15)
+    for i in range(n):
+        a, b = m[max(0, i - 1)], m[min(n - 1, i + 1)]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        L = math.hypot(dx, dy)
+        if L < 1e-6:
+            continue
+        if 0 < i < n - 1:
+            v1 = (m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1])
+            v2 = (m[i + 1][0] - m[i][0], m[i + 1][1] - m[i][1])
+            l1, l2 = math.hypot(*v1), math.hypot(*v2)
+            if l1 > 1e-6 and l2 > 1e-6 and \
+               (v1[0] * v2[0] + v1[1] * v2[1]) / (l1 * l2) < cos35:
+                continue
+        nx, ny = -dy / L, dx / L
+        px, py = m[i]
+        ts = []
+        for c in contours:
+            poly = c["poly"]
+            for j in range(len(poly) - 1):
+                x1, y1 = poly[j]
+                x2, y2 = poly[j + 1]
+                ex, ey = x2 - x1, y2 - y1
+                det = ex * ny - ey * nx
+                if abs(det) < 1e-12:
+                    continue
+                t = (ex * (y1 - py) - ey * (x1 - px)) / det
+                s = (nx * (y1 - py) - ny * (x1 - px)) / det
+                if 0.0 <= s < 1.0 and abs(t) <= cap:
+                    ts.append(t)
+        ts.sort()
+        best = None
+        for j in range(len(ts) - 1):
+            t0, t1 = ts[j], ts[j + 1]
+            if t1 - t0 < 2.0 or t1 - t0 > cap * 1.5:
+                continue
+            if t0 > touch or t1 < -touch:
+                continue
+            mid = (t0 + t1) / 2
+            if not filled((px + nx * mid, py + ny * mid)):
+                continue
+            if best is None or abs(mid) < abs(best):
+                best = mid
+        if best is not None and abs(best) > 0.5:
+            out[i] = (px + nx * best, py + ny * best)
+    return out
+
+
 def refineMedianFit(m, m0, pts, width):
     """直笔→平移+主方向伸缩；折笔→按拐角分段平移（中位数偏移+位移硬上限）。"""
     maxDrift = max(80.0, width * 1.3)
-
-    def clampDrift(p, p0):
-        dx, dy = p[0] - p0[0], p[1] - p0[1]
-        L = math.hypot(dx, dy)
-        if L <= maxDrift:
-            return p
-        return (p0[0] + dx * maxDrift / L, p0[1] + dy * maxDrift / L)
 
     def medOf(arr):
         s = sorted(arr)
@@ -434,6 +491,16 @@ def refineMedianFit(m, m0, pts, width):
             b = (p[0] - mcx) * -uy + (p[1] - mcy) * ux
             a2 = a * su + offU
             result.append((mcx + ux * a2 - uy * b + dx, mcy + uy * a2 + ux * b + dy))
+        # 位移上限：沿弦向用 maxDrift（伸缩需要），横向从紧——直笔端点
+        # 横向大漂会扎进邻笔轮廓（口的横两端曾潜入左右竖腿）
+        latCap = max(30.0, width * 0.45)
+        out = []
+        for p, q in zip(result, m0):
+            ddx, ddy = p[0] - q[0], p[1] - q[1]
+            al = max(-maxDrift, min(maxDrift, ddx * ux + ddy * uy))
+            lt = max(-latCap, min(latCap, ddx * -uy + ddy * ux))
+            out.append((q[0] + ux * al - uy * lt, q[1] + uy * al + ux * lt))
+        return out
     else:
         bounds = [0] + corners + [len(m) - 1]
         nSec = len(bounds) - 1
@@ -446,11 +513,13 @@ def refineMedianFit(m, m0, pts, width):
 
         accX = [[] for _ in range(nSec)]
         accY = [[] for _ in range(nSec)]
+        ptsSec = [[] for _ in range(nSec)]
         for p in pts:
             nr = nearestOnPolyline(p, m)
             s = secOfSeg(nr["idx"])
             accX[s].append(p[0] - nr["pt"][0])
             accY[s].append(p[1] - nr["pt"][1])
+            ptsSec[s].append(p)
         offs = []
         for s in range(nSec):
             if len(accX[s]) >= 3:
@@ -474,4 +543,39 @@ def refineMedianFit(m, m0, pts, width):
             o1 = offs[sA] if sA is not None else (0.0, 0.0)
             o2 = offs[sB] if sB is not None else o1
             result.append((p[0] + (o1[0] + o2[0]) / 2, p[1] + (o1[1] + o2[1]) / 2))
-    return [clampDrift(p, q) for p, q in zip(result, m0)]
+        # 折笔分段伸缩（仅两段折）：按本段样本沿段轴投影跨度缩放，锚定拐角
+        # 向自由端生长——楷体折段比例偏短时（口的横折竖段）单靠平移够不到底
+        if nSec == 2 and len(m) >= 3:
+            cIdx = bounds[1]
+            corner = result[cIdx]
+            for s in range(2):
+                if len(ptsSec[s]) < 6:
+                    continue
+                endIdx = 0 if s == 0 else len(m) - 1
+                ax, ay = result[endIdx][0] - corner[0], result[endIdx][1] - corner[1]
+                La = math.hypot(ax, ay)
+                if La < 40:
+                    continue
+                ux, uy = ax / La, ay / La
+                projS = sorted((p[0] - corner[0]) * ux + (p[1] - corner[1]) * uy
+                               for p in ptsSec[s])
+                su = max(0.85, min(1.35, projS[int(len(projS) * 0.97)] / La))
+                lo, hi = (0, cIdx) if s == 0 else (cIdx, len(m) - 1)
+                for i in range(lo, hi + 1):
+                    if i == cIdx:
+                        continue
+                    p = result[i]
+                    a = (p[0] - corner[0]) * ux + (p[1] - corner[1]) * uy
+                    b = (p[0] - corner[0]) * -uy + (p[1] - corner[1]) * ux
+                    result[i] = (corner[0] + ux * a * su - uy * b,
+                                 corner[1] + uy * a * su + ux * b)
+        # 位移上限：横向仍用 maxDrift；沿笔轴放宽——折段伸缩必须能越过初始端点
+        alongCap = max(maxDrift, 0.45 * mLen)
+        out = []
+        for p, q in zip(result, m0):
+            dx, dy = p[0] - q[0], p[1] - q[1]
+            tx, ty = nearestOnPolyline(q, m0)["tan"]
+            al = max(-alongCap, min(alongCap, dx * tx + dy * ty))
+            lt = max(-maxDrift, min(maxDrift, dx * -ty + dy * tx))
+            out.append((q[0] + tx * al - ty * lt, q[1] + ty * al + tx * lt))
+        return out
