@@ -86,8 +86,9 @@ def runSuite(root):
         if not os.path.exists(fp):
             print("跳过缺失字体:", f)
             continue
-        font = FontEntry(os.path.join("Fonts", f))
+        font = FontEntry(fp)
         font.buildLibraryB(hub)
+        font.completeLibraryB(hub)  # 与生产路径一致（自举补全）
         for ch in SUITE_CHARS:
             r = runPipeline(hub, font, ch)
             if "error" in r:
@@ -102,8 +103,12 @@ def runSuite(root):
     return results
 
 
+REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
 def goldenDir(root):
-    d = os.path.join(root, "bench", "golden")
+    """golden/目检页固定在仓库 bench/（随版本提交），与数据根目录解耦。"""
+    d = os.path.join(REPO_DIR, "bench", "golden")
     os.makedirs(d, exist_ok=True)
     return d
 
@@ -218,7 +223,7 @@ def writeHtml(root, results):
             '<p>✅ verified（回退即报警）　❌ known_bad（已知错误）　'
             '❓ unverified（待目检；确认后把 golden json 的 status 改为 '
             'verified/known_bad）</p>' + "".join(cells))
-    out = os.path.join(root, "bench", "review.html")
+    out = os.path.join(REPO_DIR, "bench", "review.html")
     open(out, "w", encoding="utf-8").write(html)
     print("目检页:", out)
 
