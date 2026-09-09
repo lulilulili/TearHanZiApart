@@ -1,0 +1,506 @@
+# -*- coding: utf-8 -*-
+"""strokelab.verify — 确定性批量校验：绝对不变量，无需 golden、无需目检。
+
+原则：校验实现必须与生产代码路径独立（Re-Union 曾与 glyphRegion 共享同一
+bug 而自校验恒 100%）。本模块的字形区域用缠绕数分层法独立构造，笔画类型
+对 D′ 独立复判，不复用 boolean/pipeline 的区域与标注。
+
+失败码：
+  ERROR    管线异常或报错
+  COUNT    笔画数/空路径/退化面积 与楷体不一致
+  SPLIT    某笔断成多个孤立面片（公理：单笔必单连通）
+  UNION    笔画并集与原字形不恒等（缠绕数区域对比，覆盖缺口/溢出>0.5%）
+  TYPE     横/竖笔的轮廓 PCA 主轴偏离水平/垂直超 32°（张冠李戴/拆歪）
+  ORDER    两笔质心相对方位与楷体矛盾（张冠李戴）
+  OVERLAP  两笔大面积重叠但楷体对应笔不相交
+  AREA     单笔面积占比与楷体对应笔占比偏离超限（饿死/拉爆）
+
+用法：
+  python -m strokelab.verify --root D:/07_chcharapart                 # 全字体×全字
+  python -m strokelab.verify --root . --fonts simhei.ttf --limit 200  # 抽样
+  python -m strokelab.verify --root . --chars 中永爱 --jobs 1         # 定点
+  python -m strokelab.verify --root . --report-only                   # 只汇总
+结果：<root>/verifyOut/<字体>.jsonl + summary.json + report.html
+"""
+
+import argparse
+import json
+import math
+import os
+import time
+
+from .geometry import (parseContours, flattenSegs, signedArea, resamplePolyline,
+                       dist, shapeDescriptor)
+from .classify import classifyMedian, matchTier
+
+UNION_TOL = 0.5      # 覆盖缺口/溢出 阈值（% of 字形面积）
+OVERLAP_RATIO = 0.6  # 两笔重叠占较小笔比例阈值
+OVERLAP_KAI_D = 40.0  # 楷体两笔中轴线最近距离小于此值视为"确有相交"
+AREA_RATIO = 4.0     # 面积占比偏离倍数阈值
+AREA_MIN_SHARE = 0.02  # 占比小于此值的笔不参与 AREA 判定（点画噪声）
+ORDER_KAI_GAP = 180.0  # 楷体质心间距大于此值才构成"明确方位"约束（相交笔对质心重合，小间距会误报）
+ORDER_TOL = 60.0     # 目标字体反向超过此距离才算矛盾
+SPLIT_MIN_AREA = 25.0  # 小于此面积的碎片不计连通性
+IOU_FLAT = 4.0       # shapely 细分步长
+
+
+# ---------------------------------------------------------------- 区域构造（独立实现）
+
+def _polys(pathStr):
+    """路径 → [(Polygon, signedArea)]。"""
+    from shapely.geometry import Polygon
+    out = []
+    for c in parseContours(pathStr):
+        pts = flattenSegs(c["segs"], IOU_FLAT)
+        if len(pts) < 4:
+            continue
+        try:
+            pg = Polygon(pts)
+            if not pg.is_valid:
+                pg = pg.buffer(0)
+            if not pg.is_empty:
+                out.append((pg, signedArea(pts)))
+        except Exception:
+            pass
+    return out
+
+
+def _coverLevels(polys):
+    """levels[k] = 被至少 k+1 个多边形覆盖的区域（二进制进位法）。"""
+    levels = []
+    for pg in polys:
+        carry = pg
+        i = 0
+        while carry is not None and not carry.is_empty:
+            if i == len(levels):
+                levels.append(carry)
+                break
+            inter = levels[i].intersection(carry)
+            union = levels[i].union(carry)
+            if not union.is_valid:
+                union = union.buffer(0)
+            levels[i] = union
+            carry = inter if inter.is_valid else inter.buffer(0)
+            i += 1
+    return levels
+
+
+def windingRegion(pathStr):
+    """按 nonzero 缠绕数构造填充区域：filled ⇔ 同外环向圈数 > 反向圈数
+    = ∪_k ( posLv[k] − negLv[k] )。与 boolean.glyphRegion 完全独立。"""
+    pp = _polys(pathStr)
+    if not pp:
+        return None
+    # 面积最大的轮廓是外环，其绕向为正类
+    outerSign = 1.0 if max(pp, key=lambda t: abs(t[1]))[1] >= 0 else -1.0
+    pos = [pg for pg, a in pp if a * outerSign >= 0]
+    neg = [pg for pg, a in pp if a * outerSign < 0]
+    posLv = _coverLevels(pos)
+    negLv = _coverLevels(neg)
+    filled = None
+    for k in range(len(posLv)):
+        piece = posLv[k]
+        if k < len(negLv):
+            piece = piece.difference(negLv[k])
+        if not piece.is_valid:
+            piece = piece.buffer(0)
+        filled = piece if filled is None else filled.union(piece)
+    if filled is not None and not filled.is_valid:
+        filled = filled.buffer(0)
+    return filled
+
+
+def evenOddRegion(pathStr):
+    """笔画区域：多环奇偶合成（环形笔画=外环⊕孔环）。"""
+    region = None
+    for pg, _ in _polys(pathStr):
+        region = pg if region is None else region.symmetric_difference(pg)
+    if region is not None and not region.is_valid:
+        region = region.buffer(0)
+    return region
+
+
+def _pieces(region):
+    from shapely.geometry import Polygon, MultiPolygon
+    if region is None or region.is_empty:
+        return []
+    if isinstance(region, Polygon):
+        return [region]
+    if isinstance(region, MultiPolygon):
+        return list(region.geoms)
+    return [g for g in getattr(region, "geoms", []) if isinstance(g, Polygon)]
+
+
+# ---------------------------------------------------------------- 辅助
+
+def _centroid(median):
+    n = len(median) or 1
+    return (sum(p[0] for p in median) / n, sum(p[1] for p in median) / n)
+
+
+def _medianMinDist(mA, mB):
+    a = resamplePolyline([tuple(p) for p in mA], 30)
+    b = resamplePolyline([tuple(p) for p in mB], 30)
+    return min(dist(p, q) for p in a for q in b)
+
+
+# ---------------------------------------------------------------- 单字校验
+
+def verifyChar(hub, font, ch):
+    from shapely.ops import unary_union
+    t0 = time.time()
+    rec = {"ch": ch, "fails": [], "m": {}}
+
+    def fail(code, detail):
+        rec["fails"].append({"code": code, "detail": detail})
+
+    from .pipeline import runPipeline
+    r = runPipeline(hub, font, ch)
+    if "error" in r:
+        fail("ERROR", str(r["error"]))
+        rec["ms"] = int((time.time() - t0) * 1000)
+        return rec
+
+    kai = r["kai"]
+    strokes = r["strokes"]
+
+    # ---- COUNT：条数 + 空路径 + 退化面积
+    if len(strokes) != len(kai["medians"]):
+        fail("COUNT", "笔数 %d≠楷体 %d" % (len(strokes), len(kai["medians"])))
+    regions = []
+    badIdx = []
+    for s in strokes:
+        reg = None if s["failed"] else evenOddRegion(s["path"])
+        if reg is None or reg.is_empty or reg.area < 4:
+            badIdx.append(s["index"])
+            reg = None
+        regions.append(reg)
+    if badIdx:
+        fail("COUNT", "空/退化笔画 %s" % badIdx)
+
+    # ---- SPLIT：单笔单连通
+    splitIdx = []
+    for s, reg in zip(strokes, regions):
+        if reg is None:
+            continue
+        big = [g for g in _pieces(reg)
+               if g.area >= max(SPLIT_MIN_AREA, reg.area * 0.02)]
+        if len(big) > 1:
+            splitIdx.append("%d(%d片)" % (s["index"], len(big)))
+    if splitIdx:
+        fail("SPLIT", " ".join(splitIdx))
+
+    # ---- UNION：缠绕数区域 vs 笔画并集
+    glyphPath = " ".join(c["path"] for c in r["contours"])
+    glyph = windingRegion(glyphPath)
+    if glyph is None or glyph.area < 1:
+        fail("ERROR", "字形区域构造失败")
+    else:
+        valid = [g for g in regions if g is not None]
+        if valid:
+            union = unary_union(valid)
+            if not union.is_valid:
+                union = union.buffer(0)
+            shortPct = glyph.difference(union).area / glyph.area * 100
+            excessPct = union.difference(glyph).area / glyph.area * 100
+            rec["m"]["short"] = round(shortPct, 2)
+            rec["m"]["excess"] = round(excessPct, 2)
+            if shortPct > UNION_TOL or excessPct > UNION_TOL:
+                fail("UNION", "缺口%.2f%% 溢出%.2f%%" % (shortPct, excessPct))
+        else:
+            fail("UNION", "无有效笔画")
+
+    # ---- TYPE：轮廓 PCA 主轴校验（仅横/竖，稳健硬门）。
+    # D′ 中轴线 classifyMedian 全量重分类对精调后的短中轴线误报率过高
+    # （口的竖曾被判捺折），降级为软指标 m.reclass 供统计分析。
+    typeBad = []
+    reclassBad = 0
+    for s in strokes:
+        if s["failed"]:
+            continue
+        if s.get("median"):
+            cls = classifyMedian(s["median"])
+            if matchTier(cls, s["type"]) == 0:
+                reclassBad += 1
+        if s["type"] in ("横", "竖"):
+            d = shapeDescriptor([s["path"]])
+            if d and d["elong"] >= 1.8:
+                ang = abs(math.degrees(d["mainAngle"])) % 180.0
+                dev = min(ang, 180.0 - ang) if s["type"] == "横" \
+                    else abs(ang - 90.0)
+                if dev > 32.0:
+                    typeBad.append("%d:%s轴偏%.0f°" % (s["index"], s["type"], dev))
+    rec["m"]["reclass"] = reclassBad
+    if typeBad:
+        fail("TYPE", " ".join(typeBad))
+
+    # ---- ORDER：两笔质心相对方位 vs 楷体
+    cKai = [_centroid(m) for m in kai["medians"]]
+    cTgt = [(_centroid(s["median"]) if s.get("median") else None) for s in strokes]
+    orderBad = []
+    n = min(len(cKai), len(cTgt))
+    for i in range(n):
+        for j in range(i + 1, n):
+            if cTgt[i] is None or cTgt[j] is None:
+                continue
+            for axis in (0, 1):
+                dK = cKai[j][axis] - cKai[i][axis]
+                dT = cTgt[j][axis] - cTgt[i][axis]
+                if abs(dK) >= ORDER_KAI_GAP and dK * dT < 0 and abs(dT) > ORDER_TOL:
+                    orderBad.append("%d-%d%s" % (i, j, "xy"[axis]))
+    if orderBad:
+        fail("ORDER", " ".join(orderBad[:8]))
+
+    # ---- OVERLAP：大重叠但楷体不相交
+    overlapBad = []
+    for i in range(len(regions)):
+        for j in range(i + 1, len(regions)):
+            a, b = regions[i], regions[j]
+            if a is None or b is None:
+                continue
+            ba, bb = a.bounds, b.bounds
+            if ba[2] < bb[0] or bb[2] < ba[0] or ba[3] < bb[1] or bb[3] < ba[1]:
+                continue
+            inter = a.intersection(b).area
+            ratio = inter / max(1.0, min(a.area, b.area))
+            if ratio > OVERLAP_RATIO and i < len(cKai) and j < len(cKai):
+                if _medianMinDist(kai["medians"][i], kai["medians"][j]) > OVERLAP_KAI_D:
+                    overlapBad.append("%d-%d:%d%%" % (i, j, round(ratio * 100)))
+    if overlapBad:
+        fail("OVERLAP", " ".join(overlapBad[:8]))
+
+    # ---- AREA：面积占比 vs 楷体占比
+    kaiRegions = [evenOddRegion(p) for p in kai["strokes"]]
+    kaiAreas = [(g.area if g is not None else 0.0) for g in kaiRegions]
+    kaiTotal = sum(kaiAreas) or 1.0
+    tgtAreas = [(g.area if g is not None else 0.0) for g in regions]
+    tgtTotal = sum(tgtAreas) or 1.0
+    areaBad = []
+    for i in range(min(len(kaiAreas), len(tgtAreas))):
+        sk = kaiAreas[i] / kaiTotal
+        st = tgtAreas[i] / tgtTotal
+        if max(sk, st) < AREA_MIN_SHARE:
+            continue
+        if st > sk * AREA_RATIO or st < sk / AREA_RATIO:
+            areaBad.append("%d:%.0f%%→%.0f%%" % (i, sk * 100, st * 100))
+    if areaBad:
+        fail("AREA", " ".join(areaBad[:8]))
+
+    # ---- 质量指标（不判失败，供趋势分析）
+    okS = [s for s in strokes if not s["failed"]]
+    rec["m"]["retain"] = round(sum(s["retainRatio"] for s in okS) / (len(okS) or 1), 3)
+    rec["m"]["clamped"] = sum(1 for s in strokes if s.get("clamped"))
+    rec["m"]["kaiTpl"] = sum(1 for s in strokes if "楷" in str(s.get("template", "")))
+    rec["ms"] = int((time.time() - t0) * 1000)
+    return rec
+
+
+# ---------------------------------------------------------------- 多进程批量
+
+_CTX = {}
+
+
+def _initWorker(root, fontPath):
+    from .datahub import DataHub
+    from .fonthub import FontEntry
+    hub = DataHub(root)
+    font = FontEntry(fontPath)
+    font.buildLibraryB(hub)
+    font.completeLibraryB(hub)
+    _CTX["hub"] = hub
+    _CTX["font"] = font
+
+
+def _verifyOne(ch):
+    hub, font = _CTX["hub"], _CTX["font"]
+    if not font.hasChar(ch):
+        return json.dumps({"ch": ch, "skip": True}, ensure_ascii=False)
+    try:
+        return json.dumps(verifyChar(hub, font, ch), ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"ch": ch, "fails": [{"code": "ERROR",
+                          "detail": repr(e)[:200]}], "m": {}},
+                          ensure_ascii=False)
+
+
+def outDirOf(root):
+    d = os.path.join(root, "verifyOut")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def runFont(root, fontFile, chars, jobs, resume):
+    import multiprocessing as mp
+    outPath = os.path.join(outDirOf(root), os.path.splitext(fontFile)[0] + ".jsonl")
+    done = set()
+    if resume and os.path.exists(outPath):
+        with open(outPath, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    done.add(json.loads(line)["ch"])
+                except Exception:
+                    pass
+    todo = [c for c in chars if c not in done]
+    if not todo:
+        print("  %s: 已全部完成(%d)" % (fontFile, len(done)))
+        return
+    fontPath = os.path.join(root, "Fonts", fontFile)
+    t0 = time.time()
+    nDone = 0
+    mode = "a" if (resume and done) else "w"
+    with open(outPath, mode, encoding="utf-8") as out:
+        if jobs <= 1:
+            _initWorker(root, fontPath)
+            for ch in todo:
+                out.write(_verifyOne(ch) + "\n")
+                nDone += 1
+                if nDone % 200 == 0:
+                    out.flush()
+                    print("  %s: %d/%d (%.0fs)" % (
+                        fontFile, nDone, len(todo), time.time() - t0), flush=True)
+        else:
+            with mp.Pool(jobs, initializer=_initWorker,
+                         initargs=(root, fontPath)) as pool:
+                for line in pool.imap_unordered(_verifyOne, todo, chunksize=16):
+                    out.write(line + "\n")
+                    nDone += 1
+                    if nDone % 500 == 0:
+                        out.flush()
+                        print("  %s: %d/%d (%.0fs)" % (
+                            fontFile, nDone, len(todo), time.time() - t0), flush=True)
+    print("  %s: 完成 %d 字, 耗时 %.0fs" % (fontFile, nDone, time.time() - t0))
+
+
+# ---------------------------------------------------------------- 汇总报告
+
+FAIL_CODES = ["ERROR", "COUNT", "SPLIT", "UNION", "TYPE", "ORDER", "OVERLAP", "AREA"]
+
+
+def summarize(root):
+    od = outDirOf(root)
+    summary = {}
+    for fn in sorted(os.listdir(od)):
+        if not fn.endswith(".jsonl"):
+            continue
+        fontName = fn[:-6]
+        total = skipped = passed = 0
+        byCode = {c: [] for c in FAIL_CODES}
+        retainSum = retainN = clampedN = kaiTplN = 0
+        failChars = {}
+        with open(os.path.join(od, fn), encoding="utf-8") as f:
+            for line in f:
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                total += 1
+                if rec.get("skip"):
+                    skipped += 1
+                    continue
+                m = rec.get("m", {})
+                if "retain" in m:
+                    retainSum += m["retain"]
+                    retainN += 1
+                clampedN += m.get("clamped", 0)
+                kaiTplN += m.get("kaiTpl", 0)
+                fails = rec.get("fails", [])
+                if not fails:
+                    passed += 1
+                    continue
+                codes = sorted({fl["code"] for fl in fails})
+                failChars[rec["ch"]] = codes
+                for fl in fails:
+                    if fl["code"] in byCode:
+                        byCode[fl["code"]].append(rec["ch"])
+        tested = total - skipped
+        summary[fontName] = {
+            "total": total, "skipped": skipped, "tested": tested,
+            "passed": passed,
+            "passRate": round(passed / tested * 100, 2) if tested else 0,
+            "byCode": {c: {"count": len(set(chs)), "chars": "".join(sorted(set(chs)))}
+                       for c, chs in byCode.items() if chs},
+            "failChars": failChars,
+            "avgRetain": round(retainSum / retainN, 3) if retainN else 0,
+            "clampedStrokes": clampedN, "kaiTplStrokes": kaiTplN,
+        }
+    with open(os.path.join(od, "summary.json"), "w", encoding="utf-8") as f:
+        json.dump(summary, f, ensure_ascii=False, indent=1)
+    writeReport(root, summary)
+    return summary
+
+
+def writeReport(root, summary):
+    od = outDirOf(root)
+    head = ("<!DOCTYPE html><meta charset='utf-8'><title>strokelab verify</title>"
+            "<style>body{font-family:sans-serif;margin:16px}table{border-collapse:"
+            "collapse}td,th{border:1px solid #bbb;padding:3px 8px;font-size:13px}"
+            "details{margin:4px 0}summary{cursor:pointer}.chars{font-size:15px;"
+            "line-height:1.7;word-break:break-all;max-width:1100px}</style>"
+            "<h2>strokelab 批量校验报告</h2>")
+    rows = ["<tr><th>字体</th><th>已测</th><th>通过</th><th>通过率</th>" +
+            "".join("<th>%s</th>" % c for c in FAIL_CODES) +
+            "<th>均保留</th><th>裁剪笔</th><th>楷体模板笔</th></tr>"]
+    for fontName, s in summary.items():
+        cells = "".join(
+            "<td>%s</td>" % (s["byCode"].get(c, {}).get("count", "") or "·")
+            for c in FAIL_CODES)
+        rows.append(
+            "<tr><td>%s</td><td>%d</td><td>%d</td><td><b>%.2f%%</b></td>%s"
+            "<td>%.3f</td><td>%d</td><td>%d</td></tr>" % (
+                fontName, s["tested"], s["passed"], s["passRate"], cells,
+                s["avgRetain"], s["clampedStrokes"], s["kaiTplStrokes"]))
+    body = ["<table>%s</table>" % "".join(rows)]
+    for fontName, s in summary.items():
+        body.append("<h3>%s</h3>" % fontName)
+        for c in FAIL_CODES:
+            info = s["byCode"].get(c)
+            if not info:
+                continue
+            body.append(
+                "<details><summary>%s × %d</summary>"
+                "<div class='chars'>%s</div></details>"
+                % (c, info["count"], info["chars"]))
+    out = os.path.join(od, "report.html")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(head + "".join(body))
+    print("报告:", out)
+
+
+# ---------------------------------------------------------------- CLI
+
+def listFonts(root):
+    d = os.path.join(root, "Fonts")
+    return sorted(f for f in os.listdir(d)
+                  if f.lower().endswith((".ttf", ".otf")))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--root", default=".")
+    ap.add_argument("--fonts", default="all", help="all 或逗号分隔文件名")
+    ap.add_argument("--chars", default="all", help="all 或字符串")
+    ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 4) - 2))
+    ap.add_argument("--limit", type=int, default=0, help="每字体最多测多少字")
+    ap.add_argument("--no-resume", action="store_true")
+    ap.add_argument("--report-only", action="store_true")
+    a = ap.parse_args()
+    root = os.path.abspath(a.root)
+    if not a.report_only:
+        from .datahub import DataHub
+        hub = DataHub(root)
+        chars = sorted(hub.graphicsIndex.keys()) if a.chars == "all" else list(a.chars)
+        if a.limit:
+            chars = chars[:a.limit]
+        fonts = listFonts(root) if a.fonts == "all" else a.fonts.split(",")
+        print("校验 %d 字体 × %d 字, jobs=%d" % (len(fonts), len(chars), a.jobs))
+        for f in fonts:
+            runFont(root, f, chars, a.jobs, not a.no_resume)
+    s = summarize(root)
+    worst = min(s.values(), key=lambda v: v["passRate"], default=None)
+    for fontName, v in s.items():
+        print("%-36s 测%d 过%d (%.2f%%)" % (fontName, v["tested"],
+                                            v["passed"], v["passRate"]))
+
+
+if __name__ == "__main__":
+    main()
