@@ -125,7 +125,7 @@ def _piecesOf(region):
     return [g for g in getattr(region, "geoms", []) if isinstance(g, Polygon)]
 
 
-def rescueStarved(contours, strokes, kaiStrokePaths, kaiMedians=None):
+def rescueStarved(contours, strokes, kaiStrokePaths, kaiMedians=None, glyph=None):
     """饿死救济：重构后面积不足楷体占比预期 35% 的笔（含零宽退化环），
     用骨架走廊（中轴线按笔宽 buffer）∩ 本组轮廓区域作为救济区域——
     纯矢量、必在字形内。走廊中轴线用楷体中轴线经**组局部仿射**映射
@@ -136,7 +136,8 @@ def rescueStarved(contours, strokes, kaiStrokePaths, kaiMedians=None):
     划分。并集恒等仍由随后的 clampStrokes 保证。返回被救济笔序号。"""
     from shapely.geometry import LineString
 
-    glyph = glyphRegion(contours)
+    if glyph is None:
+        glyph = glyphRegion(contours)
     if glyph is None or glyph.area < 1:
         return []
     kaiAreas = []
@@ -318,7 +319,7 @@ def rescueStarved(contours, strokes, kaiStrokePaths, kaiMedians=None):
 
 
 
-def enforceConnectivity(contours, strokes, maxRounds=3):
+def enforceConnectivity(contours, strokes, maxRounds=3, glyph=None):
     """单笔单连通终态收口（公理：同一笔画不会断成两个孤立连通组）。
     多片笔画只留最大片，其余显著片按共享边界最长原则划给相邻笔；
     无人接壤的片留回原主（宁可 SPLIT 不丢墨——并集恒等优先）。
@@ -333,8 +334,7 @@ def enforceConnectivity(contours, strokes, maxRounds=3):
             r = regions[i]
             if r is None or r.is_empty:
                 continue
-            big = [g for g in _piecesOf(r)
-                   if g.area >= max(25.0, r.area * 0.02)]
+            big = [g for g in _piecesOf(r) if g.area >= 25.0]
             if len(big) <= 1:
                 continue
             big.sort(key=lambda g: -g.area)
@@ -377,9 +377,10 @@ def enforceConnectivity(contours, strokes, maxRounds=3):
     return bool(dirty)
 
 
-def reUnionCheck(contours, strokes):
+def reUnionCheck(contours, strokes, glyph=None):
     """覆盖率/溢出率（shapely 面积精确计算）。"""
-    glyph = glyphRegion(contours)
+    if glyph is None:
+        glyph = glyphRegion(contours)
     if glyph is None or glyph.area < 1:
         return {"cover": 0, "excess": 0}
     regions = []
@@ -399,9 +400,10 @@ def reUnionCheck(contours, strokes):
     return {"cover": round(cover, 1), "excess": round(excess, 1)}
 
 
-def clampStrokes(contours, strokes, excessTol=0.5, coverTol=99.5):
+def clampStrokes(contours, strokes, excessTol=0.5, coverTol=99.5, glyph=None):
     """裁剪 + 残差回填。就地修改 strokes 的 path，返回收口后的 unionCheck。"""
-    glyph = glyphRegion(contours)
+    if glyph is None:
+        glyph = glyphRegion(contours)
     if glyph is None or glyph.area < 1:
         return {"cover": 0, "excess": 0}
 

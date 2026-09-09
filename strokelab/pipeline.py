@@ -18,7 +18,7 @@ from .geometry import (dist, lineSeg, cubicSeg, parseContours, contourToPath,
                        bezPoint, bezTangent, bezSlice, segLength,
                        shapeDescriptor, shapeSimilarity, refineMedianFit,
                        recenterMedian, corridorPoint)
-from .classify import findLibEntry
+from .classify import findLibEntry, similarTypes
 from . import boolean as booleanClamp
 
 ITERS = 5
@@ -153,9 +153,16 @@ def _selfSeeds(result):
             rm = _reMedianFromStroke(s["median"], s["path"], s["width"])
         if rm is None:
             seeds.append(s["median"])
-        else:
-            seeds.append(rm)
-            changed = True
+            continue
+        seeds.append(rm)
+        if not changed:
+            # 种子与精调中轴几乎重合时不算变化——重跑必然收敛回原样、
+            # 过不了采纳门槛，白付一遍全程
+            m0 = [tuple(p) for p in s["median"]]
+            disp = sum(nearestOnPolyline(p, m0)["d"]
+                       for p in rm) / (len(rm) or 1)
+            if disp > max(2.5, 0.08 * s["width"]):
+                changed = True
     return seeds if changed else None
 
 
@@ -254,37 +261,40 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     templateEnts = []
     for k, m in enumerate(kai["medians"]):
         t = kai["strokeTypes"][k]
-        ent = findLibEntry(fontEntry.libraryB, t) if fontEntry.libraryB else None
-        if not ent and fontEntry.libraryB and t.endswith("钩"):
-            ent = findLibEntry(fontEntry.libraryB, t[:-1])
+        kaiPlaced = [affine(p) for p in m]
         placed = None
-        if ent:
-            try:
-                skel = fontEntry.ensureSkeleton(ent, dataHub)
-                eb = ent["outlineBBox"]
-                kb2 = kaiStrokeBBoxes[k]
-                c0 = affine((kb2.x0, kb2.y0))
-                c1 = affine((kb2.x1, kb2.y1))
-                tw = max(1.0, c1[0] - c0[0])
-                th = max(1.0, c1[1] - c0[1])
-                ew = max(1.0, eb[2] - eb[0])
-                ehh = max(1.0, eb[3] - eb[1])
-                placed = [(c0[0] + (p[0] - eb[0]) * tw / ew,
-                           c0[1] + (p[1] - eb[1]) * th / ehh) for p in skel]
-                # 模板-结构一致性检查：同名类型分段比例可能迥异（宀的横钩
-                # 钩段占 13%，横撇模板撇段占 60%——塞进矮扁包围盒后撇段被
-                # 压成水平长尾、伸进邻笔地盘抢样本）。放置后与楷体中轴线
-                # 重采样对齐比较，平均偏差过大即退回楷体中轴线
-                kaiPlaced = [affine(p) for p in m]
-                if _medianMismatch(placed, kaiPlaced):
-                    placed = None
-                else:
-                    templateSources.append(ent["source"])
+        # 依次尝试：本类型 → 相似组类型（借用），每个候选都过模板-结构
+        # 一致性检查——同名类型分段比例可能迥异（宀的横钩钩段占 13%，
+        # 横撇模板撇段占 60%，压进矮扁包围盒后长尾侵入邻笔），而相似
+        # 类型的模板反而可能更合身（横折钩↔横折的设计摇摆）
+        if fontEntry.libraryB:
+            for tc in [t] + similarTypes(t):
+                ent = findLibEntry(fontEntry.libraryB, tc)
+                if not ent:
+                    continue
+                try:
+                    skel = fontEntry.ensureSkeleton(ent, dataHub)
+                    eb = ent["outlineBBox"]
+                    kb2 = kaiStrokeBBoxes[k]
+                    c0 = affine((kb2.x0, kb2.y0))
+                    c1 = affine((kb2.x1, kb2.y1))
+                    tw = max(1.0, c1[0] - c0[0])
+                    th = max(1.0, c1[1] - c0[1])
+                    ew = max(1.0, eb[2] - eb[0])
+                    ehh = max(1.0, eb[3] - eb[1])
+                    cand = [(c0[0] + (p[0] - eb[0]) * tw / ew,
+                             c0[1] + (p[1] - eb[1]) * th / ehh) for p in skel]
+                    if _medianMismatch(cand, kaiPlaced):
+                        continue
+                    placed = cand
+                    templateSources.append(
+                        ent["source"] + ("" if tc == t else "（借%s）" % tc))
                     templateEnts.append(ent)
-            except Exception:
-                placed = None
+                    break
+                except Exception:
+                    continue
         if placed is None:
-            placed = [affine(p) for p in m]
+            placed = kaiPlaced
             templateSources.append("楷体中轴线(B库缺类型/形态错配)")
             templateEnts.append(None)
         medians.append(placed)
@@ -318,26 +328,44 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             groupCentroids[g] = (sum(p[0] for p in pts) / len(pts),
                                  sum(p[1] for p in pts) / len(pts))
 
+    groupBBoxes = {}
+    groupCoarse = {}
+    for g in range(nGroups):
+        pts = [p for poly in groupOuters[g] for p in poly]
+        groupBBoxes[g] = bboxOfPoints(pts) if pts else None
+        groupCoarse[g] = [resamplePolyline(poly, 30)
+                          for poly in groupOuters[g] + groupHoles[g]]
+
     def strokeGroupCost(k):
-        """笔画→各组的"墨距离"（墨内=0，否则到组内任一轮廓边界的最近
-        距离）均值向量。inside 占比法对 ⊓ 形带状轮廓失效（鸿蒙"日"的竖
-        中轴悬在空腔里），距离法对带状/实心都稳。"""
+        """笔画→各组的"墨距离"（墨内=0，否则到组边界最近距离）均值向量。
+        inside 占比法对 ⊓ 形带状轮廓失效（鸿蒙"日"的竖中轴悬在空腔里），
+        距离法对带状/实心都稳。性能：远组用包围盒距离下界代替精算（远组
+        只在匈牙利被迫指派时才可能选中，下界不影响近组排序）；近组的
+        边界距离用粗采样折线。"""
         rm = resamplePolyline([tuple(p) for p in initMedians[k]], 20)
+        mb = bboxOfPoints(rm)
         row = []
         for g in range(nGroups):
-            outers = groupOuters[g]
-            holes = groupHoles[g]
-            polys = outers + holes
-            if not polys:
+            bb = groupBBoxes[g]
+            if bb is None:
                 row.append(1e18)
                 continue
+            gapX = max(0.0, max(mb.x0, bb.x0) - min(mb.x1, bb.x1))
+            gapY = max(0.0, max(mb.y0, bb.y0) - min(mb.y1, bb.y1))
+            gap = math.hypot(gapX, gapY)
+            if gap > 60.0:
+                row.append(gap)
+                continue
+            outers = groupOuters[g]
+            holes = groupHoles[g]
             total = 0.0
             for p in rm:
                 if any(pointInPolygon(p, poly) for poly in outers) and \
                    not any(pointInPolygon(p, hp) for hp in holes):
                     d = 0.0
                 else:
-                    d = min(nearestOnPolyline(p, poly)["d"] for poly in polys)
+                    d = min(nearestOnPolyline(p, poly)["d"]
+                            for poly in groupCoarse[g])
                 total += d
             row.append(total / (len(rm) or 1))
         return row
@@ -905,23 +933,27 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     # 一段边界线），用骨架走廊∩本组区域补一个实体，再进收口。
     # 饿死救济：走廊在 rescueStarved 内用组局部仿射从楷体中轴线构造
     # （全局仿射/精调种子都会歪，见函数注释）
-    booleanClamp.rescueStarved(contours, strokes, kai["strokes"], kai["medians"])
+    _glyph = booleanClamp.glyphRegion(contours)  # 只算一次，收口各环节复用
+    booleanClamp.rescueStarved(contours, strokes, kai["strokes"],
+                               kai["medians"], glyph=_glyph)
     unionCheck = None
     if applyBooleanClamp:
-        unionCheck = booleanClamp.clampStrokes(contours, strokes)
+        unionCheck = booleanClamp.clampStrokes(contours, strokes, glyph=_glyph)
         # 裁剪可能把"整笔落在墨外"的退化笔置 failed——重走饿死救济
         # （救济走廊∩本组区域必在字形内，不会引入新溢出）后再收口一次
         if any(s["failed"] for s in strokes):
             booleanClamp.rescueStarved(contours, strokes,
-                                       kai["strokes"], kai["medians"])
-            unionCheck = booleanClamp.clampStrokes(contours, strokes)
+                                       kai["strokes"], kai["medians"],
+                                       glyph=_glyph)
+            unionCheck = booleanClamp.clampStrokes(contours, strokes,
+                                                   glyph=_glyph)
         # 单笔单连通终态收口：回填/减除偶发的断笔在此修复
         booleanClamp.enforceConnectivity(contours, strokes)
         # 终态校验统一按实际路径口径（clampStrokes 返回值基于裁剪区域，
         # 会掩盖未被替换路径的残余溢出）
-        unionCheck = booleanClamp.reUnionCheck(contours, strokes)
+        unionCheck = booleanClamp.reUnionCheck(contours, strokes, glyph=_glyph)
     if unionCheck is None:
-        unionCheck = booleanClamp.reUnionCheck(contours, strokes)
+        unionCheck = booleanClamp.reUnionCheck(contours, strokes, glyph=_glyph)
 
     _tick("收口")
 
@@ -961,7 +993,8 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     # ------------------------------------------------------------ 自洽回灌
     # 第一遍拆完后，用每笔自身几何重提干净中轴作种子重跑一遍匹配；
     # 双指标（失败笔数、retain+shapeSim）择优采用，防止吞并式虚高
-    if selfConsistent and seedMedians is None:
+    _noFail = not any(s["failed"] for s in strokes)
+    if selfConsistent and seedMedians is None and             not (_noFail and _meanOf(result, "retainRatio") >= 0.995):
         seeds = _selfSeeds(result)
         if seeds:
             r2 = runPipeline(dataHub, fontEntry, ch, applyBooleanClamp,
