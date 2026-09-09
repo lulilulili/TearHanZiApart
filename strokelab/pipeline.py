@@ -762,7 +762,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     # ------------------------------------------------------------ 布尔收口 + 校验
     # 饿死救济先行：切割中颗粒无收/零宽退化环的笔（宾的宀左点曾只得
     # 一段边界线），用骨架走廊∩本组区域补一个实体，再进收口。
-    booleanClamp.rescueStarved(contours, strokes, kai["strokes"])
+    booleanClamp.rescueStarved(contours, strokes, kai["strokes"], initMedians)
     unionCheck = None
     if applyBooleanClamp:
         unionCheck = booleanClamp.clampStrokes(contours, strokes)

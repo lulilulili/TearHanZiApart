@@ -117,10 +117,12 @@ def _piecesOf(region):
     return [g for g in getattr(region, "geoms", []) if isinstance(g, Polygon)]
 
 
-def rescueStarved(contours, strokes, kaiStrokePaths):
-    """饿死救济：重构后面积不足楷体占比预期 15% 的笔（含零宽退化环），
-    用自己骨架中轴线的走廊（median 按笔宽 buffer）∩ 本组轮廓区域作为
-    救济区域——纯矢量、必在字形内；与邻笔重叠=双重归属，允许。
+def rescueStarved(contours, strokes, kaiStrokePaths, initMedians=None):
+    """饿死救济：重构后面积不足楷体占比预期 35% 的笔（含零宽退化环），
+    用骨架走廊（中轴线按笔宽 buffer）∩ 本组轮廓区域作为救济区域——
+    纯矢量、必在字形内。走廊中轴线优先用初始设计位置（initMedians，
+    按楷体结构定位的骨架）：饿死笔的精调中轴线是被少量杂散样本带歪
+    的，不可用。与邻笔重叠=双重归属，允许。
     并集恒等仍由随后的 clampStrokes 保证。返回被救济的笔序号列表。"""
     from shapely.geometry import LineString
 
@@ -167,13 +169,18 @@ def rescueStarved(contours, strokes, kaiStrokePaths):
                        if s.get("width"))
     medWidth = widthsAll[len(widthsAll) // 2] if widthsAll else 60.0
     for i, s in enumerate(strokes):
-        median = s.get("median")
-        if not median or len(median) < 2:
+        median = None
+        if initMedians is not None and i < len(initMedians) \
+                and initMedians[i] and len(initMedians[i]) >= 2:
+            median = initMedians[i]
+        elif s.get("median") and len(s["median"]) >= 2:
+            median = s["median"]
+        if median is None:
             continue
         cur = None if s["failed"] else _evenOddRegion(_loopPolys(s["path"]))
         curArea = cur.area if cur is not None else 0.0
         expect = glyph.area * (kaiAreas[i] / kaiTotal if i < len(kaiAreas) else 0.0)
-        if curArea >= max(100.0, expect * 0.15):
+        if curArea >= max(100.0, expect * 0.35):
             continue
         region = regionOfGroup(s.get("group"))
         if region is None or region.is_empty:
@@ -191,7 +198,7 @@ def rescueStarved(contours, strokes, kaiStrokePaths):
         if pieces:
             # 走廊穿过孔洞/间隙会碎成多片，只留最大片（真身）防 SPLIT
             body = max(pieces, key=lambda g: g.area)
-        if body.is_empty or body.area < 25:
+        if body.is_empty or body.area < 25 or body.area < curArea * 1.5:
             continue
         p = _regionToPath(body)
         if not p:

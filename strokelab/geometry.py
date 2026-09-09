@@ -266,7 +266,11 @@ def resamplePolyline(pts, step=15.0):
 
 
 def analyzeContours(contours):
-    """外轮廓/孔洞/连通组标注。嵌套=8采样点≥80%在内（重叠≠嵌套）。"""
+    """外轮廓/孔洞/连通组标注。
+    判孔用绕向法：nonzero 字体外环与孔环绕向相反（以面积最大轮廓的
+    绕向为正类）。旧的嵌套深度奇偶法与 nonzero 填充不等价——"孔中
+    悬浮实体"（亘的日中横悬在内腔孔洞里）会被大孔整个抠掉。
+    嵌套关系仍用于孔洞归属（挂到最深的包含外环）。"""
     for c in contours:
         c["poly"] = flattenSegs(c["segs"], 10)
         c["area"] = signedArea(c["poly"])
@@ -281,6 +285,10 @@ def analyzeContours(contours):
         return cnt >= len(pts) * 0.8
 
     n = len(contours)
+    outerSign = 1.0
+    if contours:
+        outerSign = 1.0 if max(contours, key=lambda c: abs(c["area"]))["area"] >= 0 \
+            else -1.0
     depth = [0] * n
     for i in range(n):
         for j in range(n):
@@ -288,7 +296,7 @@ def analyzeContours(contours):
                 depth[i] += 1
     groupCount = 0
     for i, c in enumerate(contours):
-        c["isHole"] = depth[i] % 2 == 1
+        c["isHole"] = c["area"] * outerSign < 0
         c["group"] = -1
     for c in contours:
         if not c["isHole"]:
