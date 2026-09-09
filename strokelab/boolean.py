@@ -39,7 +39,13 @@ def _evenOddRegion(polys):
     """多环按奇偶合成区域（环形段=外环⊕孔环）。"""
     region = None
     for pg in polys:
-        region = pg if region is None else region.symmetric_difference(pg)
+        if region is None:
+            region = pg
+        else:
+            try:
+                region = region.symmetric_difference(pg)
+            except Exception:
+                region = region.buffer(0).symmetric_difference(pg.buffer(0))
     if region is None:
         return None
     if not region.is_valid:
