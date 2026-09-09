@@ -9,10 +9,12 @@ clampStrokes：
      无问题的笔画保留原始贝塞尔精确切片路径。
 """
 
+import math
+
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import unary_union
 
-from .geometry import parseContours, flattenSegs
+from .geometry import parseContours, flattenSegs, shapeDescriptor
 
 _FLAT = 3.0  # 布尔运算用的细分步长
 
@@ -117,13 +119,15 @@ def _piecesOf(region):
     return [g for g in getattr(region, "geoms", []) if isinstance(g, Polygon)]
 
 
-def rescueStarved(contours, strokes, kaiStrokePaths, initMedians=None):
+def rescueStarved(contours, strokes, kaiStrokePaths, kaiMedians=None):
     """饿死救济：重构后面积不足楷体占比预期 35% 的笔（含零宽退化环），
     用骨架走廊（中轴线按笔宽 buffer）∩ 本组轮廓区域作为救济区域——
-    纯矢量、必在字形内。走廊中轴线优先用初始设计位置（initMedians，
-    按楷体结构定位的骨架）：饿死笔的精调中轴线是被少量杂散样本带歪
-    的，不可用。与邻笔重叠=双重归属，允许。
-    并集恒等仍由随后的 clampStrokes 保证。返回被救济的笔序号列表。"""
+    纯矢量、必在字形内。走廊中轴线用楷体中轴线经**组局部仿射**映射
+    （楷体同组笔画包围盒→目标组轮廓包围盒）：全局仿射在部件比例
+    差异大时会把楷体底横映到目标腔体中间（鸿蒙咋的口字旁全高瘦长、
+    楷体口字旁在中上部）；精调中轴线被杂散样本带歪更不可用。
+    与邻笔重叠=双重归属，允许，并从侵占邻笔区域减掉救济体恢复真
+    划分。并集恒等仍由随后的 clampStrokes 保证。返回被救济笔序号。"""
     from shapely.geometry import LineString
 
     glyph = glyphRegion(contours)
@@ -168,19 +172,52 @@ def rescueStarved(contours, strokes, kaiStrokePaths, initMedians=None):
     widthsAll = sorted(float(s.get("width") or 0.0) for s in strokes
                        if s.get("width"))
     medWidth = widthsAll[len(widthsAll) // 2] if widthsAll else 60.0
+
+    groupStrokeIdx = {}
     for i, s in enumerate(strokes):
-        median = None
-        if initMedians is not None and i < len(initMedians) \
-                and initMedians[i] and len(initMedians[i]) >= 2:
-            median = initMedians[i]
-        elif s.get("median") and len(s["median"]) >= 2:
-            median = s["median"]
-        if median is None:
-            continue
+        groupStrokeIdx.setdefault(s.get("group"), []).append(i)
+
+    def structMedian(i, g):
+        """楷体中轴线经组局部仿射（楷体同组笔画包围盒→目标组区域包围盒）。"""
+        if kaiMedians is None or i >= len(kaiMedians) or not kaiMedians[i]:
+            return None
+        region = regionOfGroup(g)
+        if region is None or region.is_empty:
+            return None
+        tb = region.bounds
+        ks = groupStrokeIdx.get(g, [i])
+        xs = [p[0] for k in ks if k < len(kaiMedians) for p in kaiMedians[k]]
+        ys = [p[1] for k in ks if k < len(kaiMedians) for p in kaiMedians[k]]
+        if not xs:
+            return None
+        kx0, kx1 = min(xs), max(xs)
+        ky0, ky1 = min(ys), max(ys)
+        sx = (tb[2] - tb[0]) / max(1.0, kx1 - kx0)
+        sy = (tb[3] - tb[1]) / max(1.0, ky1 - ky0)
+        return [(tb[0] + (p[0] - kx0) * sx, tb[1] + (p[1] - ky0) * sy)
+                for p in kaiMedians[i]]
+
+    for i, s in enumerate(strokes):
         cur = None if s["failed"] else _evenOddRegion(_loopPolys(s["path"]))
         curArea = cur.area if cur is not None else 0.0
         expect = glyph.area * (kaiAreas[i] / kaiTotal if i < len(kaiAreas) else 0.0)
-        if curArea >= max(100.0, expect * 0.35):
+        starved = curArea < max(100.0, expect * 0.35)
+        # 轴向病判：横/竖笔的轮廓 PCA 主轴严重背离（>45°）= 切错拿了
+        # 邻笔的竖片/横片（鸿蒙咋的口底横曾拿到壁上竖条），同样重建
+        misAxis = False
+        if not starved and cur is not None and s.get("type") in ("横", "竖"):
+            d = shapeDescriptor([s["path"]])
+            if d and d["elong"] >= 1.8:
+                ang = abs(math.degrees(d["mainAngle"])) % 180.0
+                dev = min(ang, 180.0 - ang) if s["type"] == "横" \
+                    else abs(ang - 90.0)
+                misAxis = dev > 45.0
+        if not starved and not misAxis:
+            continue
+        median = structMedian(i, s.get("group"))
+        if median is None or len(median) < 2:
+            median = s.get("median")
+        if not median or len(median) < 2:
             continue
         region = regionOfGroup(s.get("group"))
         if region is None or region.is_empty:
@@ -189,6 +226,40 @@ def rescueStarved(contours, strokes, kaiStrokePaths, initMedians=None):
         w = max(float(s.get("width") or 0.0), medWidth, 30.0)
         try:
             corridor = LineString([tuple(p) for p in median]).buffer(w * 0.6)
+            # 位置吸附：bbox 线性映射在部件比例非线性差异时会把走廊放
+            # 进腔体（楷体口矮胖底横占30%高、鸿蒙口瘦高占12%，映射落在
+            # 孔洞中，与两壁的交仍不小但全是碎竖片）。沿法向滑动搜索，
+            # 评分用"最大单片面积"（墨带整片必胜壁上碎片），取"达最优
+            # 80%中位移最小"的位置。
+            from shapely.affinity import translate
+
+            def biggestPiece(geom):
+                ps = _piecesOf(geom)
+                return max((g.area for g in ps), default=0.0)
+
+            ddx = median[-1][0] - median[0][0]
+            ddy = median[-1][1] - median[0][1]
+            LL = math.hypot(ddx, ddy) or 1.0
+            nx, ny = -ddy / LL, ddx / LL
+            rb = region.bounds
+            span = max(rb[2] - rb[0], rb[3] - rb[1])
+            cands = []
+            for t in range(-10, 11):
+                off = span * 0.5 * t / 10.0
+                c2 = corridor if t == 0 else \
+                    translate(corridor, xoff=nx * off, yoff=ny * off)
+                try:
+                    a = biggestPiece(c2.intersection(region))
+                except Exception:
+                    a = 0.0
+                cands.append((a, abs(off), off))
+            bestA = max(a for a, _, _ in cands)
+            if bestA <= 0:
+                continue
+            good = min((ab, off) for a, ab, off in cands if a >= bestA * 0.8)
+            if abs(good[1]) > 1e-9:
+                corridor = translate(corridor, xoff=nx * good[1],
+                                     yoff=ny * good[1])
             body = corridor.intersection(region)
             if not body.is_valid:
                 body = body.buffer(0)
@@ -198,7 +269,13 @@ def rescueStarved(contours, strokes, kaiStrokePaths, initMedians=None):
         if pieces:
             # 走廊穿过孔洞/间隙会碎成多片，只留最大片（真身）防 SPLIT
             body = max(pieces, key=lambda g: g.area)
-        if body.is_empty or body.area < 25 or body.area < curArea * 1.5:
+        if body.is_empty or body.area < 25:
+            continue
+        # 饿死救济要求救济体明显大于现状；轴向病重建则是形状置换，
+        # 只要求救济体像样（≥楷体占比预期的1/4）
+        if starved and body.area < curArea * 1.5:
+            continue
+        if misAxis and body.area < expect * 0.25:
             continue
         p = _regionToPath(body)
         if not p:

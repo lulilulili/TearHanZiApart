@@ -114,7 +114,13 @@ def evenOddRegion(pathStr):
     """笔画区域：多环奇偶合成（环形笔画=外环⊕孔环）。"""
     region = None
     for pg, _ in _polys(pathStr):
-        region = pg if region is None else region.symmetric_difference(pg)
+        if region is None:
+            region = pg
+        else:
+            try:
+                region = region.symmetric_difference(pg)
+            except Exception:
+                region = region.buffer(0).symmetric_difference(pg.buffer(0))
     if region is not None and not region.is_valid:
         region = region.buffer(0)
     return region
