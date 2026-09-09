@@ -185,6 +185,59 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     initMedians = [[tuple(p) for p in m] for m in medians]
     nStrokes = len(medians)
 
+    # ------------------------------------------------------------ 连通组分治
+    # 公理（用户校验①②）：正常字体设计中，同一笔画不会断成两个孤立连通组。
+    # 按初始设计位置把每笔指定到唯一连通组，归属评分只允许本组笔画竞争本组
+    # 轮廓 —— 跨组污染结构上不可能；组数=笔画数时每组恰一笔，自动退化为
+    # "整组直出"（保留率100%、零切割）；部分孤立时自动分组分治。
+    nGroups = max((c["group"] for c in contours), default=-1) + 1
+    groupOuters = {g: [c["poly"] for c in contours
+                       if c["group"] == g and not c["isHole"]]
+                   for g in range(nGroups)}
+    groupHoles = {g: [c["poly"] for c in contours
+                      if c["group"] == g and c["isHole"]]
+                  for g in range(nGroups)}
+    groupCentroids = {}
+    for g, polys in groupOuters.items():
+        pts = [p for poly in polys for p in poly]
+        if pts:
+            groupCentroids[g] = (sum(p[0] for p in pts) / len(pts),
+                                 sum(p[1] for p in pts) / len(pts))
+
+    def strokeGroupOf(k):
+        """笔画→组：中轴线各点到组的"墨距离"（墨内=0，否则到组内任一轮廓
+        边界的最近距离）取均值，argmin。inside 占比法对 ⊓ 形带状轮廓失效
+        （鸿蒙"日"的竖中轴悬在空腔里），距离法对带状/实心都稳。"""
+        rm = resamplePolyline([tuple(p) for p in initMedians[k]], 20)
+        best, bestAvg = 0, 1e18
+        for g in range(nGroups):
+            outers = groupOuters[g]
+            holes = groupHoles[g]
+            polys = outers + holes
+            if not polys:
+                continue
+            total = 0.0
+            for p in rm:
+                if any(pointInPolygon(p, poly) for poly in outers) and \
+                   not any(pointInPolygon(p, hp) for hp in holes):
+                    d = 0.0
+                else:
+                    d = min(nearestOnPolyline(p, poly)["d"] for poly in polys)
+                total += d
+            avg = total / (len(rm) or 1)
+            if avg < bestAvg:
+                bestAvg, best = avg, g
+        return best
+
+    strokeGroup = [strokeGroupOf(k) for k in range(nStrokes)]
+    groupStrokes = {g: [k for k in range(nStrokes) if strokeGroup[k] == g]
+                    for g in range(nGroups)}
+    for g in range(nGroups):
+        if not groupStrokes[g]:  # 无笔画映射到该组（异常兜底）：放开限制
+            groupStrokes[g] = list(range(nStrokes))
+    contourAllowed = [groupStrokes.get(c["group"], list(range(nStrokes)))
+                      for c in contours]
+
     # ------------------------------------------------------------ 迭代归属+精调
     glyphArea = sum((-abs(c["area"]) if c["isHole"] else abs(c["area"]))
                     for c in contours)
@@ -223,20 +276,31 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         dirPen = 1 - abs(tan[0] * near["tan"][0] + tan[1] * near["tan"][1])
         return near["d"] / halfW + 0.5 * dirPen
 
-    def labelOf(pt, tan):
-        best, bestScore = 0, 1e18
-        for k in range(nStrokes):
+    def labelOf(pt, tan, allowed=None):
+        cand = allowed if allowed is not None else range(nStrokes)
+        best, bestScore = next(iter(cand)), 1e18
+        for k in cand:
             sc = scoreOf(pt, tan, k)
             if sc < bestScore:
                 bestScore, best = sc, k
         return best
 
+    usedKaiFallback = [False] * nStrokes
     for it in range(ITERS):
         assigned = [[] for _ in range(nStrokes)]
-        for arr in sampleSets:
+        for ci, arr in enumerate(sampleSets):
             for sm in arr:
-                sm["label"] = labelOf(sm["pt"], sm["tan"])
+                sm["label"] = labelOf(sm["pt"], sm["tan"], contourAllowed[ci])
                 assigned[sm["label"]].append(sm["pt"])
+        # 饿死自救：某笔颗粒无收 ⇒ 其 B 模板骨架劣质/错位（如 TC 竖变体），
+        # D 退回楷体中轴线重新参赛——楷体位置由结构 C 保证，只输形态不输位置
+        for k in range(nStrokes):
+            if len(assigned[k]) < 6 and not usedKaiFallback[k]:
+                usedKaiFallback[k] = True
+                medians[k] = [affine(p) for p in kai["medians"][k]]
+                initMedians[k] = [tuple(p) for p in medians[k]]
+                scoreMedians[k] = extendMedian(
+                    medians[k], min(70.0, widths[k] * 1.1))
         for k in range(nStrokes):
             pts = assigned[k]
             if not pts:
@@ -319,7 +383,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             votes[sm["label"]] = votes.get(sm["label"], 0) + 1
         nSamp = len(sampleSets[ci]) or 1
         fracs = []
-        for k in range(nStrokes):
+        for k in contourAllowed[ci]:
             fr = fracInside(resampledMedians[k], c["poly"])
             fi = fracInside(resampledInit[k], c["poly"])
             fracs.append((max(fr, fi), min(fr, fi), fi, fr, k))
@@ -370,8 +434,12 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 corners.add(j % nSeg)
         cornerSets.append(corners)
     wMedFinal = sorted(widths)[len(widths) // 2] or w0
+    # 饿死保护基数只数非孔洞样本：孔洞标签稍后镜像外缘，外缘被整弧改判的
+    # 损失会在孔洞上翻倍，用全量基数会让保护被绕过（TC"中"左竖曾因此饿死）
     arcTotals = [0] * nStrokes
-    for arr in sampleSets:
+    for cj, arr in enumerate(sampleSets):
+        if contours[cj]["isHole"]:
+            continue
         for sm in arr:
             arcTotals[sm["label"]] += 1
 
@@ -426,7 +494,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     if cp is not None:
                         probes.append((cp, sm["tan"]))
                 if probes:
-                    for k in range(nStrokes):
+                    for k in contourAllowed[ci]:
                         sc = sum(scoreOf(cp, tn, k) for cp, tn in probes) \
                             / len(probes)
                         if sc < bestSc:
@@ -437,7 +505,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                         cnt[l] = cnt.get(l, 0) + 1
                     bestK = max(cnt, key=cnt.get)
             else:
-                for k in range(nStrokes):
+                for k in contourAllowed[ci]:
                     sc = sum(scoreOf(arr[i]["pt"], arr[i]["tan"], k)
                              for i in idxs) / len(idxs)
                     if sc < bestSc:
@@ -467,7 +535,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         for sm in sampleSets[ci]:
             best, bestD = -1, 1e18
             for cj, c2 in enumerate(contours):
-                if c2["isHole"]:
+                if c2["isHole"] or c2["group"] != c["group"]:
                     continue
                 for sm2 in sampleSets[cj]:
                     d = dist(sm["pt"], sm2["pt"])
@@ -550,7 +618,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 for _ in range(22):
                     mid = (s0 + s1) / 2
                     pt, tan = paramAt(mid % segCount)
-                    if labelOf(pt, tan) == a["label"]:
+                    if labelOf(pt, tan, contourAllowed[ci]) == a["label"]:
                         s0 = mid
                     else:
                         s1 = mid
