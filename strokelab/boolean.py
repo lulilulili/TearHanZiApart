@@ -340,7 +340,9 @@ def enforceConnectivity(contours, strokes, maxRounds=3, glyph=None):
             big.sort(key=lambda g: -g.area)
             keep = r
             for piece in big[1:]:
-                pb = piece.buffer(1.5)
+                # 探测半径放宽到 4：裁剪的数值缝隙曾让残片"无人接壤"而
+                # 滞留原主（TC威的竖捺）；仍找不到接壤者则给距离最近的笔
+                pb = piece.buffer(4.0)
                 bestJ, bestShare = -1, 1.0
                 for j, r2 in enumerate(regions):
                     if j == i or r2 is None or r2.is_empty:
@@ -351,6 +353,17 @@ def enforceConnectivity(contours, strokes, maxRounds=3, glyph=None):
                         share = 0.0
                     if share > bestShare:
                         bestShare, bestJ = share, j
+                if bestJ < 0:
+                    bestD = 1e18
+                    for j, r2 in enumerate(regions):
+                        if j == i or r2 is None or r2.is_empty:
+                            continue
+                        try:
+                            d = piece.distance(r2)
+                        except Exception:
+                            continue
+                        if d < bestD:
+                            bestD, bestJ = d, j
                 if bestJ < 0:
                     continue
                 keep = keep.difference(piece)

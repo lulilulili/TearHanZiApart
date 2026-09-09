@@ -14,7 +14,8 @@ from .geometry import (lineSeg, cubicSeg, dist, parseContours, contourToPath,
                        nearestOnPolyline, segLength, bezPoint,
                        shapeDescriptor, shapeSimilarity, refineMedianFit)
 from .classify import (PROBE_TABLE, TYPE_ORDER, CJK_STROKE_NAMES,
-                       CJK_STROKE_ABBR, typeOfStroke, matchTier, findLibEntry)
+                       CJK_STROKE_ABBR, typeOfStroke, matchTier, findLibEntry,
+                       parseProbes)
 
 _ALGO_SIG = None
 
@@ -259,8 +260,10 @@ class FontEntry:
                     "strokeHits": strokeHits, "g": g}
 
         for t in TYPE_ORDER:
+            if t in lib:
+                continue  # 来源1（Unicode 笔画区）已明确该类型，短路其他途径
             candidates = []
-            for ch in PROBE_TABLE[t]:
+            for ch, idx in parseProbes(PROBE_TABLE[t]):
                 if ch not in analyzed:
                     analyzed[ch] = analyzeChar(ch)
                 an = analyzed[ch]
@@ -270,9 +273,15 @@ class FontEntry:
                     k = an["groupToStroke"][gi]
                     if k < 0 or len(an["strokeHits"][k]) != 1:
                         continue
-                    tier = matchTier(typeOfStroke(ch, k, an["g"]["medians"]), t)
-                    if not tier:
-                        continue
+                    if idx is not None:
+                        # 规则表明确笔序：只认该笔，跳过类型自动匹配
+                        if k != idx:
+                            continue
+                        tier = 1
+                    else:
+                        tier = matchTier(typeOfStroke(ch, k, an["g"]["medians"]), t)
+                        if not tier:
+                            continue
                     cand = {"type": t, "tier": tier,
                             "contours": [contourToPath(c["segs"])
                                          for c in an["cs"] if c["group"] == gi],
@@ -313,7 +322,7 @@ class FontEntry:
             if findLibEntry(self.libraryB, t) is not None:
                 continue
             tried = 0
-            for ch in PROBE_TABLE[t]:
+            for ch, idx in parseProbes(PROBE_TABLE[t]):
                 if tried >= maxCharsPerType:
                     break
                 if not self.hasChar(ch) or not dataHub.hasKai(ch):
@@ -331,7 +340,13 @@ class FontEntry:
                     continue
                 best = None
                 for s in r["strokes"]:
-                    if s["failed"] or not matchTier(s["type"], t):
+                    if s["failed"]:
+                        continue
+                    # 规则表明确笔序：只认该笔；否则按类型匹配
+                    if idx is not None:
+                        if s["index"] != idx:
+                            continue
+                    elif not matchTier(s["type"], t):
                         continue
                     # 保留率≥90% ≈ 整条孤立轮廓，就是该字体笔画的真身，
                     # 不再要求与楷体形似（风格化字体恰恰在这里最不像楷体）

@@ -20,6 +20,23 @@ PROBE_TABLE = {
 }
 TYPE_ORDER = list(PROBE_TABLE.keys())
 
+
+def parseProbes(spec):
+    """规则表条目解析："太4犬4" → [("太",3),("犬",3)]（内部 0 基）。
+    字后跟数字=明确取该字第 n 笔（不再靠投票/类型匹配自己猜）；
+    不跟数字=自动匹配（兼容旧格式）。"""
+    out = []
+    i = 0
+    while i < len(spec):
+        ch = spec[i]
+        i += 1
+        j = i
+        while j < len(spec) and spec[j].isdigit():
+            j += 1
+        out.append((ch, int(spec[i:j]) - 1 if j > i else None))
+        i = j
+    return out
+
 SINGLE_STROKE_TYPES = {"一": "横", "丨": "竖", "丶": "点", "丿": "撇",
                        "亅": "竖钩", "乙": "横折弯钩"}
 
