@@ -15,7 +15,40 @@ from .geometry import (lineSeg, cubicSeg, dist, parseContours, contourToPath,
                        shapeDescriptor, shapeSimilarity, refineMedianFit)
 from .classify import (PROBE_TABLE, TYPE_ORDER, CJK_STROKE_NAMES,
                        CJK_STROKE_ABBR, typeOfStroke, matchTier, findLibEntry,
-                       parseProbes)
+                       parseProbes, PROBE_POSITIONS, similarTypes)
+
+
+def _resolveProbeStroke(dataHub, ch, t, pos):
+    """位置词 → 笔序：在该字楷体笔画中先按类型过滤（本类型或相似组），
+    再取中轴线质心最靠近指定方位（归一化九宫格）的那笔。"""
+    g = dataHub.geom(ch)
+    if not g or not g.get("medians"):
+        return None
+    medians = g["medians"]
+    pts = [p for m in medians for p in m]
+    x0 = min(p[0] for p in pts)
+    x1 = max(p[0] for p in pts)
+    y0 = min(p[1] for p in pts)
+    y1 = max(p[1] for p in pts)
+    w = max(1.0, x1 - x0)
+    h = max(1.0, y1 - y0)
+    tx, ty = PROBE_POSITIONS[pos]
+    sim = set(similarTypes(t))
+
+    def normCenter(m):
+        cx = sum(p[0] for p in m) / len(m)
+        cy = sum(p[1] for p in m) / len(m)
+        return ((cx - x0) / w, (cy - y0) / h)
+
+    cand = []
+    for k in range(len(medians)):
+        tk = typeOfStroke(ch, k, medians)
+        if matchTier(tk, t) or tk in sim:
+            cand.append(k)
+    if not cand:
+        cand = list(range(len(medians)))
+    return min(cand, key=lambda k: (normCenter(medians[k])[0] - tx) ** 2 +
+               (normCenter(medians[k])[1] - ty) ** 2)
 
 _ALGO_SIG = None
 
@@ -263,7 +296,9 @@ class FontEntry:
             if t in lib:
                 continue  # 来源1（Unicode 笔画区）已明确该类型，短路其他途径
             candidates = []
-            for ch, idx in parseProbes(PROBE_TABLE[t]):
+            for ch, idx, pos in parseProbes(PROBE_TABLE[t]):
+                if idx is None and pos is not None:
+                    idx = _resolveProbeStroke(dataHub, ch, t, pos)
                 if ch not in analyzed:
                     analyzed[ch] = analyzeChar(ch)
                 an = analyzed[ch]
@@ -322,7 +357,9 @@ class FontEntry:
             if findLibEntry(self.libraryB, t) is not None:
                 continue
             tried = 0
-            for ch, idx in parseProbes(PROBE_TABLE[t]):
+            for ch, idx, pos in parseProbes(PROBE_TABLE[t]):
+                if idx is None and pos is not None:
+                    idx = _resolveProbeStroke(dataHub, ch, t, pos)
                 if tried >= maxCharsPerType:
                     break
                 if not self.hasChar(ch) or not dataHub.hasKai(ch):

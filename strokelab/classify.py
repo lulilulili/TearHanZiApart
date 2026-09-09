@@ -20,21 +20,43 @@ PROBE_TABLE = {
 }
 TYPE_ORDER = list(PROBE_TABLE.keys())
 
+# 位置词 → 归一化坐标（楷体空间 y 向上；x 0=左 1=右，y 0=下 1=上）
+PROBE_POSITIONS = {
+    "上": (0.5, 0.8), "下": (0.5, 0.2), "左": (0.2, 0.5), "右": (0.8, 0.5),
+    "中": (0.5, 0.5), "左上": (0.2, 0.8), "右上": (0.8, 0.8),
+    "左下": (0.2, 0.2), "右下": (0.8, 0.2),
+}
+
 
 def parseProbes(spec):
-    """规则表条目解析："太4犬4" → [("太",3),("犬",3)]（内部 0 基）。
-    字后跟数字=明确取该字第 n 笔（不再靠投票/类型匹配自己猜）；
-    不跟数字=自动匹配（兼容旧格式）。"""
+    """规则表条目解析，三种写法共存（空格可选）：
+      "太"      自动匹配（按类型投票，兼容旧格式）
+      "太4"     明确笔序：取第 4 笔
+      "太·右下" 相对位置：类型过滤后取质心最靠近该方位的笔
+    → [(字, 笔序0基|None, 位置词|None), ...]"""
     out = []
     i = 0
     while i < len(spec):
         ch = spec[i]
         i += 1
+        if ch.isspace():
+            continue
+        idx = None
+        pos = None
         j = i
         while j < len(spec) and spec[j].isdigit():
             j += 1
-        out.append((ch, int(spec[i:j]) - 1 if j > i else None))
-        i = j
+        if j > i:
+            idx = int(spec[i:j]) - 1
+            i = j
+        elif i < len(spec) and spec[i] == "·":
+            i += 1
+            for w in sorted(PROBE_POSITIONS, key=len, reverse=True):
+                if spec.startswith(w, i):
+                    pos = w
+                    i += len(w)
+                    break
+        out.append((ch, idx, pos))
     return out
 
 SINGLE_STROKE_TYPES = {"一": "横", "丨": "竖", "丶": "点", "丿": "撇",
