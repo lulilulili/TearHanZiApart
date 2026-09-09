@@ -754,6 +754,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             "median": [[round(p[0], 1), round(p[1], 1)] for p in medians[k]],
             "width": widths[k],
             "template": templateSources[k],
+            "group": strokeGroup[k],
             "templatePath": templatePaths[k],
             "failed": not pathD,
         })
@@ -784,6 +785,11 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         "cutPoints": [[round(cp["pt"][0], 1), round(cp["pt"][1], 1)]
                       for cp in cutPoints],
         "strokes": strokes,
+        "groups": [{"id": g,
+                    "strokes": [k for k in range(nStrokes) if strokeGroup[k] == g],
+                    "isolated": sum(1 for k in range(nStrokes)
+                                    if strokeGroup[k] == g) == 1}
+                   for g in range(nGroups)],
         "unionCheck": unionCheck,
         "kai": {"strokes": kai["strokes"], "medians": kai["medians"],
                 "strokeTypes": kai["strokeTypes"], "radical": kai["radical"],

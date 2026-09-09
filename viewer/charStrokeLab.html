@@ -452,13 +452,25 @@ function renderStructure() {
 
 /* ---------------- ⑤ 流程步骤 ---------------- */
 const STEP_DEFS = [
-  { name: "S1 对齐/D", caption: "对齐与 D 构建：目标字形轮廓（灰）与每笔的 D 骨架（彩色虚线）。D 骨架 = B库同类型笔画（目标字体自己的形态，A↔B 类型映射）按楷体结构 C 给出的该笔包围盒定位；B库缺该类型时退回楷体中轴线。" },
-  { name: "S2 模板", caption: "D 的形态模板：B库同类型笔画（半透明彩色）放置到各笔位置 —— 形态先验，用于归属评分与校验；真正的拆解在 S3–S5 用真实轮廓完成。无填充的笔表示 B库缺该类型（退回楷体中轴线）。" },
-  { name: "S3 归属", caption: "边界归属：轮廓按曲率密度采样，逐点按“宽度归一化距离 + 切向一致性”归属到 D 各笔骨架，含主人判定整体归属、孔洞径向对应、标签平滑。" },
-  { name: "S4 切割", caption: "矢量切割：标签跳变处沿轮廓参数二分（22 次迭代），De Casteljau 把原始贝塞尔段精确切开 —— 保留区段与原路径逐点恒等。黑圈为切割点。" },
-  { name: "S5 重构 D′", caption: "划分式重构：环路追踪（按轮廓顺序串联弧段）+ 直割线弦桥接 + 环形笔画跨轮廓并环，交叠区双重归属；shapely 布尔收口保证所有笔画并集与原字形恒等（不多不少）。" },
-  { name: "S6 校验", caption: "一致性校验：彩色为 D′ 各笔填充（半透明，交叠区=混色=双重归属），黑色细线为原始轮廓。并集覆盖率/溢出率见⑥面板 Re-Union 校验（布尔收口后应为 100%/0%）。" },
+  { key: "s0", name: "S0 孤立识别", caption: "孤立路径识别（分组分治入口）：按外轮廓+孔洞划分连通组，每笔按初始设计位置指定唯一所属组（公理：正常字体中同一笔画不会断成两个孤立组）。仅含一笔的组（实色+✓）整组直出——该笔与该组路径精确恒等、保留率100%、零切割；多笔共存的组（半透明）进入组内竞争拆解，跨组互不干扰。" },
+  { key: "s1", name: "S1 对齐/D", caption: "对齐与 D 构建：目标字形轮廓（灰）与每笔的 D 骨架（彩色虚线）。D 骨架 = B库同类型笔画（目标字体自己的形态，A↔B 类型映射）按楷体结构 C 给出的该笔包围盒定位；B库缺该类型时退回楷体中轴线。" },
+  { key: "s2", name: "S2 模板", caption: "D 的形态模板：B库同类型笔画（半透明彩色）放置到各笔位置 —— 形态先验，用于归属评分与校验；真正的拆解在 S3–S5 用真实轮廓完成。无填充的笔表示 B库缺该类型（退回楷体中轴线）。" },
+  { key: "s3", name: "S3 归属", caption: "边界归属（组内竞争）：轮廓按曲率密度采样，逐点按“宽度归一化距离 + 切向一致性”归属到本组各笔的 D 骨架，含主人判定整体归属、孔洞径向对应、标签平滑。" },
+  { key: "s4", name: "S4 切割", caption: "矢量切割：标签跳变处沿轮廓参数二分（22 次迭代），De Casteljau 把原始贝塞尔段精确切开 —— 保留区段与原路径逐点恒等。黑圈为切割点。" },
+  { key: "s5", name: "S5 重构 D′", caption: "划分式重构：环路追踪（按轮廓顺序串联弧段）+ 直割线弦桥接 + 环形笔画跨轮廓并环，交叠区双重归属；shapely 布尔收口保证所有笔画并集与原字形恒等（不多不少）。" },
+  { key: "s6", name: "S6 校验", caption: "一致性校验：彩色为 D′ 各笔填充（半透明，交叠区=混色=双重归属），黑色细线为原始轮廓。并集覆盖率/溢出率见⑥面板 Re-Union 校验（布尔收口后应为 100%/0%）。" },
 ];
+function pathBBox(d) {
+  const nums = d.match(/-?\d+\.?\d*/g);
+  if (!nums || nums.length < 4) return null;
+  let x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e18;
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const x = +nums[i], y = +nums[i + 1];
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y);
+    x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+  }
+  return { x0, y0, x1, y1 };
+}
 function renderSteps() {
   const tabs = document.getElementById("stepTabs");
   tabs.innerHTML = "";
@@ -480,9 +492,53 @@ function renderSteps() {
     el("path", { d: s.median.map((p, j) => (j ? "L" : "M") + p[0] + " " + p[1]).join(" "),
                  fill: "none", stroke: colorOf(k), "stroke-width": 9,
                  "stroke-dasharray": "22 14", "stroke-linecap": "round" }, g));
-  if (state.stepTab === 0) {
+  const key = STEP_DEFS[state.stepTab].key;
+  if (key === "s0") {
+    /* S0：孤立路径识别——按连通组着色；孤立组实色+✓，竞争组半透明 */
+    const groups = r.groups || [];
+    r.contours.forEach(c => {
+      const gInfo = groups[c.group] || { isolated: false };
+      el("path", { d: c.path, fill: colorOf(c.group + 8),
+                   "fill-opacity": gInfo.isolated ? 0.85 : 0.28,
+                   "fill-rule": "nonzero",
+                   stroke: colorOf(c.group + 8), "stroke-width": 4 }, g);
+    });
+    const lg0 = el("g", {}, svg);
+    groups.forEach(gInfo => {
+      const polys = r.contours.filter(c => c.group === gInfo.id && !c.isHole);
+      if (!polys.length) return;
+      let bx0 = 1e18, by0 = 1e18, bx1 = -1e18, by1 = -1e18;
+      polys.forEach(c => {
+        const b = pathBBox(c.path);
+        if (!b) return;
+        bx0 = Math.min(bx0, b.x0); by0 = Math.min(by0, b.y0);
+        bx1 = Math.max(bx1, b.x1); by1 = Math.max(by1, b.y1);
+      });
+      const names = gInfo.strokes.map(k => (k + 1) + r.strokes[k].type).join(" ");
+      const label = gInfo.isolated ? "✓ 组" + (gInfo.id + 1) + " 直出 " + names
+                                   : "组" + (gInfo.id + 1) + " 竞争 " + names;
+      const t = el("text", {
+        x: (bx0 + bx1) / 2, y: 900 - by1 - 12, fill: colorOf(gInfo.id + 8),
+        "font-size": 36, "font-weight": 700, "text-anchor": "middle",
+        stroke: "#fff", "stroke-width": 6, "paint-order": "stroke",
+        "font-family": "'Microsoft YaHei', sans-serif",
+      }, lg0);
+      t.textContent = label;
+    });
+    const legend0 = document.getElementById("stepLegend");
+    legend0.innerHTML = "";
+    groups.forEach(gInfo => {
+      const item = document.createElement("span");
+      item.innerHTML = `<span class="sw" style="background:${colorOf(gInfo.id + 8)}"></span>` +
+        `组${gInfo.id + 1}${gInfo.isolated ? "（孤立→整组直出）" : "（组内竞争拆解）"}：` +
+        gInfo.strokes.map(k => `第${k + 1}笔${r.strokes[k].type}`).join("、");
+      legend0.appendChild(item);
+    });
+    return;
+  }
+  if (key === "s1") {
     drawOutline(0.25); drawMedians();
-  } else if (state.stepTab === 1) {
+  } else if (key === "s2") {
     drawOutline(0.12);
     r.strokes.forEach((s, k) => {
       if (s.templatePath)
@@ -490,16 +546,16 @@ function renderSteps() {
                      "fill-rule": "nonzero" }, g);
     });
     drawMedians();
-  } else if (state.stepTab === 2) {
+  } else if (key === "s3") {
     drawOutline(0.10); drawMedians();
     r.samples.forEach(arr => arr.forEach(sm =>
       el("circle", { cx: sm[0], cy: sm[1], r: 5.5, fill: colorOf(sm[2]) }, g)));
-  } else if (state.stepTab === 3) {
+  } else if (key === "s4") {
     r.strokes.forEach((s, k) => el("path", {
       d: s.path, fill: "none", stroke: colorOf(k), "stroke-width": 7 }, g));
     r.cutPoints.forEach(cp => el("circle", {
       cx: cp[0], cy: cp[1], r: 13, fill: "none", stroke: "#111", "stroke-width": 5 }, g));
-  } else if (state.stepTab === 4) {
+  } else if (key === "s5") {
     r.strokes.forEach((s, k) => el("path", {
       d: s.path, fill: colorOf(k), "fill-opacity": 0.85, "fill-rule": "nonzero",
       stroke: "#fff", "stroke-width": 3 }, g));
