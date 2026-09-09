@@ -38,7 +38,7 @@ def _listFonts():
     d = _fontsDir()
     if not os.path.isdir(d):
         return []
-    return sorted(f for f in os.listdir(d) if f.lower().endswith((".ttf", ".otf")))
+    return sorted(f for f in os.listdir(d) if f.lower().endswith((".ttf", ".otf", ".ttc")))
 
 
 def _getFont(name):

@@ -273,6 +273,7 @@ class FontEntry:
             for c in cs:
                 groupSamples[c["group"]].extend(flattenSegs(c["segs"], 18))
             groupToStroke = [-1] * nGroups
+            groupTop = [(-1, 0.0)] * nGroups
             strokeHits = [set() for _ in g["medians"]]
             for gi, samples in enumerate(groupSamples):
                 if not samples:
@@ -286,11 +287,12 @@ class FontEntry:
                             bestD, best = d, k
                     votes[best] = votes.get(best, 0) + 1
                 top, topCount = max(votes.items(), key=lambda kv: kv[1])
+                groupTop[gi] = (top, topCount / len(samples))
                 if topCount >= len(samples) * 0.95:
                     groupToStroke[gi] = top
                     strokeHits[top].add(gi)
             return {"cs": cs, "nGroups": nGroups, "groupToStroke": groupToStroke,
-                    "strokeHits": strokeHits, "g": g}
+                    "strokeHits": strokeHits, "groupTop": groupTop, "g": g}
 
         for t in TYPE_ORDER:
             if t in lib:
@@ -304,15 +306,23 @@ class FontEntry:
                 an = analyzed[ch]
                 if not an:
                     continue
+                relaxedGroups = None
+                if idx is not None:
+                    # 明确笔序：投票纯度 95%→60%——楷体中轴线在笔画交界附近
+                    # 的串票会错杀真孤立笔（黑体八的撇纯度 77%）；仍要求
+                    # 该笔序恰好对应唯一连通组
+                    relaxedGroups = [gj for gj in range(an["nGroups"])
+                                     if an["groupTop"][gj][0] == idx
+                                     and an["groupTop"][gj][1] >= 0.6]
                 for gi in range(an["nGroups"]):
                     k = an["groupToStroke"][gi]
-                    if k < 0 or len(an["strokeHits"][k]) != 1:
-                        continue
                     if idx is not None:
-                        # 规则表明确笔序：只认该笔，跳过类型自动匹配
-                        if k != idx:
+                        if len(relaxedGroups) != 1 or gi != relaxedGroups[0]:
                             continue
+                        k = idx
                         tier = 1
+                    elif k < 0 or len(an["strokeHits"][k]) != 1:
+                        continue
                     else:
                         tier = matchTier(typeOfStroke(ch, k, an["g"]["medians"]), t)
                         if not tier:
@@ -329,7 +339,7 @@ class FontEntry:
                     if cand["shapeSim"] < 20:
                         continue
                     candidates.append(cand)
-            candidates.sort(key=lambda e: (e["tier"], -e.get("shapeSim", 0)))
+            candidates.sort(key=lambda e: e["tier"])  # 稳定排序：同tier保持规则表顺序（用户"按序尝试"语义）
             for e in candidates[:4]:
                 all_.append(e)
                 lib.setdefault(t, e)
@@ -354,7 +364,10 @@ class FontEntry:
         added = {}
         resultCache = {}
         for t in TYPE_ORDER:
-            if findLibEntry(self.libraryB, t) is not None:
+            # 精确键判断：findLibEntry 的骨架宽容回退会让缺失类型被近亲
+            # 顶包而跳过自举（黑体竖提缺失时被区的竖折冒名，拆「以」明明
+            # 能拿到 retain 1.00 的真身）
+            if t in self.libraryB:
                 continue
             tried = 0
             for ch, idx, pos in parseProbes(PROBE_TABLE[t]):

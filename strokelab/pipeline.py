@@ -24,15 +24,15 @@ from . import boolean as booleanClamp
 ITERS = 5
 
 
-def _medianMismatch(placed, kaiPlaced, thresh=0.28):
-    """模板骨架放置后与楷体中轴线的形态偏差：两者按弧长重采样 24 点
-    对齐比较，平均点距超过楷体中轴线包围盒对角线的 thresh 即错配。"""
+def _medianDeviation(placed, kaiPlaced):
+    """模板骨架放置后与楷体中轴线的形态偏差：按弧长重采样 24 点对齐的
+    平均点距 / 楷体中轴线包围盒对角线。None=无法比较。"""
     if len(placed) < 2 or len(kaiPlaced) < 2:
-        return False
+        return None
     b = bboxOfPoints(kaiPlaced)
     diag = math.hypot(b.w, b.h)
     if diag < 1e-6:
-        return False
+        return None
     n = 24
 
     def resampleN(poly):
@@ -61,7 +61,7 @@ def _medianMismatch(placed, kaiPlaced, thresh=0.28):
     a = resampleN(placed)
     b2 = resampleN(kaiPlaced)
     avg = sum(dist(p, q) for p, q in zip(a, b2)) / n
-    return avg > thresh * diag
+    return avg / diag
 
 
 def _hungarian(cost):
@@ -259,6 +259,10 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     medians = []
     templateSources = []
     templateEnts = []
+    # 同类型可有多个库候选（八的撇/儿的撇形态不同），逐笔由一致性检查挑
+    typeEntries = {}
+    for e in (fontEntry.libraryBAll or []):
+        typeEntries.setdefault(e["type"], []).append(e)
     for k, m in enumerate(kai["medians"]):
         t = kai["strokeTypes"][k]
         kaiPlaced = [affine(p) for p in m]
@@ -268,10 +272,15 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         # 横撇模板撇段占 60%，压进矮扁包围盒后长尾侵入邻笔），而相似
         # 类型的模板反而可能更合身（横折钩↔横折的设计摇摆）
         if fontEntry.libraryB:
+            cands = []
+            seen = set()
             for tc in [t] + similarTypes(t):
-                ent = findLibEntry(fontEntry.libraryB, tc)
-                if not ent:
-                    continue
+                for ent in typeEntries.get(tc, []):
+                    if id(ent) not in seen:
+                        seen.add(id(ent))
+                        cands.append((tc, ent))
+            best = None  # (dev, tc, ent, cand)
+            for tc, ent in cands:
                 try:
                     skel = fontEntry.ensureSkeleton(ent, dataHub)
                     eb = ent["outlineBBox"]
@@ -284,15 +293,19 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     ehh = max(1.0, eb[3] - eb[1])
                     cand = [(c0[0] + (p[0] - eb[0]) * tw / ew,
                              c0[1] + (p[1] - eb[1]) * th / ehh) for p in skel]
-                    if _medianMismatch(cand, kaiPlaced):
+                    dev = _medianDeviation(cand, kaiPlaced)
+                    # 借用相似类型需要更强证据（快乐体日的横曾借提模板酿祸）
+                    if dev is None or dev > (0.28 if tc == t else 0.20):
                         continue
-                    placed = cand
-                    templateSources.append(
-                        ent["source"] + ("" if tc == t else "（借%s）" % tc))
-                    templateEnts.append(ent)
-                    break
+                    if best is None or dev < best[0]:
+                        best = (dev, tc, ent, cand)
                 except Exception:
                     continue
+            if best is not None:
+                dev, tc, ent, placed = best
+                templateSources.append(
+                    ent["source"] + ("" if tc == t else "（借%s）" % tc))
+                templateEnts.append(ent)
         if placed is None:
             placed = kaiPlaced
             templateSources.append("楷体中轴线(B库缺类型/形态错配)")
@@ -952,6 +965,18 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         # 终态校验统一按实际路径口径（clampStrokes 返回值基于裁剪区域，
         # 会掩盖未被替换路径的残余溢出）
         unionCheck = booleanClamp.reUnionCheck(contours, strokes, glyph=_glyph)
+        # 终态强制收口：连通性搬运/退化环奇偶翻转可能在收口后重引入溢出
+        # （流江水曾终态溢出 19%）——超标就再收口一轮，硬保证优先
+        if abs(unionCheck.get("excess", 0)) > 0.5 or            unionCheck.get("cover", 100) < 99.5:
+            booleanClamp.clampStrokes(contours, strokes, glyph=_glyph)
+            if any(s["failed"] for s in strokes):
+                # 扫尾裁剪可能新置 failed（整笔在墨外）——再救济一轮，
+                # 救济体必在字形内，不会破坏刚修好的溢出
+                booleanClamp.rescueStarved(contours, strokes, kai["strokes"],
+                                           kai["medians"], glyph=_glyph)
+                booleanClamp.clampStrokes(contours, strokes, glyph=_glyph)
+            unionCheck = booleanClamp.reUnionCheck(contours, strokes,
+                                                   glyph=_glyph)
     if unionCheck is None:
         unionCheck = booleanClamp.reUnionCheck(contours, strokes, glyph=_glyph)
 
