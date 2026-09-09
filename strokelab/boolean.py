@@ -46,8 +46,10 @@ def _evenOddRegion(polys):
 
 
 def glyphRegion(contours):
-    outers = []
-    holes = []
+    """孔洞按所属组减除后再组间取并（≈nonzero 填充）：孔只挖自己外环的
+    区域，穿过该孔的其它实体轮廓经并集仍保持实心——全局减孔曾把"中"的
+    中竖在口字内腔处挖断。"""
+    byGroup = {}
     for c in contours:
         pts = flattenSegs(c["segs"], _FLAT)
         if len(pts) < 4:
@@ -56,14 +58,24 @@ def glyphRegion(contours):
             pg = Polygon(pts)
             if not pg.is_valid:
                 pg = pg.buffer(0)
-            (holes if c["isHole"] else outers).append(pg)
+            g = byGroup.setdefault(c.get("group", 0), {"outers": [], "holes": []})
+            (g["holes"] if c.get("isHole") else g["outers"]).append(pg)
         except Exception:
             pass
-    if not outers:
+    regions = []
+    for g in byGroup.values():
+        if not g["outers"]:
+            continue
+        r = unary_union(g["outers"])
+        if g["holes"]:
+            r = r.difference(unary_union(g["holes"]))
+        if not r.is_valid:
+            r = r.buffer(0)
+        if not r.is_empty:
+            regions.append(r)
+    if not regions:
         return None
-    region = unary_union(outers)
-    if holes:
-        region = region.difference(unary_union(holes))
+    region = unary_union(regions)
     if not region.is_valid:
         region = region.buffer(0)
     return region
