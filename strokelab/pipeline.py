@@ -279,7 +279,8 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     if id(ent) not in seen:
                         seen.add(id(ent))
                         cands.append((tc, ent))
-            best = None  # (dev, tc, ent, cand)
+            bestOwn = None   # 本类型最优 (dev, tc, ent, cand)
+            bestBor = None   # 借用最优
             for tc, ent in cands:
                 try:
                     skel = fontEntry.ensureSkeleton(ent, dataHub)
@@ -297,10 +298,20 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     # 借用相似类型需要更强证据（快乐体日的横曾借提模板酿祸）
                     if dev is None or dev > (0.28 if tc == t else 0.20):
                         continue
-                    if best is None or dev < best[0]:
-                        best = (dev, tc, ent, cand)
+                    if tc == t:
+                        if bestOwn is None or dev < bestOwn[0]:
+                            bestOwn = (dev, tc, ent, cand)
+                    else:
+                        if bestBor is None or dev < bestBor[0]:
+                            bestBor = (dev, tc, ent, cand)
                 except Exception:
                     continue
+            # 本类型优先：借用必须比本类型最优再好出明显幅度（0.08）才换——
+            # 微弱优势的借用曾把鸿蒙的横全换成提模板、竖换成弯钩，初始 D
+            # 歪斜误导；真正的设计摇摆（月的竖实为竖撇）优势显著，仍可借
+            best = bestOwn
+            if bestBor is not None and                (bestOwn is None or bestBor[0] < bestOwn[0] - 0.08):
+                best = bestBor
             if best is not None:
                 dev, tc, ent, placed = best
                 templateSources.append(
