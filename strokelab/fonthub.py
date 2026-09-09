@@ -3,6 +3,8 @@
 
 import math
 import os
+import json
+import hashlib
 
 from fontTools.ttLib import TTFont
 from fontTools.pens.recordingPen import RecordingPen
@@ -13,6 +15,25 @@ from .geometry import (lineSeg, cubicSeg, dist, parseContours, contourToPath,
                        shapeDescriptor, shapeSimilarity, refineMedianFit)
 from .classify import (PROBE_TABLE, TYPE_ORDER, CJK_STROKE_NAMES,
                        CJK_STROKE_ABBR, typeOfStroke, matchTier, findLibEntry)
+
+_ALGO_SIG = None
+
+
+def _algoSignature():
+    """算法签名：核心源码内容哈希——算法一变缓存自动失效。"""
+    global _ALGO_SIG
+    if _ALGO_SIG is None:
+        h = hashlib.md5()
+        pkg = os.path.dirname(os.path.abspath(__file__))
+        for name in ("pipeline.py", "geometry.py", "classify.py",
+                     "boolean.py", "fonthub.py"):
+            try:
+                with open(os.path.join(pkg, name), "rb") as f:
+                    h.update(f.read())
+            except OSError:
+                pass
+        _ALGO_SIG = h.hexdigest()[:12]
+    return _ALGO_SIG
 
 
 def _splitQuadImplied(points):
@@ -130,8 +151,58 @@ class FontEntry:
         self._glyphCache[ch] = result
         return result
 
+    # ------------------------------------------------------------ B库磁盘缓存
+    # 键 = 字体文件(大小+mtime) × 算法签名(核心源码哈希)；建库(base)与
+    # 自举补全(full)分两阶段存取，保证有无缓存行为一致（bench 只 build、
+    # server 会 complete，二者各取所需）
+    def _libCachePath(self, dataHub):
+        return os.path.join(dataHub.root, ".blibCache",
+                            os.path.splitext(self.key)[0] + ".json")
+
+    def _fontSig(self):
+        try:
+            st = os.stat(self.path)
+            return "%d-%d" % (st.st_size, int(st.st_mtime))
+        except OSError:
+            return "?"
+
+    def _setLibFromAll(self, allEntries):
+        self.libraryBAll = allEntries
+        self.libraryB = {}
+        for e in allEntries:
+            self.libraryB.setdefault(e["type"], e)
+
+    def _saveLibCache(self, dataHub):
+        try:
+            p = self._libCachePath(dataHub)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            base = [e for e in self.libraryBAll if e.get("kind") != "bootstrap"]
+            full = self.libraryBAll if getattr(self, "_libCompleted", False) else None
+            json.dump({"algo": _algoSignature(), "font": self._fontSig(),
+                       "baseAll": base, "fullAll": full,
+                       "fullAdded": getattr(self, "_libAdded", None)},
+                      open(p, "w", encoding="utf-8"), ensure_ascii=False)
+        except Exception:
+            pass
+
+    def _loadLibCache(self, dataHub):
+        try:
+            d = json.load(open(self._libCachePath(dataHub), encoding="utf-8"))
+            if d.get("algo") == _algoSignature() and \
+               d.get("font") == self._fontSig():
+                return d
+        except Exception:
+            pass
+        return None
+
     # ------------------------------------------------------------ B 库
     def buildLibraryB(self, dataHub):
+        cached = self._loadLibCache(dataHub)
+        if cached:
+            self._libCache = cached
+            self._setLibFromAll(cached["baseAll"])
+            return
+        self._libCache = None
         lib = {}
         all_ = []
         # 来源 1：U+31C0..31E5 笔画区
@@ -221,6 +292,7 @@ class FontEntry:
 
         self.libraryB = lib
         self.libraryBAll = all_
+        self._saveLibCache(dataHub)
 
     # ------------------------------------------------------------ 自举回灌
     def completeLibraryB(self, dataHub, maxCharsPerType=3,
@@ -229,6 +301,11 @@ class FontEntry:
         对缺失类型用当前管线拆规则表代表字，质量闸（原轮廓保留率、形状匹配、
         并集覆盖率）通过的 D′ 笔画作为库条目回灌。管线有布尔收口保证并集
         恒等，回灌是安全的。"""
+        cached = getattr(self, "_libCache", None)
+        if cached and cached.get("fullAll") is not None:
+            self._setLibFromAll(cached["fullAll"])
+            self._libCompleted = True
+            return dict(cached.get("fullAdded") or {})
         from .pipeline import runPipeline  # 延迟导入避免循环
         added = {}
         resultCache = {}
@@ -276,6 +353,9 @@ class FontEntry:
                     self.libraryB.setdefault(t, entry)
                     added[t] = entry["source"]
                     break
+        self._libCompleted = True
+        self._libAdded = added
+        self._saveLibCache(dataHub)
         return added
 
     # ------------------------------------------------------------ A↔B 骨架映射

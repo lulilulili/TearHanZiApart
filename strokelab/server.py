@@ -15,6 +15,7 @@ import json
 import os
 import sys
 import threading
+import time
 import urllib.parse
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -99,8 +100,14 @@ class Handler(BaseHTTPRequestHandler):
                 ch = qs["char"][0]
                 key = (font, ch)
                 if key not in _state["results"]:
+                    tL = time.perf_counter()
                     fe = _getFont(font)
-                    _state["results"][key] = runPipeline(_state["hub"], fe, ch)
+                    tP = time.perf_counter()
+                    r = runPipeline(_state["hub"], fe, ch)
+                    r["serverTimings"] = {
+                        "库准备": round((tP - tL) * 1000),
+                        "拆解": round((time.perf_counter() - tP) * 1000)}
+                    _state["results"][key] = r
                 self._json(_state["results"][key])
             elif route == "/" or route == "/index.html":
                 self.send_response(302)

@@ -412,7 +412,8 @@ def clampStrokes(contours, strokes, excessTol=0.5, coverTol=99.5):
             r = _evenOddRegion(_loopPolys(s["path"]))
         regions.append(r)
 
-    # 1) 裁剪：越界删除
+    # 1) 裁剪：越界删除；与字形交集为空（整笔落在墨外——退化重构环的
+    #    奇偶区域可能整体翻到界外）时置 failed，交由饿死救济重建
     clamped = []
     replaced = [False] * len(strokes)
     for i, r in enumerate(regions):
@@ -422,6 +423,11 @@ def clampStrokes(contours, strokes, excessTol=0.5, coverTol=99.5):
         inter = r.intersection(glyph)
         if not inter.is_valid:
             inter = inter.buffer(0)
+        if inter.is_empty or inter.area < 4.0:
+            strokes[i]["path"] = ""
+            strokes[i]["failed"] = True
+            clamped.append(None)
+            continue
         excess = r.area - inter.area
         if excess > max(4.0, r.area * excessTol / 100):
             replaced[i] = True

@@ -270,8 +270,13 @@ async function refresh() {
     state.library = libraryCache.get(state.fontKey);
     state.result = await api("/api/decompose?font=" + encodeURIComponent(state.fontKey)
                              + "&char=" + encodeURIComponent(state.ch));
+    const st = state.result.serverTimings;
+    const stages = (state.result.timings || [])
+      .map(([n, ms]) => `${n} ${ms}`).join(" · ");
     document.getElementById("topStatus").textContent =
-      `耗时 ${(performance.now() - t0).toFixed(0)} ms`;
+      `耗时 ${(performance.now() - t0).toFixed(0)} ms` +
+      (st ? `（库准备 ${st["库准备"]} + 拆解 ${st["拆解"]}）` : "（服务端缓存）") +
+      (stages ? ` ｜ ${stages}` : "");
     setOverlay(null);
     renderAll();
   } catch (e) {

@@ -9,6 +9,7 @@
 """
 
 import math
+import time
 
 from .geometry import (dist, lineSeg, cubicSeg, parseContours, contourToPath,
                        flattenSegs,
@@ -21,6 +22,93 @@ from .classify import findLibEntry
 from . import boolean as booleanClamp
 
 ITERS = 5
+
+
+def _medianMismatch(placed, kaiPlaced, thresh=0.28):
+    """模板骨架放置后与楷体中轴线的形态偏差：两者按弧长重采样 24 点
+    对齐比较，平均点距超过楷体中轴线包围盒对角线的 thresh 即错配。"""
+    if len(placed) < 2 or len(kaiPlaced) < 2:
+        return False
+    b = bboxOfPoints(kaiPlaced)
+    diag = math.hypot(b.w, b.h)
+    if diag < 1e-6:
+        return False
+    n = 24
+
+    def resampleN(poly):
+        L = polylineLength(poly)
+        if L < 1e-6:
+            return [tuple(poly[0])] * n
+        step = L / (n - 1)
+        out = [tuple(poly[0])]
+        carry = 0.0
+        for i in range(len(poly) - 1):
+            x1, y1 = poly[i]
+            x2, y2 = poly[i + 1]
+            seg = math.hypot(x2 - x1, y2 - y1)
+            if seg < 1e-9:
+                continue
+            t = step - carry
+            while t <= seg and len(out) < n:
+                u = t / seg
+                out.append((x1 + (x2 - x1) * u, y1 + (y2 - y1) * u))
+                t += step
+            carry = seg - (t - step)
+        while len(out) < n:
+            out.append(tuple(poly[-1]))
+        return out
+
+    a = resampleN(placed)
+    b2 = resampleN(kaiPlaced)
+    avg = sum(dist(p, q) for p, q in zip(a, b2)) / n
+    return avg > thresh * diag
+
+
+def _hungarian(cost):
+    """O(n^3) 匈牙利算法（方阵最小代价完美匹配），返回每行匹配的列号。"""
+    n = len(cost)
+    INF = 1e18
+    u = [0.0] * (n + 1)
+    v = [0.0] * (n + 1)
+    p = [0] * (n + 1)
+    way = [0] * (n + 1)
+    for i in range(1, n + 1):
+        p[0] = i
+        j0 = 0
+        minv = [INF] * (n + 1)
+        used = [False] * (n + 1)
+        while True:
+            used[j0] = True
+            i0 = p[j0]
+            delta = INF
+            j1 = -1
+            for j in range(1, n + 1):
+                if not used[j]:
+                    cur = cost[i0 - 1][j - 1] - u[i0] - v[j]
+                    if cur < minv[j]:
+                        minv[j] = cur
+                        way[j] = j0
+                    if minv[j] < delta:
+                        delta = minv[j]
+                        j1 = j
+            for j in range(n + 1):
+                if used[j]:
+                    u[p[j]] += delta
+                    v[j] -= delta
+                else:
+                    minv[j] -= delta
+            j0 = j1
+            if p[j0] == 0:
+                break
+        while j0:
+            j1 = way[j0]
+            p[j0] = p[j1]
+            j0 = j1
+    ans = [0] * n
+    for j in range(1, n + 1):
+        if p[j]:
+            ans[p[j] - 1] = j - 1
+    return ans
 
 
 def _reMedianFromStroke(median, strokePath, width):
@@ -87,6 +175,14 @@ def _strokeCenter(path):
 
 
 def _secondPassBetter(r2, r1, expCenters, diag):
+    # 并集硬保证守卫：第二遍不得引入覆盖/溢出违规（流江"水"的二遍
+    # 曾溢出 14.2% 仍被 retain 虚高采纳）
+    u1 = r1.get("unionCheck") or {}
+    u2 = r2.get("unionCheck") or {}
+    if u2.get("cover", 100) < min(99.0, u1.get("cover", 100)) - 0.05:
+        return False
+    if abs(u2.get("excess", 0)) > max(0.5, abs(u1.get("excess", 0))):
+        return False
     f1 = sum(1 for s in r1["strokes"] if s["failed"])
     f2 = sum(1 for s in r2["strokes"] if s["failed"])
     # 结构位置守卫：每笔质心对楷体映射位置的偏差不得比第一遍显著恶化——
@@ -118,6 +214,14 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
 
     contours = [{"segs": c["segs"]} for c in raw]
     analyzeContours(contours)
+
+    _timings = []
+    _tw = [time.perf_counter()]
+
+    def _tick(name):
+        now = time.perf_counter()
+        _timings.append([name, round((now - _tw[0]) * 1000)])
+        _tw[0] = now
 
     # ------------------------------------------------------------ 全局对齐
     kaiPts = []
@@ -167,13 +271,21 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 ehh = max(1.0, eb[3] - eb[1])
                 placed = [(c0[0] + (p[0] - eb[0]) * tw / ew,
                            c0[1] + (p[1] - eb[1]) * th / ehh) for p in skel]
-                templateSources.append(ent["source"])
-                templateEnts.append(ent)
+                # 模板-结构一致性检查：同名类型分段比例可能迥异（宀的横钩
+                # 钩段占 13%，横撇模板撇段占 60%——塞进矮扁包围盒后撇段被
+                # 压成水平长尾、伸进邻笔地盘抢样本）。放置后与楷体中轴线
+                # 重采样对齐比较，平均偏差过大即退回楷体中轴线
+                kaiPlaced = [affine(p) for p in m]
+                if _medianMismatch(placed, kaiPlaced):
+                    placed = None
+                else:
+                    templateSources.append(ent["source"])
+                    templateEnts.append(ent)
             except Exception:
                 placed = None
         if placed is None:
             placed = [affine(p) for p in m]
-            templateSources.append("楷体中轴线(B库缺类型)")
+            templateSources.append("楷体中轴线(B库缺类型/形态错配)")
             templateEnts.append(None)
         medians.append(placed)
     if seedMedians is not None:
@@ -184,6 +296,8 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         templateEnts = [None] * len(medians)
     initMedians = [[tuple(p) for p in m] for m in medians]
     nStrokes = len(medians)
+
+    _tick("解析对齐/D构建")
 
     # ------------------------------------------------------------ 连通组分治
     # 公理（用户校验①②）：正常字体设计中，同一笔画不会断成两个孤立连通组。
@@ -204,17 +318,18 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             groupCentroids[g] = (sum(p[0] for p in pts) / len(pts),
                                  sum(p[1] for p in pts) / len(pts))
 
-    def strokeGroupOf(k):
-        """笔画→组：中轴线各点到组的"墨距离"（墨内=0，否则到组内任一轮廓
-        边界的最近距离）取均值，argmin。inside 占比法对 ⊓ 形带状轮廓失效
-        （鸿蒙"日"的竖中轴悬在空腔里），距离法对带状/实心都稳。"""
+    def strokeGroupCost(k):
+        """笔画→各组的"墨距离"（墨内=0，否则到组内任一轮廓边界的最近
+        距离）均值向量。inside 占比法对 ⊓ 形带状轮廓失效（鸿蒙"日"的竖
+        中轴悬在空腔里），距离法对带状/实心都稳。"""
         rm = resamplePolyline([tuple(p) for p in initMedians[k]], 20)
-        best, bestAvg = 0, 1e18
+        row = []
         for g in range(nGroups):
             outers = groupOuters[g]
             holes = groupHoles[g]
             polys = outers + holes
             if not polys:
+                row.append(1e18)
                 continue
             total = 0.0
             for p in rm:
@@ -224,12 +339,28 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 else:
                     d = min(nearestOnPolyline(p, poly)["d"] for poly in polys)
                 total += d
-            avg = total / (len(rm) or 1)
-            if avg < bestAvg:
-                bestAvg, best = avg, g
-        return best
+            row.append(total / (len(rm) or 1))
+        return row
 
-    strokeGroup = [strokeGroupOf(k) for k in range(nStrokes)]
+    # 全局最优指派：每组先由匈牙利算法配一个"锚定笔"（保证无空组——逐笔
+    # 独立 argmin 曾让㡭的点挤进邻笔的组、正主组空置沦为全开竞争），
+    # 余下笔画再就近入组。组数=笔画数时退化为严格一一对应
+    costRows = [strokeGroupCost(k) for k in range(nStrokes)]
+    strokeGroup = [min(range(nGroups), key=lambda g: costRows[k][g])
+                   if nGroups else 0 for k in range(nStrokes)]
+    if 0 < nGroups <= nStrokes:
+        size = nStrokes
+        # 方阵：行=笔画；前 nGroups 列=真实组，其余为"自由列"（代价=各笔
+        # argmin，代表不锚定任何组、稍后就近入组）
+        cost = []
+        for k in range(nStrokes):
+            free = min(costRows[k]) if nGroups else 0.0
+            cost.append([costRows[k][g] for g in range(nGroups)] +
+                        [free] * (size - nGroups))
+        match = _hungarian(cost)
+        for k in range(nStrokes):
+            if match[k] < nGroups:
+                strokeGroup[k] = match[k]
     groupStrokes = {g: [k for k in range(nStrokes) if strokeGroup[k] == g]
                     for g in range(nGroups)}
     for g in range(nGroups):
@@ -237,6 +368,8 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             groupStrokes[g] = list(range(nStrokes))
     contourAllowed = [groupStrokes.get(c["group"], list(range(nStrokes)))
                       for c in contours]
+
+    _tick("连通组分治")
 
     # ------------------------------------------------------------ 迭代归属+精调
     glyphArea = sum((-abs(c["area"]) if c["isHole"] else abs(c["area"]))
@@ -333,6 +466,8 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     max(1.6 * widths[k], 1.2 * w0, 40.0))
         scoreMedians = [extendMedian(m, min(70.0, widths[k] * 1.1))
                         for k, m in enumerate(medians)]
+
+    _tick("归属迭代精调")
 
     # S2 模板可视化：把 B 模板画在精调后的 D 位置（精调后中轴线包围盒 + 半笔宽），
     # 与匹配实际使用的几何一致，避免初始放置的视觉重叠误导
@@ -580,6 +715,8 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             if not changed:
                 break
 
+    _tick("整体归属与平滑")
+
     # ------------------------------------------------------------ 矢量切割
     cutPoints = []
     strokeArcs = [[] for _ in range(nStrokes)]
@@ -645,6 +782,8 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 s = min(segEndS, sEnd)
             if segs:
                 strokeArcs[label].append({"segs": segs, "closed": False, "contour": ci})
+
+    _tick("矢量切割")
 
     # ------------------------------------------------------------ 划分式重构
     strokes = []
@@ -759,6 +898,8 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             "failed": not pathD,
         })
 
+    _tick("重构")
+
     # ------------------------------------------------------------ 布尔收口 + 校验
     # 饿死救济先行：切割中颗粒无收/零宽退化环的笔（宾的宀左点曾只得
     # 一段边界线），用骨架走廊∩本组区域补一个实体，再进收口。
@@ -768,11 +909,21 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     unionCheck = None
     if applyBooleanClamp:
         unionCheck = booleanClamp.clampStrokes(contours, strokes)
+        # 裁剪可能把"整笔落在墨外"的退化笔置 failed——重走饿死救济
+        # （救济走廊∩本组区域必在字形内，不会引入新溢出）后再收口一次
+        if any(s["failed"] for s in strokes):
+            booleanClamp.rescueStarved(contours, strokes,
+                                       kai["strokes"], kai["medians"])
+            unionCheck = booleanClamp.clampStrokes(contours, strokes)
         # 单笔单连通终态收口：回填/减除偶发的断笔在此修复
-        if booleanClamp.enforceConnectivity(contours, strokes):
-            unionCheck = booleanClamp.reUnionCheck(contours, strokes)
+        booleanClamp.enforceConnectivity(contours, strokes)
+        # 终态校验统一按实际路径口径（clampStrokes 返回值基于裁剪区域，
+        # 会掩盖未被替换路径的残余溢出）
+        unionCheck = booleanClamp.reUnionCheck(contours, strokes)
     if unionCheck is None:
         unionCheck = booleanClamp.reUnionCheck(contours, strokes)
+
+    _tick("收口")
 
     # 形状匹配（D′ vs 楷体同笔，尺度不变）
     for s in strokes:
@@ -805,6 +956,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 "structure": kai["structure"], "chaiziJt": kai["chaiziJt"],
                 "chaiziFt": kai["chaiziFt"]},
         "pass": 1 if seedMedians is None else 2,
+        "timings": _timings,
     }
     # ------------------------------------------------------------ 自洽回灌
     # 第一遍拆完后，用每笔自身几何重提干净中轴作种子重跑一遍匹配；
@@ -819,5 +971,11 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             diag = math.hypot(tb.w, tb.h)
             if "error" not in r2 and _secondPassBetter(r2, result,
                                                       expCenters, diag):
+                r2["timings"] = r2.get("timings", []) + [
+                    ["第一遍(被自洽二遍替换)",
+                     sum(t[1] for t in _timings)]]
                 return r2
+            result["timings"].append(
+                ["自洽二遍(未采纳)",
+                 sum(t[1] for t in (r2.get("timings") or []))])
     return result
