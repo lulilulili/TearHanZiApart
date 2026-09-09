@@ -107,6 +107,186 @@ def _regionToPath(region):
     return " ".join(parts)
 
 
+def _piecesOf(region):
+    if region is None or region.is_empty:
+        return []
+    if isinstance(region, Polygon):
+        return [region]
+    if isinstance(region, MultiPolygon):
+        return list(region.geoms)
+    return [g for g in getattr(region, "geoms", []) if isinstance(g, Polygon)]
+
+
+def rescueStarved(contours, strokes, kaiStrokePaths):
+    """饿死救济：重构后面积不足楷体占比预期 15% 的笔（含零宽退化环），
+    用自己骨架中轴线的走廊（median 按笔宽 buffer）∩ 本组轮廓区域作为
+    救济区域——纯矢量、必在字形内；与邻笔重叠=双重归属，允许。
+    并集恒等仍由随后的 clampStrokes 保证。返回被救济的笔序号列表。"""
+    from shapely.geometry import LineString
+
+    glyph = glyphRegion(contours)
+    if glyph is None or glyph.area < 1:
+        return []
+    kaiAreas = []
+    for p in kaiStrokePaths:
+        r = _evenOddRegion(_loopPolys(p))
+        kaiAreas.append(r.area if r is not None else 0.0)
+    kaiTotal = sum(kaiAreas) or 1.0
+
+    groupRegions = {}
+
+    def regionOfGroup(g):
+        if g not in groupRegions:
+            outers = [c for c in contours if c.get("group") == g and not c.get("isHole")]
+            holes = [c for c in contours if c.get("group") == g and c.get("isHole")]
+            region = None
+            for c in outers:
+                pts = flattenSegs(c["segs"], _FLAT)
+                if len(pts) < 4:
+                    continue
+                pg = Polygon(pts)
+                if not pg.is_valid:
+                    pg = pg.buffer(0)
+                region = pg if region is None else region.union(pg)
+            if region is not None:
+                for c in holes:
+                    pts = flattenSegs(c["segs"], _FLAT)
+                    if len(pts) < 4:
+                        continue
+                    pg = Polygon(pts)
+                    if not pg.is_valid:
+                        pg = pg.buffer(0)
+                    region = region.difference(pg)
+                if not region.is_valid:
+                    region = region.buffer(0)
+            groupRegions[g] = region
+        return groupRegions[g]
+
+    rescued = []
+    widthsAll = sorted(float(s.get("width") or 0.0) for s in strokes
+                       if s.get("width"))
+    medWidth = widthsAll[len(widthsAll) // 2] if widthsAll else 60.0
+    for i, s in enumerate(strokes):
+        median = s.get("median")
+        if not median or len(median) < 2:
+            continue
+        cur = None if s["failed"] else _evenOddRegion(_loopPolys(s["path"]))
+        curArea = cur.area if cur is not None else 0.0
+        expect = glyph.area * (kaiAreas[i] / kaiTotal if i < len(kaiAreas) else 0.0)
+        if curArea >= max(100.0, expect * 0.15):
+            continue
+        region = regionOfGroup(s.get("group"))
+        if region is None or region.is_empty:
+            region = glyph
+        # 饿死笔自身的宽度估计同样是饿的（样本少）——用全字笔宽中位数兜底
+        w = max(float(s.get("width") or 0.0), medWidth, 30.0)
+        try:
+            corridor = LineString([tuple(p) for p in median]).buffer(w * 0.6)
+            body = corridor.intersection(region)
+            if not body.is_valid:
+                body = body.buffer(0)
+        except Exception:
+            continue
+        pieces = _piecesOf(body)
+        if pieces:
+            # 走廊穿过孔洞/间隙会碎成多片，只留最大片（真身）防 SPLIT
+            body = max(pieces, key=lambda g: g.area)
+        if body.is_empty or body.area < 25:
+            continue
+        p = _regionToPath(body)
+        if not p:
+            continue
+        s["path"] = p
+        s["failed"] = False
+        s["clamped"] = True
+        s["rescued"] = True
+        rescued.append(i)
+        # 救济体所在的墨原先整块判给了邻笔（这正是饿死的原因）——从
+        # 侵占邻笔的区域里减掉救济体，把双重归属改回真正的划分。减完
+        # 会碎成多片（走廊横穿邻笔）则放弃减除，保留双重归属。
+        for j, s2 in enumerate(strokes):
+            if j == i or s2["failed"] or s2.get("group") != s.get("group"):
+                continue
+            r2 = _evenOddRegion(_loopPolys(s2["path"]))
+            if r2 is None or r2.is_empty:
+                continue
+            inter = r2.intersection(body)
+            if inter.area < body.area * 0.25:
+                continue
+            cand = r2.difference(body)
+            if not cand.is_valid:
+                cand = cand.buffer(0)
+            big = [g for g in _piecesOf(cand)
+                   if g.area >= max(25.0, cand.area * 0.02)]
+            if len(big) != 1:
+                continue
+            p2 = _regionToPath(cand)
+            if p2:
+                s2["path"] = p2
+                s2["clamped"] = True
+    return rescued
+
+
+
+def enforceConnectivity(contours, strokes, maxRounds=3):
+    """单笔单连通终态收口（公理：同一笔画不会断成两个孤立连通组）。
+    多片笔画只留最大片，其余显著片按共享边界最长原则划给相邻笔；
+    无人接壤的片留回原主（宁可 SPLIT 不丢墨——并集恒等优先）。
+    残差回填/邻笔减除等上游环节偶发的断笔在此统一修复。
+    返回是否有改动。"""
+    regions = [None if s["failed"] else _evenOddRegion(_loopPolys(s["path"]))
+               for s in strokes]
+    dirty = set()
+    for _ in range(maxRounds):
+        changed = False
+        for i in range(len(strokes)):
+            r = regions[i]
+            if r is None or r.is_empty:
+                continue
+            big = [g for g in _piecesOf(r)
+                   if g.area >= max(25.0, r.area * 0.02)]
+            if len(big) <= 1:
+                continue
+            big.sort(key=lambda g: -g.area)
+            keep = r
+            for piece in big[1:]:
+                pb = piece.buffer(1.5)
+                bestJ, bestShare = -1, 1.0
+                for j, r2 in enumerate(regions):
+                    if j == i or r2 is None or r2.is_empty:
+                        continue
+                    try:
+                        share = pb.intersection(r2).area
+                    except Exception:
+                        share = 0.0
+                    if share > bestShare:
+                        bestShare, bestJ = share, j
+                if bestJ < 0:
+                    continue
+                keep = keep.difference(piece)
+                if not keep.is_valid:
+                    keep = keep.buffer(0)
+                merged = regions[bestJ].union(piece)
+                if not merged.is_valid:
+                    merged = merged.buffer(0)
+                regions[bestJ] = merged
+                dirty.add(bestJ)
+                changed = True
+            if changed:
+                regions[i] = keep
+                dirty.add(i)
+        if not changed:
+            break
+    for k in dirty:
+        if regions[k] is None or regions[k].is_empty:
+            continue
+        p = _regionToPath(regions[k])
+        if p:
+            strokes[k]["path"] = p
+            strokes[k]["clamped"] = True
+    return bool(dirty)
+
+
 def reUnionCheck(contours, strokes):
     """覆盖率/溢出率（shapely 面积精确计算）。"""
     glyph = glyphRegion(contours)

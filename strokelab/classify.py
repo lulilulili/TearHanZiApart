@@ -126,6 +126,30 @@ def classifyMedian(median):
     if len(sections) >= 2 and _polyLen(sections[0]) < max(55.0, total * 0.13):
         sections = sections[1:]
 
+    # 拐角过渡段吸收：折笔拐角在楷体中轴线上常留一小段斜向过渡（约
+    # 40-70 单位），缩小的部件里超出上面的合并阈值后会独立成段，产生
+    # 虚假中间元素（口部横折→横捺折并套错㇅模板）。方向介于前后段
+    # 转向弧内的短中间段，按中点拆给两侧。
+    changed = True
+    while changed and len(sections) >= 3:
+        changed = False
+        for i in range(1, len(sections) - 1):
+            sec = sections[i]
+            if _polyLen(sec) >= max(70.0, total * 0.14):
+                continue
+            aPrev = _netAngle(sections[i - 1])
+            aNext = _netAngle(sections[i + 1])
+            turn = angDiff(aNext, aPrev)
+            prog = angDiff(_netAngle(sec), aPrev)
+            if abs(turn) < 55 or turn * prog <= 0 or abs(prog) >= abs(turn):
+                continue
+            half = max(1, len(sec) // 2)
+            sections[i - 1] = sections[i - 1] + sec[1:half + 1]
+            sections[i + 1] = sec[half:] + sections[i + 1][1:]
+            del sections[i]
+            changed = True
+            break
+
     hook = False
     if len(sections) >= 2:
         lastLen = _polyLen(sections[-1])
@@ -143,6 +167,14 @@ def classifyMedian(median):
     elems = []
     for s in sections:
         e = _elemOfAngle(_netAngle(s))
+        if e == "捺" and len(sections) == 1 and len(s) >= 5 and \
+                dist(s[0], s[-1]) >= _polyLen(s) * 0.95:
+            # 单段近直笔画没有走上面的"丢首段顿笔"逻辑：判成捺时裁掉首
+            # 20% 弧长复核——顿笔会把小尺寸口部的竖拉过 -65° 边界（串）。
+            # 只做捺→竖仲裁：平捺裁首会浅过 -20° 漂成横（处），弯曲段
+            # （心的卧钩碗底）裁首方向也会漂，都不能重判。
+            if _elemOfAngle(_netAngle(s[max(1, int(len(s) * 0.2)):])) == "竖":
+                e = "竖"
         if not elems or elems[-1] != e:
             elems.append(e)
     if not elems:
