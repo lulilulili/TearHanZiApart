@@ -418,6 +418,97 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     for g in range(nGroups):
         if not groupStrokes[g]:  # 无笔画映射到该组（异常兜底）：放开限制
             groupStrokes[g] = list(range(nStrokes))
+
+    # 走廊可容纳度仲裁：墨距离对"名义位置不落在任何组墨内"的笔会就近
+    # 错分——好的提名义位置横穿撇点宽腰（墨距离 59 胜出），真身在撇的
+    # 轮廓里但高度有偏（墨距离 86 落选），错分后在撇点组饿死、救济还
+    # 从撇点墨里切了条假提。对前两名接近且都不贴合的笔，用走廊滑动
+    # 吸附的最大单片面积（与救济同思路）比较两组谁能真正容纳整条笔，
+    # 明显更能容纳（≥1.3×）才改判；原组不得因此空置。
+    try:
+        from shapely.geometry import LineString as _LS, Polygon as _Pg
+        from shapely.affinity import translate as _tr
+        _gReg = {}
+
+        def _groupRegion(g):
+            if g not in _gReg:
+                reg = None
+                for poly in groupOuters[g]:
+                    pg = _Pg(poly)
+                    if not pg.is_valid:
+                        pg = pg.buffer(0)
+                    reg = pg if reg is None else reg.union(pg)
+                if reg is not None:
+                    for poly in groupHoles[g]:
+                        pg = _Pg(poly)
+                        if not pg.is_valid:
+                            pg = pg.buffer(0)
+                        reg = reg.difference(pg)
+                    if not reg.is_valid:
+                        reg = reg.buffer(0)
+                _gReg[g] = reg
+            return _gReg[g]
+
+        wEst = max(14.0, min(180.0,
+                   sum(abs(c["area"]) for c in contours if not c["isHole"]) /
+                   (sum(polylineLength(m) for m in medians) or 1.0)))
+
+        def _support(k, g):
+            reg = _groupRegion(g)
+            m = initMedians[k]
+            if reg is None or reg.is_empty or len(m) < 2:
+                return 0.0
+            cor = _LS([tuple(p) for p in m]).buffer(wEst * 0.6)
+            ddx = m[-1][0] - m[0][0]
+            ddy = m[-1][1] - m[0][1]
+            L = math.hypot(ddx, ddy) or 1.0
+            nx, ny = -ddy / L, ddx / L
+            rb = reg.bounds
+            span = max(rb[2] - rb[0], rb[3] - rb[1])
+            best = 0.0
+            for t in range(-5, 6):
+                off = span * 0.4 * t / 5.0
+                c2 = cor if t == 0 else _tr(cor, xoff=nx * off, yoff=ny * off)
+                try:
+                    inter = c2.intersection(reg)
+                except Exception:
+                    continue
+                for gm in getattr(inter, "geoms", [inter]):
+                    a = getattr(gm, "area", 0.0)
+                    if a > best:
+                        best = a
+            return best
+
+        if nGroups >= 2:
+            for k in range(nStrokes):
+                row = costRows[k]
+                order = sorted(range(nGroups), key=lambda g: row[g])
+                g1 = order[0]
+                if strokeGroup[k] != g1:
+                    continue  # 匈牙利锚定改动过的不碰
+                # 候选=代价窗口内的所有组（第二名未必是真主：好的提，
+                # 撇组排第三）
+                cands = [g for g in order[1:]
+                         if row[g] - row[g1] <= max(35.0, row[g1] * 0.6)]
+                if row[g1] < 15.0 or not cands:
+                    continue
+                if len(groupStrokes[g1]) <= 1:
+                    continue
+                s1 = _support(k, g1)
+                bestG, bestS = -1, s1 * 1.3
+                for g in cands:
+                    sg = _support(k, g)
+                    if sg > bestS and sg > 400.0:
+                        bestS, bestG = sg, g
+                if bestG >= 0:
+                    strokeGroup[k] = bestG
+                    groupStrokes[g1].remove(k)
+                    if k not in groupStrokes[bestG]:
+                        groupStrokes[bestG].append(k)
+                        groupStrokes[bestG].sort()
+    except Exception:
+        pass
+
     contourAllowed = [groupStrokes.get(c["group"], list(range(nStrokes)))
                       for c in contours]
 
