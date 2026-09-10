@@ -12,6 +12,7 @@ import math
 import time
 
 from .geometry import (dist, lineSeg, cubicSeg, parseContours, contourToPath,
+                       nearestBatch,
                        flattenSegs,
                        bboxOfPoints, pointInPolygon, nearestOnPolyline,
                        polylineLength, resamplePolyline, analyzeContours,
@@ -899,12 +900,34 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         return best
 
     usedKaiFallback = [False] * nStrokes
+    # 批量评分预备：样本点/切向在迭代间不变，一次性排成数组
+    import numpy as _np
+    _flatSamples = [sm for arr in sampleSets for sm in arr]
+    _flatCi = [ci for ci, arr in enumerate(sampleSets) for _ in arr]
+    _ptsArr = _np.array([sm["pt"] for sm in _flatSamples], dtype=_np.float64)         if _flatSamples else _np.zeros((0, 2))
+    _tanArr = _np.array([sm["tan"] for sm in _flatSamples], dtype=_np.float64)         if _flatSamples else _np.zeros((0, 2))
+    _ciArr = _np.array(_flatCi, dtype=_np.int64)
     for it in range(ITERS):
         assigned = [[] for _ in range(nStrokes)]
-        for ci, arr in enumerate(sampleSets):
-            for sm in arr:
-                sm["label"] = labelOf(sm["pt"], sm["tan"], contourAllowed[ci])
-                assigned[sm["label"]].append(sm["pt"])
+        # 逐样本评分批量化（语义与 labelOf 等价：分数矩阵按 allowed 顺序
+        # argmin，并列取先者；nearestBatch 与标量版逐位一致）
+        _scores = _np.empty((nStrokes, len(_flatSamples)), dtype=_np.float64)
+        for k in range(nStrokes):
+            d, _, _, tx, ty, _ = nearestBatch(_ptsArr, scoreMedians[k])
+            halfW = scoreWidths[k] * 0.5 + 6
+            dirPen = 1.0 - _np.abs(_tanArr[:, 0] * tx + _tanArr[:, 1] * ty)
+            _scores[k] = d / halfW + 0.5 * dirPen
+        _labels = _np.empty(len(_flatSamples), dtype=_np.int64)
+        for ci in range(len(sampleSets)):
+            mask = _ciArr == ci
+            if not mask.any():
+                continue
+            alw = _np.array(contourAllowed[ci], dtype=_np.int64)
+            sub = _scores[alw][:, mask]
+            _labels[mask] = alw[_np.argmin(sub, axis=0)]
+        for i, sm in enumerate(_flatSamples):
+            sm["label"] = int(_labels[i])
+            assigned[sm["label"]].append(sm["pt"])
         # 饿死自救：某笔颗粒无收 ⇒ 其 B 模板骨架劣质/错位（如 TC 竖变体），
         # D 退回楷体中轴线重新参赛——楷体位置由结构 C 保证，只输形态不输位置
         for k in range(nStrokes):
@@ -918,8 +941,9 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             pts = assigned[k]
             if not pts:
                 continue
-            ds = sorted(nearestOnPolyline(p, medians[k])["d"] for p in pts)
-            widths[k] = max(10.0, min(220.0, 2 * ds[len(ds) // 2]))
+            d, _, _, _, _, _ = nearestBatch(pts, medians[k])
+            ds = _np.sort(d)
+            widths[k] = max(10.0, min(220.0, 2 * float(ds[len(ds) // 2])))
         wMed = sorted(widths)[len(widths) // 2] or w0
         scoreWidths = [max(0.55 * wMed, min(1.6 * wMed, w)) for w in widths]
         if it >= ITERS - 1:

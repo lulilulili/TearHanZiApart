@@ -8,6 +8,8 @@
 
 import math
 
+import numpy as np
+
 # ---------------------------------------------------------------- 基本量
 
 def lerp(a, b, t):
@@ -865,6 +867,68 @@ def shapeSimilarity(a, b):
     return max(0, round(100 * (1 - shapeDistance(a, b) / 3)))
 
 
+# ---------------------------------------------------------------- numpy 批量原语
+
+def nearestBatch(pts, poly):
+    """批量最近点（与 nearestOnPolyline 逐点语义等价，含"首个最小并列取胜"）。
+    → (d, qx, qy, tanx, tany, idx) 均为 (N,) 数组。"""
+    P = np.asarray(pts, dtype=np.float64)
+    if P.ndim == 1:
+        P = P.reshape(1, 2)
+    A = np.asarray(poly, dtype=np.float64)
+    if len(A) < 2:
+        n = len(P)
+        d = np.hypot(P[:, 0] - A[0, 0], P[:, 1] - A[0, 1])
+        return (d, np.full(n, A[0, 0]), np.full(n, A[0, 1]),
+                np.ones(n), np.zeros(n), np.zeros(n, dtype=np.int64))
+    ax, ay = A[:-1, 0], A[:-1, 1]
+    ex, ey = A[1:, 0] - ax, A[1:, 1] - ay
+    L2 = ex * ex + ey * ey
+    safe = np.where(L2 > 1e-9, L2, 1.0)
+    X = P[:, 0][:, None]
+    Y = P[:, 1][:, None]
+    t = ((X - ax) * ex + (Y - ay) * ey) / safe
+    t = np.clip(np.where(L2 > 1e-9, t, 0.0), 0.0, 1.0)
+    qx = ax + ex * t
+    qy = ay + ey * t
+    # 与标量版同为"平方距离比较、末端开方"，保证并列打破逐位一致
+    dx2 = X - qx
+    dy2 = Y - qy
+    D2 = dx2 * dx2 + dy2 * dy2
+    idx = np.argmin(D2, axis=1)
+    ar = np.arange(len(P))
+    L = np.sqrt(L2)
+    L = np.where(L > 0, L, 1.0)
+    return (np.sqrt(D2[ar, idx]), qx[ar, idx], qy[ar, idx],
+            ex[idx] / L[idx], ey[idx] / L[idx], idx)
+
+
+def _edgeArrays(c):
+    """轮廓边数组缓存（含首尾闭合边，与 pointInPolygon 的边集一致；
+    corridorOffset 用 [:-1] 切片得开链，与其标量版一致）。"""
+    arr = c.get("_edgeArr")
+    if arr is None:
+        poly = c["poly"]
+        A = np.asarray(poly, dtype=np.float64)
+        x1 = np.append(A[:-1, 0], A[-1, 0])
+        y1 = np.append(A[:-1, 1], A[-1, 1])
+        x2 = np.append(A[1:, 0], A[0, 0])
+        y2 = np.append(A[1:, 1], A[0, 1])
+        arr = c["_edgeArr"] = (x1, y1, x2, y2)
+    return arr
+
+
+def _pipVec(qx, qy, c):
+    """pointInPolygon 的向量版（同一交叉数规则，含闭合边）。"""
+    x1, y1, x2, y2 = _edgeArrays(c)
+    m = (y1 > qy) != (y2 > qy)
+    if not m.any():
+        return False
+    dy = y2[m] - y1[m]
+    xc = (x2[m] - x1[m]) * (qy - y1[m]) / dy + x1[m]
+    return bool(np.count_nonzero(qx < xc) & 1)
+
+
 # ---------------------------------------------------------------- 中轴线精调
 
 def _contourBBox(c):
@@ -911,25 +975,35 @@ def corridorOffset(pt, tanDir, contours, cap, touch):
             bb = _contourBBox(c)
             if qx < bb[0] or qx > bb[2] or qy < bb[1] or qy > bb[3]:
                 continue
-            if pointInPolygon(q, c["poly"]):
+            if _pipVec(qx, qy, c):
                 cnt += -1 if c["isHole"] else 1
         return cnt > 0
 
-    ts = []
-    for c in near:
-        poly = c["poly"]
-        for j in range(len(poly) - 1):
-            x1, y1 = poly[j]
-            x2, y2 = poly[j + 1]
-            ex, ey = x2 - x1, y2 - y1
-            det = ex * ny - ey * nx
-            if abs(det) < 1e-12:
-                continue
-            t = (ex * (y1 - py) - ey * (x1 - px)) / det
-            s = (nx * (y1 - py) - ny * (x1 - px)) / det
-            if 0.0 <= s < 1.0 and abs(t) <= cap:
-                ts.append(t)
-    ts.sort()
+    if len(near) == 1:
+        ex1, ey1, ex2, ey2 = _edgeArrays(near[0])
+        x1, y1 = ex1[:-1], ey1[:-1]
+        ex, ey = ex2[:-1] - x1, ey2[:-1] - y1
+    elif near:
+        # 多轮廓拼成单数组一次算（开链边集，与标量版一致）
+        xs1 = []; ys1 = []; xs2 = []; ys2 = []
+        for c in near:
+            a, b, c2, d2 = _edgeArrays(c)
+            xs1.append(a[:-1]); ys1.append(b[:-1])
+            xs2.append(c2[:-1]); ys2.append(d2[:-1])
+        x1 = np.concatenate(xs1); y1 = np.concatenate(ys1)
+        ex = np.concatenate(xs2) - x1; ey = np.concatenate(ys2) - y1
+    if near:
+        det = ex * ny - ey * nx
+        m = np.abs(det) >= 1e-12
+        safe = np.where(m, det, 1.0)
+        rx = y1 - py
+        lx = x1 - px
+        t = (ex * rx - ey * lx) / safe
+        s = (nx * rx - ny * lx) / safe
+        ok = m & (s >= 0.0) & (s < 1.0) & (np.abs(t) <= cap)
+        ts = np.sort(t[ok]).tolist() if ok.any() else []
+    else:
+        ts = []
     best = None
     for j in range(len(ts) - 1):
         t0, t1 = ts[j], ts[j + 1]
@@ -1031,11 +1105,10 @@ def refineMedianFit(m, m0, pts, width):
     if not corners and chord > 1e-6 and chord / mLen > 0.85:
         mcx = sum(p[0] for p in m) / len(m)
         mcy = sum(p[1] for p in m) / len(m)
-        dxs, dys = [], []
-        for p in pts:
-            nr = nearestOnPolyline(p, m)
-            dxs.append(p[0] - nr["pt"][0])
-            dys.append(p[1] - nr["pt"][1])
+        _d, _qx, _qy, _tx, _ty, _i = nearestBatch(pts, m)
+        P = np.asarray(pts, dtype=np.float64)
+        dxs = (P[:, 0] - _qx).tolist()
+        dys = (P[:, 1] - _qy).tolist()
         dx, dy = clampVec(medOf(dxs) * 0.55, medOf(dys) * 0.55)
         ux, uy = (m[-1][0] - m[0][0]) / chord, (m[-1][1] - m[0][1]) / chord
         projS = sorted((p[0] - mcx) * ux + (p[1] - mcy) * uy for p in pts)
@@ -1075,11 +1148,11 @@ def refineMedianFit(m, m0, pts, width):
         accX = [[] for _ in range(nSec)]
         accY = [[] for _ in range(nSec)]
         ptsSec = [[] for _ in range(nSec)]
-        for p in pts:
-            nr = nearestOnPolyline(p, m)
-            s = secOfSeg(nr["idx"])
-            accX[s].append(p[0] - nr["pt"][0])
-            accY[s].append(p[1] - nr["pt"][1])
+        _d, _qx, _qy, _tx, _ty, _idx = nearestBatch(pts, m)
+        for pi, p in enumerate(pts):
+            s = secOfSeg(int(_idx[pi]))
+            accX[s].append(p[0] - float(_qx[pi]))
+            accY[s].append(p[1] - float(_qy[pi]))
             ptsSec[s].append(p)
         offs = []
         for s in range(nSec):
