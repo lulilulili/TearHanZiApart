@@ -242,7 +242,7 @@ class StrokeAnimator {
 
 /* ---------------- 状态 ---------------- */
 const state = { fontKey: null, ch: "永", libTab: "A", structLevel: 1, stepTab: 0,
-                result: null, library: null };
+                soloGroup: null, result: null, library: null };
 const libraryCache = new Map();
 const kaiAnimator = new StrokeAnimator(document.getElementById("svgKai"),
                                        document.getElementById("kaiStatus"));
@@ -259,6 +259,7 @@ function setOverlay(msg) {
 async function refresh() {
   document.querySelectorAll("#charChips .chip").forEach(c =>
     c.classList.toggle("active", c.textContent === state.ch));
+  state.soloGroup = null;
   setOverlay("拆解中…");
   try {
     const t0 = performance.now();
@@ -489,27 +490,62 @@ function renderSteps() {
   const svg = document.getElementById("svgStep");
   const cap = document.getElementById("stepCaption");
   const r = state.result;
-  cap.textContent = STEP_DEFS[state.stepTab].caption;
+  const solo = state.soloGroup;
+  /* 组过滤：solo 模式只画选中组的轮廓/笔画/样本/切割点 */
+  const showC = c => solo == null || c.group === solo;
+  const showS = k => solo == null || (r.strokes[k] && r.strokes[k].group === solo);
+  const toggleSolo = gid => {
+    state.soloGroup = state.soloGroup === gid ? null : gid;
+    renderSteps();
+  };
+  cap.textContent = STEP_DEFS[state.stepTab].caption +
+    (solo == null ? "　※ 点击任一组（图形或图例）可只看该组的拆分。"
+                  : `　※ 当前只看组${solo + 1}，再次点击或点“返回全部”退出。`);
   const g = glyphGroup(svg);
-  const drawOutline = op => r.contours.forEach(c =>
-    el("path", { d: c.path, fill: "#777", "fill-opacity": op, "fill-rule": "nonzero" }, g));
-  const drawMedians = () => r.strokes.forEach((s, k) =>
+  const drawOutline = op => r.contours.forEach(c => { if (showC(c))
+    el("path", { d: c.path, fill: "#777", "fill-opacity": op, "fill-rule": "nonzero" }, g); });
+  const drawMedians = () => r.strokes.forEach((s, k) => { if (showS(k))
     el("path", { d: s.median.map((p, j) => (j ? "L" : "M") + p[0] + " " + p[1]).join(" "),
                  fill: "none", stroke: colorOf(k), "stroke-width": 9,
-                 "stroke-dasharray": "22 14", "stroke-linecap": "round" }, g));
+                 "stroke-dasharray": "22 14", "stroke-linecap": "round" }, g); });
+  /* 图例首项：组切换器（所有步骤通用）*/
+  const legendEl = document.getElementById("stepLegend");
+  legendEl.innerHTML = "";
+  const groupsAll = r.groups || [];
+  if (groupsAll.length > 1) {
+    const bar = document.createElement("span");
+    bar.style.cssText = "display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap";
+    const mk = (label, gid, active) => {
+      const b = document.createElement("button");
+      b.textContent = label;
+      b.className = active ? "active" : "";
+      b.style.cssText = "padding:2px 10px;font-size:12px;cursor:pointer" +
+        (gid != null ? `;border-color:${colorOf(gid + 8)}` : "");
+      b.onclick = () => { state.soloGroup = gid; renderSteps(); };
+      bar.appendChild(b);
+    };
+    mk("全部组", null, solo == null);
+    groupsAll.forEach(gi => mk(`组${gi.id + 1}` +
+      (gi.isolated ? "✓" : `(${gi.strokes.length}笔)`), gi.id, solo === gi.id));
+    legendEl.appendChild(bar);
+  }
   const key = STEP_DEFS[state.stepTab].key;
   if (key === "s0") {
-    /* S0：孤立路径识别——按连通组着色；孤立组实色+✓，竞争组半透明 */
-    const groups = r.groups || [];
+    /* S0：孤立路径识别——按连通组着色；孤立组实色+✓，竞争组半透明；
+       点击组图形/标签切换 solo */
     r.contours.forEach(c => {
-      const gInfo = groups[c.group] || { isolated: false };
-      el("path", { d: c.path, fill: colorOf(c.group + 8),
+      if (!showC(c)) return;
+      const gInfo = groupsAll[c.group] || { isolated: false };
+      const p = el("path", { d: c.path, fill: colorOf(c.group + 8),
                    "fill-opacity": gInfo.isolated ? 0.85 : 0.28,
-                   "fill-rule": "nonzero",
+                   "fill-rule": "nonzero", cursor: "pointer",
                    stroke: colorOf(c.group + 8), "stroke-width": 4 }, g);
+      p.style.cursor = "pointer";
+      p.addEventListener("click", () => toggleSolo(c.group));
     });
     const lg0 = el("g", {}, svg);
-    groups.forEach(gInfo => {
+    groupsAll.forEach(gInfo => {
+      if (solo != null && gInfo.id !== solo) return;
       const polys = r.contours.filter(c => c.group === gInfo.id && !c.isHole);
       if (!polys.length) return;
       let bx0 = 1e18, by0 = 1e18, bx1 = -1e18, by1 = -1e18;
@@ -529,15 +565,18 @@ function renderSteps() {
         "font-family": "'Microsoft YaHei', sans-serif",
       }, lg0);
       t.textContent = label;
+      t.style.cursor = "pointer";
+      t.addEventListener("click", () => toggleSolo(gInfo.id));
     });
-    const legend0 = document.getElementById("stepLegend");
-    legend0.innerHTML = "";
-    groups.forEach(gInfo => {
+    groupsAll.forEach(gInfo => {
+      if (solo != null && gInfo.id !== solo) return;
       const item = document.createElement("span");
+      item.style.cursor = "pointer";
       item.innerHTML = `<span class="sw" style="background:${colorOf(gInfo.id + 8)}"></span>` +
         `组${gInfo.id + 1}${gInfo.isolated ? "（孤立→整组直出）" : "（组内竞争拆解）"}：` +
         gInfo.strokes.map(k => `第${k + 1}笔${r.strokes[k].type}`).join("、");
-      legend0.appendChild(item);
+      item.addEventListener("click", () => toggleSolo(gInfo.id));
+      legendEl.appendChild(item);
     });
     return;
   }
@@ -546,33 +585,47 @@ function renderSteps() {
   } else if (key === "s2") {
     drawOutline(0.12);
     r.strokes.forEach((s, k) => {
-      if (s.templatePath)
+      if (showS(k) && s.templatePath)
         el("path", { d: s.templatePath, fill: colorOf(k), "fill-opacity": 0.45,
                      "fill-rule": "nonzero" }, g);
     });
     drawMedians();
   } else if (key === "s3") {
     drawOutline(0.10); drawMedians();
-    r.samples.forEach(arr => arr.forEach(sm =>
-      el("circle", { cx: sm[0], cy: sm[1], r: 5.5, fill: colorOf(sm[2]) }, g)));
+    r.samples.forEach((arr, ci) => {
+      if (r.contours[ci] && !showC(r.contours[ci])) return;
+      arr.forEach(sm =>
+        el("circle", { cx: sm[0], cy: sm[1], r: 5.5, fill: colorOf(sm[2]) }, g));
+    });
   } else if (key === "s4") {
-    r.strokes.forEach((s, k) => el("path", {
-      d: s.path, fill: "none", stroke: colorOf(k), "stroke-width": 7 }, g));
-    r.cutPoints.forEach(cp => el("circle", {
-      cx: cp[0], cy: cp[1], r: 13, fill: "none", stroke: "#111", "stroke-width": 5 }, g));
+    r.strokes.forEach((s, k) => { if (showS(k)) el("path", {
+      d: s.path, fill: "none", stroke: colorOf(k), "stroke-width": 7 }, g); });
+    /* solo 模式：切割点按落在本组轮廓包围盒内过滤（切割点无组字段）*/
+    let cutBoxes = null;
+    if (solo != null) {
+      cutBoxes = r.contours.filter(showC).map(c => pathBBox(c.path)).filter(Boolean);
+    }
+    r.cutPoints.forEach(cp => {
+      if (cutBoxes && !cutBoxes.some(b =>
+        cp[0] >= b.x0 - 6 && cp[0] <= b.x1 + 6 &&
+        cp[1] >= b.y0 - 6 && cp[1] <= b.y1 + 6)) return;
+      el("circle", {
+        cx: cp[0], cy: cp[1], r: 13, fill: "none", stroke: "#111", "stroke-width": 5 }, g);
+    });
   } else if (key === "s5") {
-    r.strokes.forEach((s, k) => el("path", {
+    r.strokes.forEach((s, k) => { if (showS(k)) el("path", {
       d: s.path, fill: colorOf(k), "fill-opacity": 0.85, "fill-rule": "nonzero",
-      stroke: "#fff", "stroke-width": 3 }, g));
+      stroke: "#fff", "stroke-width": 3 }, g); });
   } else {
-    r.strokes.forEach((s, k) => el("path", {
-      d: s.path, fill: colorOf(k), "fill-opacity": 0.5, "fill-rule": "nonzero" }, g));
-    r.contours.forEach(c => el("path", {
-      d: c.path, fill: "none", stroke: "#111", "stroke-width": 4 }, g));
+    r.strokes.forEach((s, k) => { if (showS(k)) el("path", {
+      d: s.path, fill: colorOf(k), "fill-opacity": 0.5, "fill-rule": "nonzero" }, g); });
+    r.contours.forEach(c => { if (showC(c)) el("path", {
+      d: c.path, fill: "none", stroke: "#111", "stroke-width": 4 }, g); });
   }
   /* 每条线/每笔的类型标注：画布内文字（白描边保证可读）+ 图例 */
   const lg = el("g", {}, svg);
   r.strokes.forEach((s, k) => {
+    if (!showS(k)) return;
     const m = s.median;
     const p = m[Math.floor(m.length / 2)];
     const t = el("text", {
@@ -583,13 +636,12 @@ function renderSteps() {
     }, lg);
     t.textContent = (k + 1) + " " + s.type;
   });
-  const legend = document.getElementById("stepLegend");
-  legend.innerHTML = "";
   r.strokes.forEach((s, k) => {
+    if (!showS(k)) return;
     const item = document.createElement("span");
     item.innerHTML = `<span class="sw" style="background:${colorOf(k)}"></span>` +
       `第${k + 1}笔 ${s.type} ← ${s.template}`;
-    legend.appendChild(item);
+    legendEl.appendChild(item);
   });
 }
 
