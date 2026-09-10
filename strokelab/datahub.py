@@ -14,9 +14,20 @@ DEFAULT_CHIPS = list("十口头木中大天日水永汉字国你好我爱")
 # kaiAudit.json 转换，随包提交。
 _FIXES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "kaiTypeFixes.json")
+# 全量套用会把平撇这类名义撇/几何横的笔改成几何共识标签，反而在
+# 轴向校验里制造争议（抽样 80.8%→78.6%）；仅保留**复合笔形修正**
+# （骨架不同的结构性误判，如竖折→撇折、横捺撇→横折钩——这才是清单
+# 长尾噪声的来源），单元素笔形（横竖撇捺点提互换）不动。
 try:
     with open(_FIXES_PATH, encoding="utf-8") as _f:
-        KAI_TYPE_FIXES = json.load(_f)
+        _raw = json.load(_f)
+    _SINGLE = set("横竖撇捺点提")
+    KAI_TYPE_FIXES = {}
+    for _ch, _m in _raw.items():
+        _keep = {_i: _t for _i, _t in _m.items()
+                 if not (_t in _SINGLE)}
+        if _keep:
+            KAI_TYPE_FIXES[_ch] = _keep
 except Exception:
     KAI_TYPE_FIXES = {}
 

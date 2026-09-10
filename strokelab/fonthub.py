@@ -12,7 +12,7 @@ from fontTools.pens.recordingPen import RecordingPen
 from .geometry import (lineSeg, cubicSeg, dist, parseContours, contourToPath,
                        flattenSegs, bboxOfPoints, analyzeContours,
                        nearestOnPolyline, segLength, bezPoint,
-                       shapeDescriptor, shapeSimilarity, refineMedianFit)
+                       shapeDescriptor, shapeSimilarity, refineMedianFit, straightenIfNearLine)
 from .classify import (PROBE_TABLE, TYPE_ORDER, CJK_STROKE_NAMES,
                        CJK_STROKE_ABBR, typeOfStroke, matchTier, findLibEntry,
                        parseProbes, PROBE_POSITIONS, similarTypes)
@@ -460,5 +460,8 @@ class FontEntry:
             ds = sorted(nearestOnPolyline(p, med)["d"] for p in samples)
             w = max(10.0, 2 * ds[len(ds) // 2])
             med = refineMedianFit(med, [tuple(p) for p in med], samples, w)
+        # 近直吸直：楷体顿笔的小弯经映射+精调仍会残留在骨架上，无衬线
+        # 体的横竖标准骨架应是纯直线（用户明确要求）
+        med = straightenIfNearLine(med)
         entry["skeleton"] = med
         return med

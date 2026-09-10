@@ -313,6 +313,30 @@ def analyzeContours(contours):
     return contours
 
 
+def straightenIfNearLine(pts, tolRatio=0.06, tolAbs=5.0):
+    """近直折线吸直：所有点到首尾弦的偏差 < max(tolAbs, tolRatio×弦长)
+    且弧长≈弦长（防折返形误吸）时，替换为沿弦均匀分布的同点数直线。
+    楷体顿笔的小弯不该传染给无衬线体的横竖骨架——鸿蒙的标准横竖 D
+    骨架就该是直线。"""
+    if len(pts) < 3:
+        return pts
+    ax, ay = pts[0]
+    bx, by = pts[-1]
+    L = math.hypot(bx - ax, by - ay)
+    if L < 1e-6:
+        return pts
+    ux, uy = (bx - ax) / L, (by - ay) / L
+    tol = max(tolAbs, tolRatio * L)
+    for p in pts:
+        if abs((p[0] - ax) * -uy + (p[1] - ay) * ux) > tol:
+            return pts
+    if polylineLength(pts) > L * 1.15:
+        return pts
+    n = len(pts)
+    return [(ax + ux * L * i / (n - 1), ay + uy * L * i / (n - 1))
+            for i in range(n)]
+
+
 # ---------------------------------------------------------------- 尺度不变形状描述子
 
 def shapeDescriptor(paths):

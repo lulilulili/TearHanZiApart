@@ -344,8 +344,11 @@ def enforceConnectivity(contours, strokes, maxRounds=3, glyph=None):
                 # 滞留原主（TC威的竖捺）；仍找不到接壤者则给距离最近的笔
                 pb = piece.buffer(4.0)
                 bestJ, bestShare = -1, 1.0
+                gi = strokes[i].get("group")
                 for j, r2 in enumerate(regions):
-                    if j == i or r2 is None or r2.is_empty:
+                    # 图层隔离：面片只捐给同组的笔——跨组捐赠会让直出
+                    # 组被外组碎片污染（悬浮部件与外组孔洞共享边界）
+                    if j == i or r2 is None or r2.is_empty or                             strokes[j].get("group") != gi:
                         continue
                     try:
                         share = pb.intersection(r2).area
@@ -356,7 +359,7 @@ def enforceConnectivity(contours, strokes, maxRounds=3, glyph=None):
                 if bestJ < 0:
                     bestD = 1e18
                     for j, r2 in enumerate(regions):
-                        if j == i or r2 is None or r2.is_empty:
+                        if j == i or r2 is None or r2.is_empty or                                 strokes[j].get("group") != gi:
                             continue
                         try:
                             d = piece.distance(r2)
@@ -448,7 +451,10 @@ def clampStrokes(contours, strokes, excessTol=0.5, coverTol=99.5, glyph=None):
             replaced[i] = True
         clamped.append(inter)
 
-    # 2) 残差回填：未覆盖面片给共享边界最长的笔
+    # 2) 残差回填：未覆盖面片给共享边界最长的笔。**图层隔离**：残差
+    #    面片先按最大交叠定所属连通组，只允许该组的笔认领（悬浮部件
+    #    与外组孔洞共享边界，跨组回填会把面片粘给别组的笔——直出组
+    #    因此被外组污染）；本组无人接壤才放开全局。
     valid = [c for c in clamped if c is not None and not c.is_empty]
     if valid:
         union = unary_union(valid)
@@ -456,21 +462,67 @@ def clampStrokes(contours, strokes, excessTol=0.5, coverTol=99.5, glyph=None):
             union = union.buffer(0)
         residual = glyph.difference(union)
         if not residual.is_empty and residual.area > max(4.0, glyph.area * (100 - coverTol) / 100):
+            groupRegionCache = {}
+
+            def _regionOfGroup(g):
+                if g not in groupRegionCache:
+                    outs = None
+                    hs = None
+                    for c in contours:
+                        pts = flattenSegs(c["segs"], _FLAT)
+                        if len(pts) < 4 or c.get("group") != g:
+                            continue
+                        pg = Polygon(pts)
+                        if not pg.is_valid:
+                            pg = pg.buffer(0)
+                        if c.get("isHole"):
+                            hs = pg if hs is None else hs.union(pg)
+                        else:
+                            outs = pg if outs is None else outs.union(pg)
+                    if outs is not None and hs is not None:
+                        outs = outs.difference(hs)
+                        if not outs.is_valid:
+                            outs = outs.buffer(0)
+                    groupRegionCache[g] = outs
+                return groupRegionCache[g]
+
+            allGroups = sorted({c.get("group", 0) for c in contours})
             pieces = list(residual.geoms) if hasattr(residual, "geoms") else [residual]
             for piece in pieces:
                 if piece.area < 4:
                     continue
-                bestI, bestLen = -1, -1.0
-                pb = piece.buffer(1.5)
-                for i, c in enumerate(clamped):
-                    if c is None or c.is_empty:
+                pieceG, pgArea = None, 0.0
+                for g in allGroups:
+                    reg = _regionOfGroup(g)
+                    if reg is None:
                         continue
                     try:
-                        shared = pb.intersection(c).area
+                        a = reg.intersection(piece).area
                     except Exception:
-                        shared = 0.0
-                    if shared > bestLen:
-                        bestLen, bestI = shared, i
+                        a = 0.0
+                    if a > pgArea:
+                        pgArea, pieceG = a, g
+                pb = piece.buffer(1.5)
+
+                def bestOwner(candidates):
+                    bi, bl = -1, 0.0
+                    for i in candidates:
+                        c = clamped[i]
+                        if c is None or c.is_empty:
+                            continue
+                        try:
+                            shared = pb.intersection(c).area
+                        except Exception:
+                            shared = 0.0
+                        if shared > bl:
+                            bl, bi = shared, i
+                    return bi
+
+                sameG = [i for i in range(len(strokes))
+                         if strokes[i].get("group") == pieceG]
+                bestI = bestOwner(sameG) if pieceG is not None else -1
+                if bestI < 0:
+                    bestI = bestOwner(range(len(strokes)))
                 if bestI >= 0:
                     merged = clamped[bestI].union(piece)
                     if not merged.is_valid:
