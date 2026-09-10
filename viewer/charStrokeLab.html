@@ -134,6 +134,17 @@
           <option value="1" selected>中</option><option value="1.8">快</option></select>
         <span id="resStatus" class="muted"></span></div>
       <div id="resultInfo"></div></div></div>
+
+  <div class="panel"><h2>⑦ 动画实验场<span class="tag">笔画/部首特效</span></h2>
+    <div class="panelBody"><svg id="svgFx" class="svgBox" viewBox="0 0 1024 1024"></svg>
+      <div class="btnRow">
+        <button id="fxAssemble" class="primary">🧲 飞入组字</button>
+        <button id="fxExplode">💥 爆炸飞散</button>
+        <button id="fxCollapse">🏚 轰然倒塌</button>
+        <button id="fxLights">💡 灯光闪烁</button>
+        <button id="fxRadical">🎨 部首识别色</button>
+        <button id="fxReset">↺ 复位</button></div>
+      <div id="fxInfo" class="statusLine"></div></div></div>
 </div>
 
 <script>
@@ -299,6 +310,9 @@ async function refresh() {
 
 function renderAll() {
   renderRealPaths();
+  fx.load(state.result.strokes.filter(s => !s.failed).map(s => ({
+    path: s.path, color: colorOf(s.index),
+  })));
   renderKaiPanel();
   renderLibrary();
   renderStructure();
@@ -657,6 +671,172 @@ function renderSteps() {
 }
 
 /* ---------------- ⑥ 结果 ---------------- */
+/* ---------------- ⑦ 动画实验场 ---------------- */
+const RADICAL_RULES = [   // 按用户优先级：①水蓝 ②火红 ③鬼黑 ④艹绿 ⑤木棕
+  { comps: ["氵", "水", "氺"], name: "水", color: "#1e6fd9" },
+  { comps: ["灬", "火"], name: "火", color: "#d92b2b" },
+  { comps: ["鬼"], name: "鬼", color: "#1b1b1f" },
+  { comps: ["艹"], name: "艹", color: "#2e9e44" },
+  { comps: ["木"], name: "木", color: "#8b5a2b" },
+];
+
+const fx = {
+  items: [], raf: 0, mode: null,
+  load(strokes) {
+    this.stop();
+    const svg = document.getElementById("svgFx");
+    svg.innerHTML = "";
+    const root = glyphGroup(svg);
+    this.items = strokes.map((s, i) => {
+      const g = el("g", {}, root);
+      const p = el("path", { d: s.path, fill: s.color, "fill-rule": "nonzero" }, g);
+      let bb;
+      try { bb = p.getBBox(); } catch (e) { bb = { x: 400, y: 400, width: 200, height: 200 }; }
+      return { g, p, color: s.color,
+               cx: bb.x + bb.width / 2, cy: bb.y + bb.height / 2,
+               bx: bb.x, by: bb.y, bw: bb.width, bh: bb.height,
+               seed: Math.sin(i * 999.7) * 0.5 + 0.5 };
+    });
+    this.setInfo("");
+  },
+  stop() { cancelAnimationFrame(this.raf); this.raf = 0; this.mode = null; },
+  setInfo(html) { document.getElementById("fxInfo").innerHTML = html; },
+  resetPose() {
+    for (const it of this.items) {
+      it.g.removeAttribute("transform");
+      it.g.setAttribute("opacity", 1);
+      it.p.setAttribute("fill", it.color);
+      it.p.removeAttribute("fill-opacity");
+    }
+  },
+  reset() { this.stop(); this.resetPose(); this.setInfo(""); },
+  // 通用逐帧驱动：per(it,i,t01) 返回是否仍在动
+  run(durMs, stagMs, per, done) {
+    this.stop();
+    const t0 = performance.now();
+    const step = now => {
+      let alive = false;
+      this.items.forEach((it, i) => {
+        const t = Math.min(1, Math.max(0, (now - t0 - i * stagMs) / durMs));
+        per(it, i, t);
+        if (t < 1) alive = true;
+      });
+      if (alive) this.raf = requestAnimationFrame(step);
+      else { this.raf = 0; if (done) done(); }
+    };
+    this.raf = requestAnimationFrame(step);
+  },
+  // 1a 飞入组字：四面八方 + 自旋 → 归位（缓出）
+  assemble() {
+    this.reset(); this.mode = "assemble";
+    const easeOut = t => 1 - Math.pow(1 - t, 3);
+    this.items.forEach((it, i) => {
+      const ang = i * 2.399963 + it.seed * 6.28;   // 黄金角错开方向
+      it.fx = { dx: Math.cos(ang) * 1500, dy: Math.sin(ang) * 1500,
+                rot: (it.seed - 0.5) * 540 };
+    });
+    this.run(700, 110, (it, i, t) => {
+      const k = 1 - easeOut(t);
+      it.g.setAttribute("opacity", t === 0 ? 0 : 1);
+      it.g.setAttribute("transform",
+        `translate(${it.fx.dx * k} ${it.fx.dy * k}) ` +
+        `rotate(${it.fx.rot * k} ${it.cx} ${it.cy})`);
+    });
+  },
+  // 1b 爆炸飞散：归位状态 → 加速飞出 + 自旋 + 渐隐
+  explode() {
+    this.stop(); this.mode = "explode"; this.resetPose();
+    const easeIn = t => t * t * t;
+    this.items.forEach((it, i) => {
+      const ang = Math.atan2(it.cy - 450, it.cx - 512) + (it.seed - 0.5) * 0.9;
+      it.fx = { dx: Math.cos(ang) * 1600, dy: Math.sin(ang) * 1600,
+                rot: (it.seed - 0.5) * 720 };
+    });
+    this.run(800, 40, (it, i, t) => {
+      const k = easeIn(t);
+      it.g.setAttribute("opacity", Math.max(0, 1 - k * 1.15));
+      it.g.setAttribute("transform",
+        `translate(${it.fx.dx * k} ${it.fx.dy * k}) ` +
+        `rotate(${it.fx.rot * k} ${it.cx} ${it.cy})`);
+    });
+  },
+  // 2 轰然倒塌：自上而下逐笔倾斜→坠落→触地小回弹（数据坐标 y 向上）
+  collapse() {
+    this.reset(); this.mode = "collapse";
+    const order = [...this.items].sort((a, b) => (b.by + b.bh) - (a.by + a.bh));
+    order.forEach((it, rank) => { it.fx = {
+      rank,
+      pivotX: it.seed > 0.5 ? it.bx : it.bx + it.bw,   // 绕左/右下角倒
+      pivotY: it.by,
+      tilt: (it.seed > 0.5 ? 1 : -1) * (10 + it.seed * 8),
+      rot: (it.seed > 0.5 ? 1 : -1) * (75 + it.seed * 30),
+      drift: (it.seed - 0.5) * 140,
+    }; });
+    const TILT = 0.22;   // 前 22% 倾斜，其后自由落体
+    this.run(1150, 130, (it, i, t) => {
+      const f = it.fx;
+      // 目标：底边落到 y≈-60 的“地面”（数据坐标向上为正）
+      const groundDy = -(it.by + 60 + f.rank * 6);
+      if (t < TILT) {
+        const k = t / TILT;
+        it.g.setAttribute("transform",
+          `rotate(${f.tilt * k * k} ${f.pivotX} ${f.pivotY})`);
+      } else {
+        let k = (t - TILT) / (1 - TILT);
+        let fall = k * k;                       // 重力加速
+        if (k > 0.86) fall = 1 - (1 - k) / 0.14 * 0.055 * Math.sin((k - 0.86) / 0.14 * Math.PI); // 触地回弹
+        it.g.setAttribute("transform",
+          `translate(${f.drift * k} ${groundDy * fall}) ` +
+          `rotate(${(f.tilt + (f.rot - f.tilt) * k) } ${f.pivotX} ${f.pivotY})`);
+      }
+    });
+  },
+  // 3 灯光闪烁：每笔不同相位的彩色霓虹循环
+  lights() {
+    this.reset(); this.mode = "lights";
+    const t0 = performance.now();
+    const step = now => {
+      const t = (now - t0) / 1000;
+      this.items.forEach((it, i) => {
+        const hue = (t * 140 + i * 47) % 360;
+        const pulse = 0.7 + 0.3 * Math.sin(t * 7 + i * 1.7);
+        it.p.setAttribute("fill", `hsl(${hue} 92% 56%)`);
+        it.p.setAttribute("fill-opacity", pulse.toFixed(3));
+      });
+      this.raf = requestAnimationFrame(step);
+    };
+    this.raf = requestAnimationFrame(step);
+    this.setInfo("霓虹模式：每笔独立相位循环变色（再点其他按钮停止）");
+  },
+  // 4 部首识别色：结构分解(≤2级) + 字本身 匹配规则表
+  radicalColor() {
+    this.reset(); this.mode = "radical";
+    const comps = ((state.result.kai || {}).components) || [];
+    const present = new Map();   // char -> level (0=字本身)
+    present.set(state.ch, 0);
+    comps.forEach(c => { if (!present.has(c.char)) present.set(c.char, c.level); });
+    let hit = null;
+    const hitList = [];
+    for (const rule of RADICAL_RULES) {
+      const found = rule.comps.filter(c => present.has(c));
+      if (found.length) {
+        hitList.push(`${rule.name}系(${found.map(c =>
+          c + (present.get(c) ? `·${present.get(c)}级` : "·整字")).join(" ")})`);
+        if (!hit) hit = { rule, found };
+      }
+    }
+    if (hit) {
+      for (const it of this.items) it.p.setAttribute("fill", hit.rule.color);
+      this.setInfo(`命中 <b style="color:${hit.rule.color}">${hit.rule.name}系</b>` +
+        `（${hit.found.join("、")}）→ 全字染色。全部命中：${hitList.join("；")}` +
+        `<br>结构分解：${comps.map(c => `${c.char}<sub>${c.level}</sub>`).join(" ")}`);
+    } else {
+      this.setInfo(`无规则命中。结构分解：` +
+        (comps.length ? comps.map(c => `${c.char}<sub>${c.level}</sub>`).join(" ") : "（无数据）"));
+    }
+  },
+};
+
 function renderResult() {
   const info = document.getElementById("resultInfo");
   const r = state.result;
@@ -718,6 +898,12 @@ async function boot() {
       resAnimator.playing ? resAnimator.pause() : resAnimator.play();
     document.getElementById("resReset").onclick = () => resAnimator.reset();
     document.getElementById("resSpeed").onchange = e => resAnimator.speed = +e.target.value;
+    document.getElementById("fxAssemble").onclick = () => fx.assemble();
+    document.getElementById("fxExplode").onclick = () => fx.explode();
+    document.getElementById("fxCollapse").onclick = () => fx.collapse();
+    document.getElementById("fxLights").onclick = () => fx.lights();
+    document.getElementById("fxRadical").onclick = () => fx.radicalColor();
+    document.getElementById("fxReset").onclick = () => fx.reset();
     await refresh();
   } catch (e) {
     setOverlay("启动失败：" + e.message + "（请用 StrokeLab.bat 启动本地服务）");

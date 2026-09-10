@@ -87,6 +87,30 @@ class DataHub:
             self._dictCache[ch] = json.loads(line) if line else None
         return self._dictCache[ch]
 
+    def components(self, ch, depth=2):
+        """结构分解的部件清单（≤depth 级，去重保序）。
+        → [{"char": 部件, "level": 1|2}, ...]；'？' 占位符跳过。"""
+        IDS = set("⿰⿱⿲⿳⿴⿵⿶⿷⿸⿹⿺⿻")
+        out = []
+        seenChars = set()
+
+        def rec(c, level):
+            if level > depth:
+                return
+            e = self.dictEntry(c)
+            if not e:
+                return
+            for comp in (e.get("decomposition") or ""):
+                if comp in IDS or comp == "？":
+                    continue
+                if comp not in seenChars:
+                    seenChars.add(comp)
+                    out.append({"char": comp, "level": level})
+                rec(comp, level + 1)
+
+        rec(ch, 1)
+        return out
+
     # ------------------------------------------------------------ 结构
     def buildStructureTree(self, ch, depth=0, seen=None):
         if seen is None:
@@ -185,6 +209,7 @@ class DataHub:
             "structure": self.buildStructureTree(ch),
             "chaiziJt": self.chaiziJt.get(ch, []),
             "chaiziFt": self.chaiziFt.get(ch, []),
+            "components": self.components(ch),
         }
         self._kaiCache[ch] = data
         return data
