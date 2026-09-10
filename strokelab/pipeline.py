@@ -18,7 +18,7 @@ from .geometry import (dist, lineSeg, cubicSeg, parseContours, contourToPath,
                        bezPoint, bezTangent, bezSlice, segLength,
                        shapeDescriptor, shapeSimilarity, refineMedianFit,
                        recenterMedian, corridorPoint,
-                       straightenSections)
+                       straightenSections, signedArea)
 from .classify import findLibEntry, similarTypes, PROBE_TABLE
 from . import boolean as booleanClamp
 
@@ -562,6 +562,289 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 if k not in groupStrokes[bestH]:
                     groupStrokes[bestH].append(k)
                     groupStrokes[bestH].sort()
+
+    # 单杆组超载重指派：楷体的封底横在现代设计中常并入外框轮廓（貝/酉
+    # 的目底、日底），其名义位置又恰压在腔内悬浮横杆上（代价0）——墨
+    # 距离把两条楷体横同判给一根杆，杆内竞争必然一伤（質12/醌7 retain
+    # 曾掉到50%且100%重叠）。判据：组轮廓=单外环无孔且高伸长（就是一
+    # 根杆），组内≥2笔与杆同向。放逐目标=代价邻近、走廊滑动支撑充分的
+    # 组（禁选已含同向笔的单杆组——防杆间跳槽再造超载）；放逐者按**序
+    # 保持**选：目标在杆哪一侧，就放逐名义位置偏那一侧最远的笔（封底
+    # 横名义恰压杆上、按邻近选留必错——楷体次序是唯一可靠证据）。
+    try:
+        barLike = {}
+
+        def _isBar(g):
+            if g not in barLike:
+                outers = [c for c in contours
+                          if c["group"] == g and not c["isHole"]]
+                ok = False
+                ang = 0.0
+                if len(outers) == 1 and not any(
+                        c["group"] == g and c["isHole"] for c in contours):
+                    dsc = shapeDescriptor([contourToPath(outers[0]["segs"])])
+                    bb = groupBBoxes.get(g)
+                    # PCA伸长率对短粗杆偏低（醌酉杆3.4），bbox长宽比兜底
+                    aspect = (max(bb.w, bb.h) / max(1.0, min(bb.w, bb.h))
+                              if bb else 0.0)
+                    if dsc and (dsc["elong"] >= 4.0 or aspect >= 4.0):
+                        ok = True
+                        ang = math.degrees(dsc["mainAngle"]) % 180.0
+                barLike[g] = (ok, ang)
+            return barLike[g]
+
+        def _medianAngle(k):
+            m = initMedians[k]
+            return math.degrees(math.atan2(m[-1][1] - m[0][1],
+                                           m[-1][0] - m[0][0])) % 180.0
+
+        def _parallel(a, b):
+            d = abs(a - b)
+            return min(d, 180.0 - d) <= 30.0
+
+        for g in range(nGroups):
+            ok, barAng = _isBar(g)
+            if not ok:
+                continue
+            ss = list(groupStrokes.get(g, []))
+            par = [k for k in ss if _parallel(_medianAngle(k), barAng)]
+            if len(par) < 2:
+                continue
+            gc = groupCentroids.get(g)
+            if gc is None:
+                continue
+            # 垂轴坐标：质心在杆法向上的投影（横杆≈y，竖杆≈x）
+            rad = math.radians(barAng)
+            nx, ny = -math.sin(rad), math.cos(rad)
+
+            def _perp(pt):
+                return (pt[0] - gc[0]) * nx + (pt[1] - gc[1]) * ny
+
+            def _cen(k):
+                m = initMedians[k]
+                return (sum(p[0] for p in m) / len(m),
+                        sum(p[1] for p in m) / len(m))
+
+            # 放逐目标：全体笔的候选里支撑最强的组
+            bestH, bestS = -1, 400.0
+            for h in range(nGroups):
+                if h == g:
+                    continue
+                hOk, hAng = _isBar(h)
+                if hOk and any(_parallel(_medianAngle(k2), hAng)
+                               for k2 in groupStrokes.get(h, [])):
+                    continue
+                rows = [costRows[k][h] for k in par]
+                if min(rows) > max(60.0, min(costRows[k][g] for k in par) + 60.0):
+                    continue
+                sup = max(_support(k, h) for k in par)
+                if sup > bestS:
+                    bestS, bestH = sup, h
+            if bestH < 0:
+                continue
+
+            def _supportOff(k, h):
+                """_support 的带落点版：返回 (最大单片面积, 最优法向位移)。"""
+                reg = _groupRegion(h)
+                m = initMedians[k]
+                if reg is None or reg.is_empty or len(m) < 2:
+                    return 0.0, 0.0
+                from shapely.geometry import LineString as _LS2
+                from shapely.affinity import translate as _tr2
+                cor = _LS2([tuple(p) for p in m]).buffer(wEst * 0.6)
+                ddx = m[-1][0] - m[0][0]
+                ddy = m[-1][1] - m[0][1]
+                L = math.hypot(ddx, ddy) or 1.0
+                cnx, cny = -ddy / L, ddx / L
+                rb = reg.bounds
+                span = max(rb[2] - rb[0], rb[3] - rb[1])
+                best, bestOff = 0.0, 0.0
+                for tt in range(-5, 6):
+                    off = span * 0.4 * tt / 5.0
+                    c2 = cor if tt == 0 else _tr2(cor, xoff=cnx * off,
+                                                  yoff=cny * off)
+                    try:
+                        inter = c2.intersection(reg)
+                    except Exception:
+                        continue
+                    for gm in getattr(inter, "geoms", [inter]):
+                        a = getattr(gm, "area", 0.0)
+                        if a > best:
+                            best, bestOff = a, off
+                # 位移方向换算到杆法向的垂轴坐标增量
+                return best, bestOff * (cnx * nx + cny * ny)
+
+            # 落点序一致性：只在上下两个极端里挑放逐者——放逐后其实际
+            # 落点（走廊最优滑动位置）必须保持楷体给定的上下次序（酉框
+            # 质心在杆上方、可容墨的框底在杆下方，按质心猜方向曾放错笔）
+            ordered = sorted(par, key=lambda k: _perp(_cen(k)))
+            chosen = None
+            for exile in {ordered[0], ordered[-1]}:
+                sup, dPerp = _supportOff(exile, bestH)
+                if sup <= 400.0:
+                    continue
+                land = _perp(_cen(exile)) + dPerp
+                others = [_perp(_cen(k)) for k in par if k != exile]
+                if exile == ordered[-1] and land < max(others) - 10.0:
+                    continue
+                if exile == ordered[0] and land > min(others) + 10.0:
+                    continue
+                if chosen is None or sup > chosen[1]:
+                    chosen = (exile, sup)
+            if chosen is None:
+                continue
+            exile = chosen[0]
+            groupStrokes[g].remove(exile)
+            strokeGroup[exile] = bestH
+            if exile not in groupStrokes[bestH]:
+                groupStrokes[bestH].append(exile)
+                groupStrokes[bestH].sort()
+    except Exception:
+        pass
+
+    # 疑抢杆认领互换：全局仿射会把楷体某横的名义位置恰好压到目标内部
+    # 悬浮横杆上（威：楷体顶横名义 y 落在戌内短横杆上，代价0抢走该杆
+    # 直出；真身顶横的墨融合在外框组、无人认领→残差回填给竖=竖轴偏
+    # 49°；真正的杆主（笔3）被挤去邻组竞争）。判别信号=**笔比杆长**：
+    # 直出组里笔的名义轴长明显超过杆长（>1.08×），说明杆装不下它、是
+    # 抢来的。处置成链：k1 让出杆、去认领"墨面积远超组内笔画预期"的
+    # 孤儿组（走廊支撑最强处落位）；k2（同向、代价窗口内）顺位回填杆；
+    # 楷体名义次序与两者落点次序一致才施行，每字至多一链。
+    try:
+        glyphInk = sum((-abs(c["area"]) if c["isHole"] else abs(c["area"]))
+                       for c in contours)
+        kaiAreaShares = []
+        for sp in kai["strokes"]:
+            a = 0.0
+            for c in parseContours(sp):
+                a += abs(signedArea(flattenSegs(c["segs"], 15)))
+            kaiAreaShares.append(a)
+        kaiTotA = sum(kaiAreaShares) or 1.0
+        expArea = [glyphInk * a / kaiTotA for a in kaiAreaShares]
+
+        def _cenOf(k):
+            m = initMedians[k]
+            return (sum(p[0] for p in m) / len(m),
+                    sum(p[1] for p in m) / len(m))
+
+        def _axisLen(k):
+            m = initMedians[k]
+            return dist(m[0], m[-1])
+
+        def _supLand(k, h):
+            """走廊滑动支撑 + 最优落点位移向量。"""
+            reg = _groupRegion(h)
+            m = initMedians[k]
+            if reg is None or reg.is_empty or len(m) < 2:
+                return 0.0, (0.0, 0.0)
+            from shapely.geometry import LineString as _L3
+            from shapely.affinity import translate as _t3
+            cor = _L3([tuple(p) for p in m]).buffer(wEst * 0.6)
+            ddx = m[-1][0] - m[0][0]
+            ddy = m[-1][1] - m[0][1]
+            L = math.hypot(ddx, ddy) or 1.0
+            cnx, cny = -ddy / L, ddx / L
+            rb = reg.bounds
+            span = max(rb[2] - rb[0], rb[3] - rb[1])
+            best, bo = 0.0, 0.0
+            for tt in range(-6, 7):
+                off = span * 0.45 * tt / 6.0
+                c2 = cor if tt == 0 else _t3(cor, xoff=cnx * off,
+                                             yoff=cny * off)
+                try:
+                    inter = c2.intersection(reg)
+                except Exception:
+                    continue
+                for gm in getattr(inter, "geoms", [inter]):
+                    a = getattr(gm, "area", 0.0)
+                    if a > best:
+                        best, bo = a, off
+            return best, (cnx * bo, cny * bo)
+
+        done = False
+        for g0 in range(nGroups):
+            if done:
+                break
+            ss0 = groupStrokes.get(g0, [])
+            if len(ss0) != 1:
+                continue
+            k1 = ss0[0]
+            bb0 = groupBBoxes.get(g0)
+            if bb0 is None:
+                continue
+            m1 = initMedians[k1]
+            a1 = math.degrees(math.atan2(m1[-1][1] - m1[0][1],
+                                         m1[-1][0] - m1[0][0])) % 180.0
+            # 杆沿笔轴向的长度
+            rad = math.radians(a1)
+            ux, uy = math.cos(rad), math.sin(rad)
+            barLen = abs(bb0.w * ux) + abs(bb0.h * uy)
+            if _axisLen(k1) <= barLen * 1.08:
+                continue
+            # 认领目标：孤儿墨显著的组（墨面积-组内楷体预期 ≥ 0.5×本笔预期）
+            bestU = None
+            for gU in range(nGroups):
+                if gU == g0 or costRows[k1][gU] > 140.0:
+                    continue
+                reg = _groupRegion(gU)
+                if reg is None or reg.is_empty:
+                    continue
+                orphan = reg.area - sum(expArea[k]
+                                        for k in groupStrokes.get(gU, []))
+                if orphan < max(0.5 * expArea[k1], 900.0):
+                    continue
+                sup, offv = _supLand(k1, gU)
+                if sup < max(800.0, 0.35 * expArea[k1]):
+                    continue
+                if bestU is None or sup > bestU[0]:
+                    bestU = (sup, gU, offv)
+            if bestU is None:
+                continue
+            _, gU, off1 = bestU
+            c1 = _cenOf(k1)
+            land1 = (c1[0] + off1[0], c1[1] + off1[1])
+            # 回填者 k2：同向、代价窗口内、原组不空置、楷序=落点序
+            bestK2 = None
+            for k2 in range(nStrokes):
+                if k2 == k1 or strokeGroup[k2] == g0:
+                    continue
+                if len(groupStrokes.get(strokeGroup[k2], [])) < 2:
+                    continue
+                m2 = initMedians[k2]
+                a2 = math.degrees(math.atan2(m2[-1][1] - m2[0][1],
+                                             m2[-1][0] - m2[0][0])) % 180.0
+                d = abs(a1 - a2)
+                if min(d, 180.0 - d) > 30.0:
+                    continue
+                if costRows[k2][g0] > 140.0:
+                    continue
+                sup2, off2 = _supLand(k2, g0)
+                if sup2 < 400.0:
+                    continue
+                c2p = _cenOf(k2)
+                land2 = (c2p[0] + off2[0], c2p[1] + off2[1])
+                nx1, ny1 = -math.sin(rad), math.cos(rad)
+                sKai = (c1[0] - c2p[0]) * nx1 + (c1[1] - c2p[1]) * ny1
+                sLand = (land1[0] - land2[0]) * nx1 + (land1[1] - land2[1]) * ny1
+                if sKai * sLand < 0:
+                    continue
+                if bestK2 is None or sup2 > bestK2[0]:
+                    bestK2 = (sup2, k2)
+            if bestK2 is None:
+                continue
+            k2 = bestK2[1]
+            g2 = strokeGroup[k2]
+            groupStrokes[g0].remove(k1)
+            strokeGroup[k1] = gU
+            groupStrokes[gU].append(k1)
+            groupStrokes[gU].sort()
+            groupStrokes[g2].remove(k2)
+            strokeGroup[k2] = g0
+            groupStrokes[g0].append(k2)
+            groupStrokes[g0].sort()
+            done = True
+    except Exception:
+        pass
 
     contourAllowed = [groupStrokes.get(c["group"], list(range(nStrokes)))
                       for c in contours]

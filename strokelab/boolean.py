@@ -125,6 +125,31 @@ def _piecesOf(region):
     return [g for g in getattr(region, "geoms", []) if isinstance(g, Polygon)]
 
 
+def _groupRegionOf(contours, g):
+    """组 g 的 shapely 区域：外环并集 − 孔洞并集。rescueStarved 与
+    clampStrokes 共用（曾各写一份等价逻辑）。"""
+    outs = None
+    hs = None
+    for c in contours:
+        if c.get("group") != g:
+            continue
+        pts = flattenSegs(c["segs"], _FLAT)
+        if len(pts) < 4:
+            continue
+        pg = Polygon(pts)
+        if not pg.is_valid:
+            pg = pg.buffer(0)
+        if c.get("isHole"):
+            hs = pg if hs is None else hs.union(pg)
+        else:
+            outs = pg if outs is None else outs.union(pg)
+    if outs is not None and hs is not None:
+        outs = outs.difference(hs)
+        if not outs.is_valid:
+            outs = outs.buffer(0)
+    return outs
+
+
 def rescueStarved(contours, strokes, kaiStrokePaths, kaiMedians=None, glyph=None):
     """饿死救济：重构后面积不足楷体占比预期 35% 的笔（含零宽退化环），
     用骨架走廊（中轴线按笔宽 buffer）∩ 本组轮廓区域作为救济区域——
@@ -150,29 +175,7 @@ def rescueStarved(contours, strokes, kaiStrokePaths, kaiMedians=None, glyph=None
 
     def regionOfGroup(g):
         if g not in groupRegions:
-            outers = [c for c in contours if c.get("group") == g and not c.get("isHole")]
-            holes = [c for c in contours if c.get("group") == g and c.get("isHole")]
-            region = None
-            for c in outers:
-                pts = flattenSegs(c["segs"], _FLAT)
-                if len(pts) < 4:
-                    continue
-                pg = Polygon(pts)
-                if not pg.is_valid:
-                    pg = pg.buffer(0)
-                region = pg if region is None else region.union(pg)
-            if region is not None:
-                for c in holes:
-                    pts = flattenSegs(c["segs"], _FLAT)
-                    if len(pts) < 4:
-                        continue
-                    pg = Polygon(pts)
-                    if not pg.is_valid:
-                        pg = pg.buffer(0)
-                    region = region.difference(pg)
-                if not region.is_valid:
-                    region = region.buffer(0)
-            groupRegions[g] = region
+            groupRegions[g] = _groupRegionOf(contours, g)
         return groupRegions[g]
 
     rescued = []
@@ -466,24 +469,7 @@ def clampStrokes(contours, strokes, excessTol=0.5, coverTol=99.5, glyph=None):
 
             def _regionOfGroup(g):
                 if g not in groupRegionCache:
-                    outs = None
-                    hs = None
-                    for c in contours:
-                        pts = flattenSegs(c["segs"], _FLAT)
-                        if len(pts) < 4 or c.get("group") != g:
-                            continue
-                        pg = Polygon(pts)
-                        if not pg.is_valid:
-                            pg = pg.buffer(0)
-                        if c.get("isHole"):
-                            hs = pg if hs is None else hs.union(pg)
-                        else:
-                            outs = pg if outs is None else outs.union(pg)
-                    if outs is not None and hs is not None:
-                        outs = outs.difference(hs)
-                        if not outs.is_valid:
-                            outs = outs.buffer(0)
-                    groupRegionCache[g] = outs
+                    groupRegionCache[g] = _groupRegionOf(contours, g)
                 return groupRegionCache[g]
 
             allGroups = sorted({c.get("group", 0) for c in contours})

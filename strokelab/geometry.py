@@ -217,8 +217,8 @@ def pointInPolygon(pt, poly):
 
 
 def nearestOnPolyline(pt, poly):
-    """→ dict(d, pt, tan, idx)"""
-    bd = 1e18
+    """→ dict(d, pt, tan, idx)。内环用平方距离比较，免逐段开方。"""
+    bd2 = 1e36
     bp = poly[0]
     bt = (1.0, 0.0)
     bi = 0
@@ -230,13 +230,18 @@ def nearestOnPolyline(pt, poly):
         L2 = dx * dx + dy * dy
         t = 0.0
         if L2 > 1e-9:
-            t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / L2))
+            t = ((x - ax) * dx + (y - ay) * dy) / L2
+            if t < 0.0:
+                t = 0.0
+            elif t > 1.0:
+                t = 1.0
         qx, qy = ax + dx * t, ay + dy * t
-        d = math.hypot(x - qx, y - qy)
-        if d < bd:
+        ex, ey = x - qx, y - qy
+        d2 = ex * ex + ey * ey
+        if d2 < bd2:
             L = math.sqrt(L2) or 1.0
-            bd, bp, bt, bi = d, (qx, qy), (dx / L, dy / L), i
-    return {"d": bd, "pt": bp, "tan": bt, "idx": bi}
+            bd2, bp, bt, bi = d2, (qx, qy), (dx / L, dy / L), i
+    return {"d": math.sqrt(bd2), "pt": bp, "tan": bt, "idx": bi}
 
 
 def polylineLength(poly):
@@ -862,25 +867,56 @@ def shapeSimilarity(a, b):
 
 # ---------------------------------------------------------------- 中轴线精调
 
+def _contourBBox(c):
+    """轮廓 bbox 惰性缓存（挂在轮廓字典上复用，剪枝专用）。"""
+    bb = c.get("bboxT")
+    if bb is None:
+        x0 = y0 = 1e18
+        x1 = y1 = -1e18
+        for p in c["poly"]:
+            if p[0] < x0: x0 = p[0]
+            if p[1] < y0: y0 = p[1]
+            if p[0] > x1: x1 = p[0]
+            if p[1] > y1: y1 = p[1]
+        c["bboxT"] = bb = (x0, y0, x1, y1)
+    return bb
+
+
 def corridorOffset(pt, tanDir, contours, cap, touch):
     """沿 pt 处法向找字形边界双侧交点，返回 pt 所在（或紧邻）实体断面的
-    中点偏移量（沿法向的带符号距离）；断面过宽或找不到则返回 None。"""
+    中点偏移量（沿法向的带符号距离）；断面过宽或找不到则返回 None。
+    轮廓级 bbox 剪枝：法向查询段 |t|≤cap 只有百余单位、全字 1024，
+    多数轮廓整体落在查询窗外，先以 bbox 相交筛掉（结果精确等价）。"""
     dx, dy = tanDir
     L = math.hypot(dx, dy)
     if L < 1e-6:
         return None
     nx, ny = -dy / L, dx / L
     px, py = pt
+    wx0 = px - cap * abs(nx) - 1.0
+    wx1 = px + cap * abs(nx) + 1.0
+    wy0 = py - cap * abs(ny) - 1.0
+    wy1 = py + cap * abs(ny) + 1.0
+    near = []
+    for c in contours:
+        bb = _contourBBox(c)
+        if bb[2] < wx0 or bb[0] > wx1 or bb[3] < wy0 or bb[1] > wy1:
+            continue
+        near.append(c)
 
     def filled(q):
         cnt = 0
-        for c in contours:
+        qx, qy = q
+        for c in near:
+            bb = _contourBBox(c)
+            if qx < bb[0] or qx > bb[2] or qy < bb[1] or qy > bb[3]:
+                continue
             if pointInPolygon(q, c["poly"]):
                 cnt += -1 if c["isHole"] else 1
         return cnt > 0
 
     ts = []
-    for c in contours:
+    for c in near:
         poly = c["poly"]
         for j in range(len(poly) - 1):
             x1, y1 = poly[j]
