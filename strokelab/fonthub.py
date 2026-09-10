@@ -553,8 +553,25 @@ class FontEntry:
                     break
         self._libCompleted = True
         self._libAdded = added
+        # 预计算全部骨架（Voronoi 中轴较贵，懒算曾让首字拆解多花 2.5s）
+        # 后一并落盘，重启进程直接命中
+        self.ensureAllSkeletons(dataHub)
+        self._skelDirty = False
         self._saveLibCache(dataHub)
         return added
+
+    def ensureAllSkeletons(self, dataHub):
+        for e in (self.libraryBAll or []):
+            try:
+                self.ensureSkeleton(e, dataHub)
+            except Exception:
+                pass
+
+    def saveSkeletonsIfDirty(self, dataHub):
+        """拆解过程中借用/兜底可能懒算出新骨架——机会性回写缓存。"""
+        if getattr(self, "_skelDirty", False):
+            self._skelDirty = False
+            self._saveLibCache(dataHub)
 
     # ------------------------------------------------------------ A↔B 骨架映射
     def ensureSkeleton(self, entry, dataHub):
@@ -565,6 +582,7 @@ class FontEntry:
         提取退化时才回退老路：楷体中线 bbox 映射 + 精调。"""
         if entry.get("skeleton"):
             return entry["skeleton"]
+        self._skelDirty = True  # 新算骨架 → 缓存待回写
         contours = []
         for d in entry["contours"]:
             contours.extend(parseContours(d))

@@ -92,9 +92,12 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/api/fonts":
                 self._json({"fonts": _listFonts(), "chips": DEFAULT_CHIPS})
             elif route == "/api/library":
+                tL = time.perf_counter()
                 fe = _getFont(qs["font"][0])
                 self._json({"A": _state["hub"].libraryA, "B": fe.libraryBAll,
-                            "Btypes": sorted(fe.libraryB.keys())})
+                            "Btypes": sorted(fe.libraryB.keys()),
+                            "serverTimings": {
+                                "库准备": round((time.perf_counter() - tL) * 1000)}})
             elif route == "/api/decompose":
                 font = qs["font"][0]
                 ch = qs["char"][0]
@@ -104,6 +107,7 @@ class Handler(BaseHTTPRequestHandler):
                     fe = _getFont(font)
                     tP = time.perf_counter()
                     r = runPipeline(_state["hub"], fe, ch)
+                    fe.saveSkeletonsIfDirty(_state["hub"])
                     r["serverTimings"] = {
                         "库准备": round((tP - tL) * 1000),
                         "拆解": round((time.perf_counter() - tP) * 1000)}

@@ -263,20 +263,31 @@ async function refresh() {
   setOverlay("拆解中…");
   try {
     const t0 = performance.now();
+    let libMs = 0, libSrv = null;
     if (!libraryCache.has(state.fontKey)) {
       setOverlay("构建 " + state.fontKey + " 标准笔画库…");
+      const tL = performance.now();
       libraryCache.set(state.fontKey,
         await api("/api/library?font=" + encodeURIComponent(state.fontKey)));
+      libMs = performance.now() - tL;
+      libSrv = (libraryCache.get(state.fontKey).serverTimings || {})["库准备"];
     }
     state.library = libraryCache.get(state.fontKey);
+    const tD = performance.now();
     state.result = await api("/api/decompose?font=" + encodeURIComponent(state.fontKey)
                              + "&char=" + encodeURIComponent(state.ch));
+    const decMs = performance.now() - tD;
     const st = state.result.serverTimings;
     const stages = (state.result.timings || [])
       .map(([n, ms]) => `${n} ${ms}`).join(" · ");
+    // 全程 = 库拉取(服务端准备+传输解析) + 拆解请求(服务端拆解+传输解析)
+    const parts = [];
+    if (libMs > 0) parts.push(`库拉取 ${libMs.toFixed(0)}` +
+      (libSrv != null ? `(服务端 ${libSrv})` : ""));
+    parts.push(`拆解请求 ${decMs.toFixed(0)}` +
+      (st ? `(服务端 ${st["库准备"]}+${st["拆解"]})` : "(服务端缓存)"));
     document.getElementById("topStatus").textContent =
-      `耗时 ${(performance.now() - t0).toFixed(0)} ms` +
-      (st ? `（库准备 ${st["库准备"]} + 拆解 ${st["拆解"]}）` : "（服务端缓存）") +
+      `耗时 ${(performance.now() - t0).toFixed(0)} ms ＝ ` + parts.join(" + ") +
       (stages ? ` ｜ ${stages}` : "");
     setOverlay(null);
     renderAll();
