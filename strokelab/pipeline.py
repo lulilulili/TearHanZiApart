@@ -18,7 +18,7 @@ from .geometry import (dist, lineSeg, cubicSeg, parseContours, contourToPath,
                        bezPoint, bezTangent, bezSlice, segLength,
                        shapeDescriptor, shapeSimilarity, refineMedianFit,
                        recenterMedian, corridorPoint,
-                       straightenIfNearLine)
+                       straightenSections)
 from .classify import findLibEntry, similarTypes
 from . import boolean as booleanClamp
 
@@ -322,8 +322,9 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             placed = kaiPlaced
             templateSources.append("楷体中轴线(B库缺类型/形态错配)")
             templateEnts.append(None)
-        # 近直吸直：横竖等直笔的 D 骨架不该带楷体顿笔的歪扭
-        placed = straightenIfNearLine(placed)
+        # 分段吸直：同类型 D 骨架拓扑必须一致（横折=干净的7字两直段，
+        # 不因楷体回退带弧弯变C样；直笔=直线；真曲段保持）
+        placed = straightenSections(placed)
         medians.append(placed)
     if seedMedians is not None:
         # 自洽回灌：第一遍逐笔干净中轴替换 B 库定位的 D（结构先验已由

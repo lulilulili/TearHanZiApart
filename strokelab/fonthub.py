@@ -12,7 +12,9 @@ from fontTools.pens.recordingPen import RecordingPen
 from .geometry import (lineSeg, cubicSeg, dist, parseContours, contourToPath,
                        flattenSegs, bboxOfPoints, analyzeContours,
                        nearestOnPolyline, segLength, bezPoint,
-                       shapeDescriptor, shapeSimilarity, refineMedianFit, straightenIfNearLine)
+                       shapeDescriptor, shapeSimilarity, refineMedianFit,
+                       straightenSections, midpointRectify, outlineCenterline,
+                       resamplePolyline)
 from .classify import (PROBE_TABLE, TYPE_ORDER, CJK_STROKE_NAMES,
                        CJK_STROKE_ABBR, typeOfStroke, matchTier, findLibEntry,
                        parseProbes, PROBE_POSITIONS, similarTypes)
@@ -425,8 +427,11 @@ class FontEntry:
 
     # ------------------------------------------------------------ A↔B 骨架映射
     def ensureSkeleton(self, entry, dataHub):
-        """把 A库（楷体）同类型中轴线 bbox 映射进 B 笔画轮廓并单笔精调拟合，
-        得到目标字体自己的笔画形态骨架（A↔B 映射的核心产物）。"""
+        """B 笔画骨架 = 从 B 轮廓自身提取的中线（Voronoi 中轴直径路径），
+        楷体同类型中轴线只决定书写方向（起点在哪头）——臂长比例、弯直
+        等形状信息完全来自目标字体（用户架构要求：A↔B 对应建立后楷体
+        形状不参与，bbox 映射楷体中线在臂比悬殊时会斜穿墨块）。中轴
+        提取退化时才回退老路：楷体中线 bbox 映射 + 精调。"""
         if entry.get("skeleton"):
             return entry["skeleton"]
         contours = []
@@ -438,30 +443,47 @@ class FontEntry:
         bb = bboxOfPoints(pts)
         entry["outlineBBox"] = [bb.x0, bb.y0, bb.x1, bb.y1]
         aList = findLibEntry(dataHub.libraryA, entry["type"]) if dataHub.libraryA else None
+        kaiStart = None
         if aList:
             aPathPts = []
             for c in parseContours(aList[0]["path"]):
                 aPathPts.extend(flattenSegs(c["segs"], 20))
             ab = bboxOfPoints(aPathPts)
-            med = [(bb.x0 + (p[0] - ab.x0) * bb.w / max(1.0, ab.w),
-                    bb.y0 + (p[1] - ab.y0) * bb.h / max(1.0, ab.h))
-                   for p in aList[0]["median"]]
+            km = aList[0]["median"]
+            kaiStart = (bb.x0 + (km[0][0] - ab.x0) * bb.w / max(1.0, ab.w),
+                        bb.y0 + (km[0][1] - ab.y0) * bb.h / max(1.0, ab.h))
+        loops = [flattenSegs(c["segs"], 6) for c in contours]
+        med = outlineCenterline(loops)
+        if med and len(med) >= 2:
+            if kaiStart is not None:
+                d0 = dist(med[0], kaiStart)
+                d1 = dist(med[-1], kaiStart)
+                if d1 < d0:
+                    med = med[::-1]
+            med = resamplePolyline([tuple(p) for p in med], 15)
         else:
-            med = [(bb.x0, bb.y1), (bb.x1, bb.y0)]
-        samples = []
-        for c in contours:
-            for seg in c["segs"]:
-                n = max(3, min(20, int(math.ceil(segLength(seg) / 12))))
-                for i in range(n):
-                    samples.append(bezPoint(seg, i / n))
-        for _ in range(3):
-            if len(samples) < 6:
-                break
-            ds = sorted(nearestOnPolyline(p, med)["d"] for p in samples)
-            w = max(10.0, 2 * ds[len(ds) // 2])
-            med = refineMedianFit(med, [tuple(p) for p in med], samples, w)
-        # 近直吸直：楷体顿笔的小弯经映射+精调仍会残留在骨架上，无衬线
-        # 体的横竖标准骨架应是纯直线（用户明确要求）
-        med = straightenIfNearLine(med)
+            # 回退：楷体中线 bbox 映射 + 精调（中轴提取退化，如极小轮廓）
+            if aList:
+                med = [(bb.x0 + (p[0] - ab.x0) * bb.w / max(1.0, ab.w),
+                        bb.y0 + (p[1] - ab.y0) * bb.h / max(1.0, ab.h))
+                       for p in aList[0]["median"]]
+            else:
+                med = [(bb.x0, bb.y1), (bb.x1, bb.y0)]
+            samples = []
+            for c in contours:
+                for seg in c["segs"]:
+                    n = max(3, min(20, int(math.ceil(segLength(seg) / 12))))
+                    for i in range(n):
+                        samples.append(bezPoint(seg, i / n))
+            for _ in range(3):
+                if len(samples) < 6:
+                    break
+                ds = sorted(nearestOnPolyline(p, med)["d"] for p in samples)
+                w = max(10.0, 2 * ds[len(ds) // 2])
+                med = refineMedianFit(med, [tuple(p) for p in med], samples, w)
+        # 法向中点矫正（Voronoi 路径有采样锯齿）+ 分段吸直：直笔纯直线、
+        # 折笔干净直段+拐角（同类型骨架拓扑一致），真曲段保持
+        med = midpointRectify(med, loops)
+        med = straightenSections(med)
         entry["skeleton"] = med
         return med

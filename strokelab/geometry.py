@@ -337,6 +337,454 @@ def straightenIfNearLine(pts, tolRatio=0.06, tolAbs=5.0):
             for i in range(n)]
 
 
+def straightenSections(pts, cornerDeg=40.0):
+    """分段吸直（吸直的推广）：按拐角把折线切段，各段近直则替换为直线，
+    拐角点保留；两条长直臂之间的短碎段（拐角区 Voronoi/精调抖动）坍缩
+    为两臂直线的交点=尖拐角；端部短残段沿邻臂直线投影延伸吸收。同一
+    类型的 D 骨架应当拓扑一致——横折无论何来都该是干净的"7"字两直段
+    +尖角，不该带弧弯变"C"样；弯钩碗底、钩尾这类真曲段总长超阈值，
+    不满足坍缩条件，保持原形。"""
+    if len(pts) < 3:
+        return pts
+    rs = resamplePolyline([tuple(p) for p in pts], 15)
+    if len(rs) < 4:
+        return straightenIfNearLine(pts)
+    angles = [math.degrees(math.atan2(rs[i + 1][1] - rs[i][1],
+                                      rs[i + 1][0] - rs[i][0]))
+              for i in range(len(rs) - 1)]
+
+    def angDiff(a, b):
+        d = a - b
+        while d > 180:
+            d -= 360
+        while d < -180:
+            d += 360
+        return d
+
+    w = 2
+    turns = [abs(angDiff(angles[min(len(angles) - 1, i + w)],
+                         angles[max(0, i - w)])) for i in range(len(angles))]
+    corners = []
+    i = 1
+    while i < len(angles) - 1:
+        if turns[i] > cornerDeg and turns[i] >= turns[i - 1] \
+                and turns[i] >= turns[i + 1]:
+            if not corners or i - corners[-1] > w:
+                corners.append(i)
+                i += w
+        i += 1
+    if not corners:
+        return straightenIfNearLine(pts)
+
+    bounds = [0] + corners + [len(rs) - 1]
+    secs = [(a, b) for a, b in zip(bounds[:-1], bounds[1:]) if b > a]
+    total = polylineLength(rs)
+    longTh = max(60.0, 0.15 * total)
+
+    def secPts(s):
+        return rs[s[0]:s[1] + 1]
+
+    def isLong(s):
+        seg = secPts(s)
+        c = dist(seg[0], seg[-1])
+        return c >= longTh and polylineLength(seg) <= c * 1.08
+
+    kinds = ["L" if isLong(s) else "s" for s in secs]
+    if "L" not in kinds:
+        return _legacyStraighten(rs, secs)
+
+    def lineOf(s):
+        a, b = rs[s[0]], rs[s[1]]
+        L = dist(a, b)
+        return a, ((b[0] - a[0]) / L, (b[1] - a[1]) / L)
+
+    def intersect(sA, sB):
+        aA, uA = lineOf(sA)
+        aB, uB = lineOf(sB)
+        den = uA[0] * uB[1] - uA[1] * uB[0]
+        if abs(den) < 0.05:
+            return None
+        wx, wy = aB[0] - aA[0], aB[1] - aA[1]
+        t = (wx * uB[1] - wy * uB[0]) / den
+        return (aA[0] + uA[0] * t, aA[1] + uA[1] * t)
+
+    out = []
+
+    def emit(seq):
+        for p in seq:
+            if out and dist(out[-1], p) < 1e-6:
+                continue
+            out.append((p[0], p[1]))
+
+    n = len(secs)
+    i = 0
+    while i < n:
+        if kinds[i] == "L":
+            emit(straightenIfNearLine(secPts(secs[i])))
+            i += 1
+            continue
+        j = i
+        runLen = 0.0
+        while j < n and kinds[j] == "s":
+            runLen += polylineLength(secPts(secs[j]))
+            j += 1
+        prevL = secs[i - 1] if i > 0 and kinds[i - 1] == "L" else None
+        nextL = secs[j] if j < n and kinds[j] == "L" else None
+        runPts = rs[secs[i][0]:secs[j - 1][1] + 1]
+        gapMid = runPts[len(runPts) // 2]
+        if prevL and nextL and runLen <= longTh:
+            X = intersect(prevL, nextL)
+            if X and dist(X, gapMid) <= runLen * 1.5 + 40:
+                emit([X])
+            else:
+                emit(runPts)
+        elif prevL is None and nextL is not None and runLen <= max(45.0, total * 0.08):
+            aN, uN = lineOf(nextL)
+            e = runPts[0]
+            t = (e[0] - aN[0]) * uN[0] + (e[1] - aN[1]) * uN[1]
+            if t < -5:
+                emit([(aN[0] + uN[0] * t, aN[1] + uN[1] * t)])
+        elif nextL is None and prevL is not None and runLen <= max(45.0, total * 0.08):
+            aP, uP = lineOf(prevL)
+            bP = rs[prevL[1]]
+            e = runPts[-1]
+            t = (e[0] - bP[0]) * uP[0] + (e[1] - bP[1]) * uP[1]
+            if t > 5:
+                emit([(bP[0] + uP[0] * t, bP[1] + uP[1] * t)])
+        else:
+            emit(runPts)
+        i = j
+    return out if len(out) >= 2 else pts
+
+
+def _legacyStraighten(rs, secs):
+    """无长直臂（全曲/全碎）：逐段近直吸直，拐角保留（原行为）。"""
+    out = []
+    for k, s in enumerate(secs):
+        sec = straightenIfNearLine(rs[s[0]:s[1] + 1])
+        if out:
+            sec = sec[1:]
+        out.extend(sec)
+    return out if len(out) >= 2 else rs
+
+
+def outlineCenterline(loops, step=8.0):
+    """从孤立笔画轮廓直接提取中线（Voronoi 中轴的图直径路径）。
+    纯矢量确定性：边界按 step 加密采样 → Voronoi 边 → 只留完全在
+    墨内的边建图 → 两次 Dijkstra 取最远叶对的路径 = 中线主干（分叉
+    自动剪除，钩在直径路径端部天然保留）。B 库骨架由此完全取决于
+    目标字体轮廓自身几何——臂长比例、弯直全是字体自己的，楷体中轴线
+    不再参与形状（bbox 映射楷体中线在臂比悬殊时会斜穿墨块，己的短竖
+    横折映到鸿蒙长竖 ㇕ 曾不可救药）。返回点列或 None（退化）。"""
+    import heapq
+    from shapely.geometry import MultiPoint, Polygon, Point
+    from shapely.ops import voronoi_diagram, unary_union
+
+    polys = []
+    for lp in loops:
+        if len(lp) >= 4:
+            try:
+                pg = Polygon(lp)
+                if not pg.is_valid:
+                    pg = pg.buffer(0)
+                if not pg.is_empty:
+                    polys.append(pg)
+            except Exception:
+                pass
+    if not polys:
+        return None
+    region = polys[0]
+    for pg in polys[1:]:
+        try:
+            region = region.symmetric_difference(pg)
+        except Exception:
+            region = region.buffer(0).symmetric_difference(pg.buffer(0))
+    if region.is_empty or region.area < 25:
+        return None
+    if hasattr(region, "geoms"):
+        region = max(region.geoms, key=lambda g: g.area)
+
+    bnd = []
+    for ring in [region.exterior] + list(region.interiors):
+        coords = list(ring.coords)
+        for i in range(len(coords) - 1):
+            a, b = coords[i], coords[i + 1]
+            L = math.hypot(b[0] - a[0], b[1] - a[1])
+            n = max(1, int(math.ceil(L / step)))
+            for k in range(n):
+                t = k / n
+                bnd.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
+    if len(bnd) < 8:
+        return None
+    try:
+        vd = voronoi_diagram(MultiPoint(bnd), edges=True)
+    except Exception:
+        return None
+    inner = region.buffer(-0.05) if region.area > 100 else region
+
+    def key(p):
+        return (round(p[0], 1), round(p[1], 1))
+
+    adj = {}
+    edgeGeoms = []
+    for geom in getattr(vd, "geoms", []):
+        if hasattr(geom, "geoms"):
+            edgeGeoms.extend(geom.geoms)
+        else:
+            edgeGeoms.append(geom)
+    for geom in edgeGeoms:
+        coords = list(geom.coords)
+        for i in range(len(coords) - 1):
+            a, b = coords[i], coords[i + 1]
+            try:
+                if not (inner.contains(Point(a)) and inner.contains(Point(b))):
+                    continue
+            except Exception:
+                continue
+            ka, kb = key(a), key(b)
+            if ka == kb:
+                continue
+            L = math.hypot(b[0] - a[0], b[1] - a[1])
+            adj.setdefault(ka, {})[kb] = min(adj.get(ka, {}).get(kb, 1e18), L)
+            adj.setdefault(kb, {})[ka] = min(adj.get(kb, {}).get(ka, 1e18), L)
+    if len(adj) < 2:
+        return None
+
+    def farthest(src):
+        distMap = {src: 0.0}
+        prev = {}
+        pq = [(0.0, src)]
+        while pq:
+            d, u = heapq.heappop(pq)
+            if d > distMap.get(u, 1e18):
+                continue
+            for v, w in adj[u].items():
+                nd = d + w
+                if nd < distMap.get(v, 1e18):
+                    distMap[v] = nd
+                    prev[v] = u
+                    heapq.heappush(pq, (nd, v))
+        far = max(distMap, key=distMap.get)
+        return far, prev, distMap[far]
+
+    start = next(iter(adj))
+    u, _, _ = farthest(start)
+    v, prev, _ = farthest(u)
+    path = [v]
+    while path[-1] != u:
+        path.append(prev[path[-1]])
+    pts = [(p[0], p[1]) for p in path]
+    if polylineLength(pts) < 4:
+        return None
+
+    # 端枝剪除：矩形端帽处中轴分叉出 45° 角枝（伸向端帽角落、到边界
+    # 余隙递减趋零），直径路径会带上一条。从两端向内丢弃余隙 <0.8×
+    # 路径中位余隙的点，剪掉角枝、留主干
+    bndRings = [region.exterior] + list(region.interiors)
+
+    def clearance(p):
+        pt = Point(p)
+        return min(r.distance(pt) for r in bndRings)
+
+    clr = [clearance(p) for p in pts]
+    sc = sorted(clr)
+    medClr = sc[len(sc) // 2]
+    lo = 0
+    hi = len(pts) - 1
+    while lo < hi and clr[lo] < medClr * 0.9:
+        lo += 1
+    while hi > lo and clr[hi] < medClr * 0.9:
+        hi -= 1
+    if hi - lo >= 1:
+        pts = pts[lo:hi + 1]
+    if polylineLength(pts) < 4:
+        return None
+
+    # 轻度平滑压 Voronoi 采样抖动（端点不动）
+    for _ in range(2):
+        if len(pts) < 3:
+            break
+        pts = [pts[0]] + \
+            [((pts[i - 1][0] + pts[i][0] + pts[i + 1][0]) / 3.0,
+              (pts[i - 1][1] + pts[i][1] + pts[i + 1][1]) / 3.0)
+             for i in range(1, len(pts) - 1)] + [pts[-1]]
+
+    # 端点补齐：中轴天然停在距端帽约半笔宽处，沿端部切向延伸至轮廓。
+    # 切向取端部 ~40 单位整段方向（最后一小段可能是剪剩的角枝残尾，
+    # 沿它延伸会把 45° 刺重新长出来）
+    def endTangent(ptsIn, endIdx):
+        n2 = len(ptsIn)
+        i0 = 0 if endIdx == 0 else n2 - 1
+        inward = 1 if endIdx == 0 else -1
+        p = ptsIn[i0]
+        j = i0
+        acc = 0.0
+        while 0 <= j + inward < n2 and acc < 40.0:
+            j += inward
+            acc = math.hypot(p[0] - ptsIn[j][0], p[1] - ptsIn[j][1])
+        q = ptsIn[j]
+        dx, dy = p[0] - q[0], p[1] - q[1]
+        L = math.hypot(dx, dy)
+        return (dx / L, dy / L) if L > 1e-6 else None
+
+    def extend(ptsIn):
+        out = list(ptsIn)
+        for endIdx in (0, -1):
+            tang = endTangent(out, endIdx)
+            if not tang:
+                continue
+            ux, uy = tang
+            p = out[endIdx]
+            lo2, hi2 = 0.0, 400.0
+            for _ in range(18):
+                midT = (lo2 + hi2) / 2
+                if region.contains(Point(p[0] + ux * midT, p[1] + uy * midT)):
+                    lo2 = midT
+                else:
+                    hi2 = midT
+            if lo2 > 2.0:
+                ext = (p[0] + ux * lo2 * 0.9, p[1] + uy * lo2 * 0.9)
+                if endIdx == 0:
+                    out.insert(0, ext)
+                else:
+                    out.append(ext)
+        return out
+
+    return extend(pts)
+
+    # 端点补齐：中轴天然停在距端帽约半笔宽处，沿端部切向延伸至轮廓
+    def extend(ptsIn):
+        out = list(ptsIn)
+        for endIdx, refIdx in ((0, 1), (-1, -2)):
+            p = out[endIdx]
+            q = out[refIdx]
+            dx, dy = p[0] - q[0], p[1] - q[1]
+            L = math.hypot(dx, dy)
+            if L < 1e-6:
+                continue
+            ux, uy = dx / L, dy / L
+            lo, hi = 0.0, 400.0
+            for _ in range(18):
+                midT = (lo + hi) / 2
+                if region.contains(Point(p[0] + ux * midT, p[1] + uy * midT)):
+                    lo = midT
+                else:
+                    hi = midT
+            if lo > 2.0:
+                ext = (p[0] + ux * lo * 0.9, p[1] + uy * lo * 0.9)
+                if endIdx == 0:
+                    out.insert(0, ext)
+                else:
+                    out.append(ext)
+        return out
+
+    return extend(pts)
+
+
+def midpointRectify(med, loops):
+    """法向中点矫正：中线每点沿"候选法向"与轮廓两侧求交、移到最窄合法
+    弦的中点。候选方向 = 该点局部切向 + 全线主导方向（角度直方图里占
+    弧长≥20%的方向）——顿笔小弯处的局部切向被弯带歪、法线斜穿笔杆
+    弦宽异常，而真垂直于笔杆的方向弦必最窄，取最窄弦即自动选对方向，
+    顿笔点被拉回杆芯。中线形状由此完全取决于轮廓自身几何，楷体初值
+    只再贡献方向与点数。弦宽异常（>2.5×中位或不足其1/5）的点不动。
+    loops: 已展平的闭合轮廓点列列表。"""
+    n = len(med)
+    if n < 2 or not loops:
+        return med
+    edges = []
+    for lp in loops:
+        m = len(lp)
+        if m < 3:
+            continue
+        for i in range(m):
+            a, b = lp[i], lp[(i + 1) % m]
+            if abs(a[0] - b[0]) > 1e-9 or abs(a[1] - b[1]) > 1e-9:
+                edges.append((a, b))
+    if not edges:
+        return med
+
+    # 主导方向：分段角度直方图（mod 180°, 15°桶, 弧长加权），≥20%弧长的桶
+    binLen = [0.0] * 12
+    binAng = [0.0] * 12
+    total = 0.0
+    for i in range(n - 1):
+        dx, dy = med[i + 1][0] - med[i][0], med[i + 1][1] - med[i][1]
+        L = math.hypot(dx, dy)
+        if L < 1e-6:
+            continue
+        a = math.degrees(math.atan2(dy, dx)) % 180.0
+        b = int(a // 15) % 12
+        binLen[b] += L
+        binAng[b] += a * L
+        total += L
+    domAngles = [binAng[b] / binLen[b] for b in range(12)
+                 if total > 0 and binLen[b] >= total * 0.2]
+
+    def chordAt(p, tangDeg):
+        """沿 tangDeg 方向的法向弦：(宽, 中点偏移, nx, ny) 或 None。"""
+        rad = math.radians(tangDeg)
+        nx, ny = -math.sin(rad), math.cos(rad)
+        sPos, sNeg = None, None
+        for (q0, q1) in edges:
+            ex, ey = q1[0] - q0[0], q1[1] - q0[1]
+            den = ex * ny - ey * nx
+            if abs(den) < 1e-9:
+                continue
+            wx, wy = p[0] - q0[0], p[1] - q0[1]
+            u = (wx * ny - wy * nx) / den
+            if u < -1e-9 or u > 1 + 1e-9:
+                continue
+            s = ((q0[0] + u * ex - p[0]) * nx + (q0[1] + u * ey - p[1]) * ny)
+            if s > 1e-6:
+                if sPos is None or s < sPos:
+                    sPos = s
+            elif s < -1e-6:
+                if sNeg is None or s > sNeg:
+                    sNeg = s
+        if sPos is None or sNeg is None:
+            return None
+        return (sPos - sNeg, (sPos + sNeg) / 2.0, nx, ny)
+
+    hits = []
+    for i in range(n):
+        p = med[i]
+        a = med[max(0, i - 1)]
+        b = med[min(n - 1, i + 1)]
+        tx, ty = b[0] - a[0], b[1] - a[1]
+        cands = list(domAngles)
+        if math.hypot(tx, ty) > 1e-6:
+            cands.append(math.degrees(math.atan2(ty, tx)))
+        best = None
+        second = None
+        for ang in cands:
+            h = chordAt(p, ang)
+            if h and abs(h[1]) <= h[0]:
+                if best is None or h[0] < best[0]:
+                    second = best
+                    best = h
+                elif second is None or h[0] < second[0]:
+                    second = h
+        # 方向歧义保护：拐角区两个方向的弦宽接近（差<25%）说明该点
+        # 同时"属于"两臂，任选一方向矫正会来回摆产生锯齿——不动
+        if best and second and second[0] < best[0] * 1.25 and \
+                abs(second[2] * best[2] + second[3] * best[3]) < 0.7:
+            best = None
+        hits.append(best)
+    widths = sorted(h[0] for h in hits if h)
+    if not widths:
+        return med
+    medW = widths[len(widths) // 2]
+    out = []
+    for i, p in enumerate(med):
+        h = hits[i]
+        if h and 0.2 * medW <= h[0] <= 2.5 * medW:
+            out.append((p[0] + h[2] * h[1], p[1] + h[3] * h[1]))
+        else:
+            out.append(tuple(p))
+    return out
+
+
 # ---------------------------------------------------------------- 尺度不变形状描述子
 
 def shapeDescriptor(paths):
