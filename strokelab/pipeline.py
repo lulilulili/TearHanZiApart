@@ -19,7 +19,7 @@ from .geometry import (dist, lineSeg, cubicSeg, parseContours, contourToPath,
                        shapeDescriptor, shapeSimilarity, refineMedianFit,
                        recenterMedian, corridorPoint,
                        straightenSections)
-from .classify import findLibEntry, similarTypes
+from .classify import findLibEntry, similarTypes, PROBE_TABLE
 from . import boolean as booleanClamp
 
 ITERS = 5
@@ -296,8 +296,17 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     cand = [(c0[0] + (p[0] - eb[0]) * tw / ew,
                              c0[1] + (p[1] - eb[1]) * th / ehh) for p in skel]
                     dev = _medianDeviation(cand, kaiPlaced)
-                    # 借用相似类型需要更强证据（快乐体日的横曾借提模板酿祸）
-                    if dev is None or dev > (0.28 if tc == t else 0.20):
+                    # 借用相似类型需要更强证据（快乐体日的横曾借提模板酿祸）；
+                    # 方言型（规则表外）的映射候选同样从严 0.18——这些类型
+                    # 此前走楷体回退（楷体自己的笔形=正版参照），映射的标准
+                    # 笔形必须明显贴合才有资格顶替（女1竖捺曾被巡·右㇛模板
+                    # 以 0.28 松闸顶掉，打乱女旁划分）
+                    if tc == t:
+                        thr = 0.18 if (ent.get("kind", "").startswith("map")
+                                       and t not in PROBE_TABLE) else 0.28
+                    else:
+                        thr = 0.20
+                    if dev is None or dev > thr:
                         continue
                     if tc == t:
                         if bestOwn is None or dev < bestOwn[0]:

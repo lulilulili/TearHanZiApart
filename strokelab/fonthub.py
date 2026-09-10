@@ -17,7 +17,8 @@ from .geometry import (lineSeg, cubicSeg, dist, parseContours, contourToPath,
                        resamplePolyline)
 from .classify import (PROBE_TABLE, TYPE_ORDER, CJK_STROKE_NAMES,
                        CJK_STROKE_ABBR, typeOfStroke, matchTier, findLibEntry,
-                       parseProbes, PROBE_POSITIONS, similarTypes)
+                       parseProbes, PROBE_POSITIONS, similarTypes,
+                       KAI_TARGET_MAP)
 
 
 def _resolveProbeStroke(dataHub, ch, t, pos):
@@ -348,6 +349,143 @@ class FontEntry:
 
         self.libraryB = lib
         self.libraryBAll = all_
+
+        # 来源 0（最高优先）：用户裁定的楷体类型→目标字体取材映射
+        # （KAI_TARGET_MAP，覆盖审计后全部 70 类楷体笔形）。映射产出的
+        # 条目插到该类型候选队首并接管 libraryB[t]；原有来源1/2 条目保留
+        # 为并行候选——逐笔匹配时由模板-结构一致性偏差闸最终挑选，
+        # 映射标注偶有笔误也不会造成硬伤。
+        def _probeEntry(t, ch, pos):
+            """探针字提取：位置词→笔序→孤立连通组；单笔字整字直取。"""
+            if not self.hasChar(ch) or not dataHub.hasKai(ch):
+                return None
+            g = dataHub.geom(ch)
+            if ch not in analyzed:
+                analyzed[ch] = analyzeChar(ch)
+            an = analyzed[ch]
+            if not an:
+                return None
+            if pos is None:
+                if len(g["medians"]) != 1:
+                    return None
+                cs = an["cs"]
+                paths = [contourToPath(c["segs"]) for c in cs]
+            else:
+                idx = _resolveProbeStroke(dataHub, ch, t, pos)
+                if idx is None:
+                    return None
+                relaxed = [gj for gj in range(an["nGroups"])
+                           if an["groupTop"][gj][0] == idx
+                           and an["groupTop"][gj][1] >= 0.6]
+                if len(relaxed) != 1:
+                    return None
+                paths = [contourToPath(c["segs"]) for c in an["cs"]
+                         if c["group"] == relaxed[0]]
+            if not paths:
+                return None
+            e = {"type": t, "contours": paths,
+                 "source": "映射：从「%s%s」提取" % (ch, "·" + pos if pos else ""),
+                 "kind": "mapExtract", "tier": 0}
+            e["desc"] = shapeDescriptor(e["contours"])
+            return e
+
+        def _cpEntry(t, cp):
+            ch = chr(cp)
+            if not self.hasChar(ch):
+                return None
+            contours = self.glyphContours(ch)
+            if not contours:
+                return None
+            e = {"type": t,
+                 "contours": [contourToPath(c["segs"]) for c in contours],
+                 "source": "映射：U+%04X %s %s" % (cp, ch,
+                                                   CJK_STROKE_ABBR.get(cp, "")),
+                 "kind": "mapUnicode", "tier": 0}
+            e["desc"] = shapeDescriptor(e["contours"])
+            return e
+
+        def _shiftPaths(paths, dx, dy):
+            out = []
+            for d in paths:
+                for c in parseContours(d):
+                    segs = [(s[0],) + tuple((p[0] + dx, p[1] + dy)
+                                            for p in s[1:]) for s in c["segs"]]
+                    out.append(contourToPath(segs))
+            return out
+
+        mapAll = []
+        # 类型级熔断：映射模板在个别类型上与具体字体比例失配、净负收益
+        # （鸿蒙：巡·右㇛顶掉女1竖捺的楷体回退后，点臂过宽抢走女3横的
+        # 右半，女旁7字齐跌；横捺同因質/醌等跌）。熔断类型仍走楷体回退，
+        # 表本身保留——后续字体各自考核后可放开。
+        mapDisabled = {"竖捺", "横捺"}
+        for t, spec in KAI_TARGET_MAP.items():
+            if t in mapDisabled:
+                continue
+            entries = []
+            for cp, ch, pos in spec.get("take", []):
+                # 取字集语义=按优先级递减：码位有字形直取；探针字提取只在
+                # 码位缺失时启用（并行候选曾让勺·中的点/买·上的横钩顶掉
+                # 码位字形，詫潺餾等 12 字齐跌——同型异源比拼 dev 分不出
+                # 优劣，噪声提取偶胜反而切坏）
+                e = _cpEntry(t, cp) if cp else None
+                if e:
+                    entries.append(e)
+                elif ch:
+                    e2 = _probeEntry(t, ch, pos)
+                    if e2:
+                        entries.append(e2)
+            fuseCh = spec.get("fuse")
+            if fuseCh and self.hasChar(fuseCh):
+                contours = self.glyphContours(fuseCh)
+                if contours:
+                    e = {"type": t,
+                         "contours": [contourToPath(c["segs"]) for c in contours],
+                         "source": "映射：融合字形「%s」" % fuseCh,
+                         "kind": "mapFuse", "tier": 0}
+                    e["desc"] = shapeDescriptor(e["contours"])
+                    entries.append(e)
+            members = spec.get("compose")
+            if members:
+                # 组合笔画：成员骨架首尾相接，第二段整体平移到第一段终点
+                parts = []
+                for cp, ch, pos in members:
+                    e = (_cpEntry(t, cp) if cp else None) or \
+                        (_probeEntry(t, ch, pos) if ch else None)
+                    if e:
+                        parts.append(e)
+                if len(parts) == len(members) and len(parts) >= 2:
+                    try:
+                        base = dict(parts[0])
+                        skel = list(self.ensureSkeleton(parts[0], dataHub))
+                        paths = list(parts[0]["contours"])
+                        for nxt in parts[1:]:
+                            s2 = self.ensureSkeleton(nxt, dataHub)
+                            dx = skel[-1][0] - s2[0][0]
+                            dy = skel[-1][1] - s2[0][1]
+                            skel += [(p[0] + dx, p[1] + dy) for p in s2[1:]]
+                            paths += _shiftPaths(nxt["contours"], dx, dy)
+                        pts = []
+                        for d in paths:
+                            for c in parseContours(d):
+                                pts.extend(flattenSegs(c["segs"], 12))
+                        bb = bboxOfPoints(pts)
+                        base.update({
+                            "contours": paths, "skeleton": skel,
+                            "outlineBBox": [bb.x0, bb.y0, bb.x1, bb.y1],
+                            "source": "映射：组合 " + "+".join(
+                                p["source"].replace("映射：", "") for p in parts),
+                            "kind": "mapCompose", "tier": 0,
+                            "desc": shapeDescriptor(paths)})
+                        entries.append(base)
+                    except Exception:
+                        pass
+            if entries:
+                mapAll.extend(entries)
+                self.libraryB[t] = entries[0]
+        if mapAll:
+            self.libraryBAll = mapAll + self.libraryBAll
+
         self._saveLibCache(dataHub)
 
     # ------------------------------------------------------------ 自举回灌
