@@ -414,14 +414,7 @@ class FontEntry:
             return out
 
         mapAll = []
-        # 类型级熔断：映射模板在个别类型上与具体字体比例失配、净负收益
-        # （鸿蒙：巡·右㇛顶掉女1竖捺的楷体回退后，点臂过宽抢走女3横的
-        # 右半，女旁7字齐跌；横捺同因質/醌等跌）。熔断类型仍走楷体回退，
-        # 表本身保留——后续字体各自考核后可放开。
-        mapDisabled = {"竖捺", "横捺"}
         for t, spec in KAI_TARGET_MAP.items():
-            if t in mapDisabled:
-                continue
             entries = []
             for cp, ch, pos in spec.get("take", []):
                 # 取字集语义=按优先级递减：码位有字形直取；探针字提取只在
