@@ -9,6 +9,17 @@ from .classify import (PROBE_TABLE, TYPE_ORDER, SINGLE_STROKE_TYPES,
 
 DEFAULT_CHIPS = list("十口头木中大天日水永汉字国你好我爱")
 
+# 楷体类型修正表：部件一致性审计（verify --audit-kai）的多数派裁决，
+# 修 classifyMedian 在个别字上的误判（魂3竖折→撇折）。生成：审计后由
+# kaiAudit.json 转换，随包提交。
+_FIXES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "kaiTypeFixes.json")
+try:
+    with open(_FIXES_PATH, encoding="utf-8") as _f:
+        KAI_TYPE_FIXES = json.load(_f)
+except Exception:
+    KAI_TYPE_FIXES = {}
+
 
 class DataHub:
     def __init__(self, root):
@@ -146,10 +157,17 @@ class DataHub:
             return None
         entry = self.dictEntry(ch) or {}
         medians = g["medians"]
+        strokeTypes = [typeOfStroke(ch, i, medians) for i in range(len(medians))]
+        fixes = KAI_TYPE_FIXES.get(ch)
+        if fixes:
+            for idx, t in fixes.items():
+                i = int(idx)
+                if 0 <= i < len(strokeTypes):
+                    strokeTypes[i] = t
         data = {
             "strokes": g["strokes"],
             "medians": medians,
-            "strokeTypes": [typeOfStroke(ch, i, medians) for i in range(len(medians))],
+            "strokeTypes": strokeTypes,
             "radical": entry.get("radical", ""),
             "decomposition": entry.get("decomposition", ""),
             "matches": self.deepenMatches(ch) or entry.get("matches", []),
