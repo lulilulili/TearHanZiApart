@@ -349,6 +349,14 @@ def straightenSections(pts, cornerDeg=40.0):
     rs = resamplePolyline([tuple(p) for p in pts], 15)
     if len(rs) < 4:
         return straightenIfNearLine(pts)
+    # 预平滑：精调/断面居中残留的小幅之字锯齿会被角检测当成真拐角保护
+    # 下来。先抹平（端点不动）；真拐角只是暂时圆化，角检测仍取最大转角
+    # 点，随后拐角坍缩用两臂直线求交重新锐化，无损失。
+    for _ in range(2):
+        rs = [rs[0]] + \
+            [((rs[i - 1][0] + rs[i][0] + rs[i + 1][0]) / 3.0,
+              (rs[i - 1][1] + rs[i][1] + rs[i + 1][1]) / 3.0)
+             for i in range(1, len(rs) - 1)] + [rs[-1]]
     angles = [math.degrees(math.atan2(rs[i + 1][1] - rs[i][1],
                                       rs[i + 1][0] - rs[i][0]))
               for i in range(len(rs) - 1)]
@@ -915,11 +923,16 @@ def recenterMedian(m, contours, cap):
     """中轴线垂直断面居中：沿各点法向找字形边界双侧交点，移到所在实体
     断面的中点。治精调只按己方样本拟合导致的贴边漂移（口的竖曾贴住
     内侧缘，外缘样本反被邻笔评分抢走）。拐角点与断面过宽（跨越交叠
-    区/邻笔）处不动。"""
+    区/邻笔）处不动。偏移序列先做滑动中位数滤波（窗口±2）再应用——
+    逐点独立居中在融合区会跳到不同断面的中点形成之字形（爱的横钩
+    曾折返17次），之字形又造出伪拐角被拐角保护锁死；同一笔相邻点的
+    居中偏移必然连续，孤立尖峰=断面伪影，滤掉。"""
     n = len(m)
     out = list(m)
     cos35 = math.cos(math.radians(35))
     touch = max(8.0, cap * 0.15)
+    rawOff = [None] * n
+    dirs = [None] * n
     for i in range(n):
         a, b = m[max(0, i - 1)], m[min(n - 1, i + 1)]
         dx, dy = b[0] - a[0], b[1] - a[1]
@@ -930,10 +943,23 @@ def recenterMedian(m, contours, cap):
             if l1 > 1e-6 and l2 > 1e-6 and \
                (v1[0] * v2[0] + v1[1] * v2[1]) / (l1 * l2) < cos35:
                 continue
-        off = corridorOffset(m[i], (dx, dy), contours, cap, touch)
-        if off is not None and abs(off) > 0.5:
-            L = math.hypot(dx, dy)
-            out[i] = (m[i][0] - dy / L * off, m[i][1] + dx / L * off)
+        L = math.hypot(dx, dy)
+        if L < 1e-9:
+            continue
+        dirs[i] = (dx / L, dy / L)
+        rawOff[i] = corridorOffset(m[i], (dx, dy), contours, cap, touch)
+    for i in range(n):
+        if dirs[i] is None:
+            continue
+        window = [rawOff[j] for j in range(max(0, i - 2), min(n, i + 3))
+                  if rawOff[j] is not None]
+        if len(window) < 2:
+            continue
+        window.sort()
+        off = window[len(window) // 2]
+        if abs(off) > 0.5:
+            ux, uy = dirs[i]
+            out[i] = (m[i][0] - uy * off, m[i][1] + ux * off)
     return out
 
 

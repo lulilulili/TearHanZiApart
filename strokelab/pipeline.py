@@ -513,6 +513,47 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     except Exception:
         pass
 
+    # 部件同组仲裁：墨距离对"名义位置穿过他部件长笔"的短笔会错分——
+    # 爱的冖左竖名义下半段穿过友的长横（墨内代价≈0）错入长横组，真身
+    # （冖左垂）在横钩组。matches 部件路径是结构证据：同部件的笔在设计
+    # 上倾向连通同组。当前组无任何同部件笔、代价窗口内的他组有同部件笔
+    # 且不空置原组时，改判到含同部件笔的最低代价组。
+    kaiMatches = kai.get("matches") or []
+
+    def _compOf(k):
+        p = kaiMatches[k] if k < len(kaiMatches) else None
+        return tuple(p) if p else None
+
+    if nGroups >= 2 and kaiMatches:
+        for k in range(nStrokes):
+            g1 = strokeGroup[k]
+            row = costRows[k]
+            if g1 != min(range(nGroups), key=lambda g: row[g]):
+                continue  # 匈牙利锚定改动过的不碰
+            comp = _compOf(k)
+            if comp is None:
+                continue
+            mates = [j for j in range(nStrokes)
+                     if j != k and _compOf(j) == comp]
+            if not mates or any(strokeGroup[j] == g1 for j in mates):
+                continue
+            if len(groupStrokes[g1]) <= 1:
+                continue
+            bestH = None
+            for j in mates:
+                h = strokeGroup[j]
+                if h == g1:
+                    continue
+                if row[h] - row[g1] <= max(35.0, row[g1] * 0.6):
+                    if bestH is None or row[h] < row[bestH]:
+                        bestH = h
+            if bestH is not None:
+                groupStrokes[g1].remove(k)
+                strokeGroup[k] = bestH
+                if k not in groupStrokes[bestH]:
+                    groupStrokes[bestH].append(k)
+                    groupStrokes[bestH].sort()
+
     contourAllowed = [groupStrokes.get(c["group"], list(range(nStrokes)))
                       for c in contours]
 
@@ -613,6 +654,14 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     max(1.6 * widths[k], 1.2 * w0, 40.0))
         scoreMedians = [extendMedian(m, min(70.0, widths[k] * 1.1))
                         for k, m in enumerate(medians)]
+
+    # 终态收口：精调/断面居中在融合区残留的之字抖动统一吸直（与 B 骨架
+    # 同款后处理：直段吸直+拐角坍缩、真曲段保持）。D′ 中轴线是笔画中线
+    # 的最终陈述，拓扑必须与骨架一致——横钩不该折返几十次。
+    for k in range(nStrokes):
+        cleaned = straightenSections(medians[k])
+        if len(cleaned) >= 2:
+            medians[k] = cleaned
 
     _tick("归属迭代精调")
 
