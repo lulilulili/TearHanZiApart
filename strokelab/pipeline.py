@@ -19,6 +19,7 @@ from .geometry import (dist, lineSeg, cubicSeg, parseContours, contourToPath,
                        bezPoint, bezTangent, bezSlice, segLength,
                        shapeDescriptor, shapeSimilarity, refineMedianFit,
                        recenterMedian, corridorPoint,
+                       outlineCenterline, midpointRectify,
                        straightenSections, signedArea)
 from .classify import findLibEntry, similarTypes, PROBE_TABLE
 from . import boolean as booleanClamp
@@ -111,6 +112,37 @@ def _hungarian(cost):
         if p[j]:
             ans[p[j] - 1] = j - 1
     return ans
+
+
+def _switchbackCount(m, thr=75.0):
+    """折返计数：相邻段方向角变化超 thr 的内点数（中轴线蛇形伪影探测）。"""
+    n = 0
+    cosThr = math.cos(math.radians(thr))
+    for i in range(1, len(m) - 1):
+        ax, ay = m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1]
+        bx, by = m[i + 1][0] - m[i][0], m[i + 1][1] - m[i][1]
+        la, lb = math.hypot(ax, ay), math.hypot(bx, by)
+        if la > 1e-9 and lb > 1e-9 and \
+           (ax * bx + ay * by) / (la * lb) < cosThr:
+            n += 1
+    return n
+
+
+def _axisFails(result):
+    """verify TYPE 同款判据：名义横/竖的切割结果 PCA 主轴偏差>32°。
+    → [(笔序, 偏差度), ...]"""
+    bad = []
+    for s in result["strokes"]:
+        if s["failed"] or s["type"] not in ("横", "竖"):
+            continue
+        d = shapeDescriptor([s["path"]])
+        if d and d["elong"] >= 1.8:
+            ang = abs(math.degrees(d["mainAngle"])) % 180.0
+            dev = min(ang, 180.0 - ang) if s["type"] == "横" \
+                else abs(ang - 90.0)
+            if dev > 32.0:
+                bad.append((s["index"], dev))
+    return bad
 
 
 def _reMedianFromStroke(median, strokePath, width):
@@ -964,10 +996,13 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     mcy = sum(p[1] for p in m) / len(m)
                     medians[k] = [(mcx + (p[0] - mcx) * f,
                                    mcy + (p[1] - mcy) * f) for p in m]
-                # 垂直断面居中：矫正只按己方样本拟合造成的贴边
+                # 垂直断面居中：矫正只按己方样本拟合造成的贴边。
+                # maxOff 硬上限：对整字轮廓居中时，交叉区断面中点在两笔
+                # 之间跳（汉·横撇曾蛇形折返），超半笔宽的"修正"一律拒绝
                 medians[k] = recenterMedian(
                     medians[k], contours,
-                    max(1.6 * widths[k], 1.2 * w0, 40.0))
+                    max(1.6 * widths[k], 1.2 * w0, 40.0),
+                    maxOff=0.6 * widths[k])
         scoreMedians = [extendMedian(m, min(70.0, widths[k] * 1.1))
                         for k, m in enumerate(medians)]
 
@@ -1453,6 +1488,36 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
 
     _tick("收口")
 
+    # 终态中轴线重提：median 若残留折返（交叉区断面居中的伪影），用
+    # 切割定稿后的单笔多边形重提干净中轴——此时"笔画本身的中轴线"
+    # 才是良定义的。走 B 骨架同款 Voronoi 直径路径+法向矫正+吸直
+    # （平滑改良老 median 会被蛇形伪拐角的拐角保护锁死）。只影响
+    # median 陈述与回灌种子，不回改切割。
+    for s in strokes:
+        if s["failed"] or not s["path"]:
+            continue
+        sb0 = _switchbackCount(s["median"])
+        if sb0 == 0:
+            continue
+        loops = [flattenSegs(c["segs"], 6) for c in parseContours(s["path"])]
+        loops = [lp for lp in loops if len(lp) >= 4]
+        rm = outlineCenterline(loops) if loops else None
+        if rm and len(rm) >= 2:
+            old = s["median"]
+            if dist(tuple(rm[0]), tuple(old[0])) + \
+               dist(tuple(rm[-1]), tuple(old[-1])) > \
+               dist(tuple(rm[-1]), tuple(old[0])) + \
+               dist(tuple(rm[0]), tuple(old[-1])):
+                rm = rm[::-1]
+            rm = resamplePolyline([tuple(p) for p in rm], 15)
+            rm = midpointRectify(rm, loops)
+            rm = straightenSections(rm)
+        else:
+            rm = _reMedianFromStroke([tuple(p) for p in s["median"]],
+                                     s["path"], s["width"])
+        if rm and len(rm) >= 2 and _switchbackCount(rm) < sb0:
+            s["median"] = [[round(p[0], 1), round(p[1], 1)] for p in rm]
+
     # 形状匹配（D′ vs 楷体同笔，尺度不变）
     for s in strokes:
         if s["failed"]:
@@ -1504,8 +1569,46 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 r2["timings"] = r2.get("timings", []) + [
                     ["第一遍(被自洽二遍替换)",
                      sum(t[1] for t in _timings)]]
-                return r2
-            result["timings"].append(
-                ["自洽二遍(未采纳)",
-                 sum(t[1] for t in (r2.get("timings") or []))])
+                result = r2
+            else:
+                result["timings"].append(
+                    ["自洽二遍(未采纳)",
+                     sum(t[1] for t in (r2.get("timings") or []))])
+
+    # ------------------------------------------------------------ 轴向守卫
+    # 名义横/竖的切割结果主轴偏差过大（verify TYPE 的第一大失败源）
+    # ⇒ 该笔 D 被模板错配/精调带歪。用楷体中轴（位置由结构 C 保证）
+    # 作病笔种子、健康笔保留精调中轴，重跑一遍；采纳须病笔数下降且
+    # 失败笔/retain/sim/并集全不倒退。只在病字上花第二遍的钱。
+    if seedMedians is None:
+        _f1 = _axisFails(result)
+        if _f1:
+            _bad = {k for k, _ in _f1}
+            _seeds3 = []
+            for s in result["strokes"]:
+                if s["index"] in _bad or not s.get("median"):
+                    _seeds3.append([affine(tuple(p))
+                                    for p in kai["medians"][s["index"]]])
+                else:
+                    _seeds3.append([tuple(p) for p in s["median"]])
+            r3 = runPipeline(dataHub, fontEntry, ch, applyBooleanClamp,
+                             seedMedians=_seeds3, selfConsistent=False)
+            if "error" not in r3:
+                _f3 = _axisFails(r3)
+                _u1 = result["unionCheck"] or {}
+                _u3 = r3["unionCheck"] or {}
+                if (len(_f3) < len(_f1)
+                        and sum(1 for s in r3["strokes"] if s["failed"]) <=
+                        sum(1 for s in result["strokes"] if s["failed"])
+                        and _meanOf(r3, "retainRatio") >=
+                        _meanOf(result, "retainRatio") - 0.02
+                        and _meanOf(r3, "shapeSim") >=
+                        _meanOf(result, "shapeSim") - 0.03
+                        and _u3.get("cover", 0) >= _u1.get("cover", 100) - 0.1
+                        and abs(_u3.get("excess", 0)) <=
+                        abs(_u1.get("excess", 0)) + 0.1):
+                    r3["timings"] = (r3.get("timings") or []) + [
+                        ["轴向守卫重试(已采纳)",
+                         sum(t[1] for t in (result.get("timings") or []))]]
+                    result = r3
     return result

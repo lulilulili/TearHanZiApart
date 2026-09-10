@@ -1029,7 +1029,7 @@ def corridorPoint(pt, tanDir, contours, cap, touch):
     return (pt[0] - dy / L * off, pt[1] + dx / L * off)
 
 
-def recenterMedian(m, contours, cap):
+def recenterMedian(m, contours, cap, maxOff=None):
     """中轴线垂直断面居中：沿各点法向找字形边界双侧交点，移到所在实体
     断面的中点。治精调只按己方样本拟合导致的贴边漂移（口的竖曾贴住
     内侧缘，外缘样本反被邻笔评分抢走）。拐角点与断面过宽（跨越交叠
@@ -1067,6 +1067,10 @@ def recenterMedian(m, contours, cap):
             continue
         window.sort()
         off = window[len(window) // 2]
+        # 位移硬上限：合法的居中修正至多约半笔宽；更大的偏移意味着断面
+        # 跨进了交叠区/邻笔（对整字轮廓居中时尤甚），移过去必致之字形
+        if maxOff is not None and abs(off) > maxOff:
+            continue
         if abs(off) > 0.5:
             ux, uy = dirs[i]
             out[i] = (m[i][0] - uy * off, m[i][1] + ux * off)
