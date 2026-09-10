@@ -472,6 +472,132 @@ def writeReport(root, summary):
     print("报告:", out)
 
 
+# ---------------------------------------------------------------- 楷体分类一致性审计
+
+def _parseIds(s):
+    """IDS 分解串 → 树。⿰⿱等二元、⿲⿳三元，其余为叶。"""
+    from .classify import IDS_OPS2, IDS_OPS3
+    toks = list(s or "")
+    pos = [0]
+
+    def node():
+        if pos[0] >= len(toks):
+            return None
+        c = toks[pos[0]]
+        pos[0] += 1
+        kids = []
+        arity = 3 if c in IDS_OPS3 else (2 if c in IDS_OPS2 else 0)
+        for _ in range(arity):
+            k = node()
+            if k is not None:
+                kids.append(k)
+        return {"c": c, "kids": kids}
+
+    return node()
+
+
+def _subtreeStr(n):
+    if n is None:
+        return "？"
+    return n["c"] + "".join(_subtreeStr(k) for k in n["kids"])
+
+
+def auditKai(root):
+    """部件一致性审计：MakeMeAHanzi 无逐笔笔画名真值，但 matches 把每笔
+    挂到 decomposition 部件——同一部件同一笔位在全库所有字里应分类一致。
+    按 (部件, 组内笔位) 聚桶多数投票，少数派=分类器误判（魂3判竖折而
+    全库厶/云的同位笔多数判撇折）。每个字自身也作为桶键参与（标准字
+    与部件互相印证）。输出 verifyOut/kaiAudit.md + kaiAudit.json。"""
+    from collections import Counter, defaultdict
+    from .datahub import DataHub
+    hub = DataHub(root)
+    buckets = defaultdict(list)   # (comp, ordinal) -> [(type, ch, strokeIdx)]
+    nCh = nStrokeTotal = 0
+    for ch in sorted(hub.graphicsIndex.keys()):
+        kai = hub.kai(ch)
+        if not kai:
+            continue
+        nCh += 1
+        types = kai["strokeTypes"]
+        nStrokeTotal += len(types)
+        # 自身桶：字 ch 的第 i 笔
+        for i, t in enumerate(types):
+            buckets[(ch, i)].append((t, ch, i))
+        # 部件桶：matches 路径解析到分解树节点
+        entry = hub.dictEntry(ch) or {}
+        matches = entry.get("matches") or []
+        tree = _parseIds(entry.get("decomposition", ""))
+        if tree is None or tree["c"] == "？":
+            continue
+        ordinalOf = Counter()
+        for i, m in enumerate(matches):
+            if i >= len(types) or not isinstance(m, list):
+                continue
+            n = tree
+            ok = True
+            for step in m:
+                if n is None or step >= len(n["kids"]):
+                    ok = False
+                    break
+                n = n["kids"][step]
+            if not ok or n is None:
+                continue
+            comp = _subtreeStr(n)
+            if "？" in comp or len(comp) == 0:
+                continue
+            o = ordinalOf[comp]
+            ordinalOf[comp] += 1
+            if comp != ch:
+                buckets[(comp, o)].append((types[i], ch, i))
+
+    suspects = []
+    audited = agreed = 0
+    typeNoise = Counter()
+    typeSeen = Counter()
+    for (comp, o), arr in buckets.items():
+        chSet = {c for _, c, _ in arr}
+        if len(arr) < 3 or len(chSet) < 2:
+            continue
+        votes = Counter(t for t, _, _ in arr)
+        major, majN = votes.most_common(1)[0]
+        if majN < len(arr) * 0.6:
+            continue  # 无明确多数（部件在不同字里真有形变），不裁决
+        for t, c, i in arr:
+            audited += 1
+            typeSeen[t] += 1
+            if t == major:
+                agreed += 1
+            else:
+                typeNoise[t] += 1
+                suspects.append({"ch": c, "stroke": i + 1, "got": t,
+                                 "expect": major, "comp": comp,
+                                 "votes": "%d/%d" % (majN, len(arr))})
+    suspects.sort(key=lambda s: (s["got"], s["ch"]))
+    od = outDirOf(root)
+    with open(os.path.join(od, "kaiAudit.json"), "w", encoding="utf-8") as f:
+        json.dump(suspects, f, ensure_ascii=False, indent=1)
+    lines = ["# 楷体分类一致性审计（部件多数投票）", "",
+             "全库 %d 字 %d 笔；可裁决样本 %d，其中一致 %d（%.2f%%），"
+             "疑似误判 %d。" % (nCh, nStrokeTotal, audited, agreed,
+                               agreed / (audited or 1) * 100, len(suspects)),
+             "", "## 按类型的疑似误判占比（该类型的'虚假率'）", "",
+             "| 分类器输出 | 可裁决笔数 | 少数派(疑误) | 虚假率 |", "|---|---|---|---|"]
+    for t, bad in typeNoise.most_common():
+        seen = typeSeen[t]
+        lines.append("| %s | %d | %d | %.0f%% |" % (t, seen, bad, bad / seen * 100))
+    lines += ["", "## 疑似误判清单（字·笔序 分类→多数派 @部件 票数）", ""]
+    for s in suspects:
+        lines.append("- %s%d %s→%s @%s %s" % (
+            s["ch"], s["stroke"], s["got"], s["expect"], s["comp"], s["votes"]))
+    with open(os.path.join(od, "kaiAudit.md"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    print("审计: %d 字 %d 笔; 可裁决 %d, 一致率 %.2f%%, 疑似误判 %d"
+          % (nCh, nStrokeTotal, audited, agreed / (audited or 1) * 100,
+             len(suspects)))
+    print("报告:", os.path.join(od, "kaiAudit.md"))
+    return suspects
+
+
 # ---------------------------------------------------------------- CLI
 
 def listFonts(root):
@@ -489,8 +615,13 @@ def main():
     ap.add_argument("--limit", type=int, default=0, help="每字体最多测多少字")
     ap.add_argument("--no-resume", action="store_true")
     ap.add_argument("--report-only", action="store_true")
+    ap.add_argument("--audit-kai", action="store_true",
+                    help="楷体分类一致性审计（部件多数投票）")
     a = ap.parse_args()
     root = os.path.abspath(a.root)
+    if a.audit_kai:
+        auditKai(root)
+        return
     if not a.report_only:
         from .datahub import DataHub
         hub = DataHub(root)
