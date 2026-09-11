@@ -1300,7 +1300,8 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     # 对走廊支撑贫瘠的横/竖笔，沿法向细扫组内最大单片支撑位吸附；
     # 同向笔已占位（法向距<40）不吸附，吸附后同向笔楷体次序必须保持。
     try:
-        from shapely.geometry import Polygon as _Pg2, LineString as _Ls2
+        from shapely.geometry import (Polygon as _Pg2, LineString as _Ls2,
+                                      Point as _PtSnap)
         from shapely.affinity import translate as _Tr2
         _regCache2 = {}
 
@@ -1375,7 +1376,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 corArea = L * 48.0
                 if sup0 >= corArea * 0.35:
                     continue
-                bestT, bestS = 0.0, sup0
+                cands2 = []
                 for i2 in range(-12, 13):
                     off = span * 0.5 * i2 / 12.0
                     if abs(off) < 1:
@@ -1385,10 +1386,41 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                                              yoff=ny1 * off).intersection(reg))
                     except Exception:
                         continue
-                    if sv > bestS:
-                        bestS, bestT = sv, off
-                if bestT == 0.0 or                         bestS < max(corArea * 0.4, 2.0 * max(sup0, 1.0)):
+                    cands2.append((sv, abs(off), off))
+                if not cands2:
                     continue
+                thr2 = max(corArea * 0.4, 2.0 * max(sup0, 1.0))
+                good2 = [c for c in cands2 if c[0] >= thr2]
+                if not good2:
+                    continue
+                # 达标位置取位移最小（同救济的吸附准则）：全局最大会
+                # 跨越腔体跳到远端他笔的杆上（肝的左竖曾+334跳上右壁）
+                good2.sort(key=lambda c: c[1])
+                bestS, _, bestT = good2[0]
+                # 占位冲突（任意类型）：目标走廊被他笔中轴线实质占据则
+                # 放弃（横折钩的竖臂曾因异型不查而被竖鸠占）
+                tgtCor = _Tr2(cor, xoff=nx1 * bestT, yoff=ny1 * bestT)
+                occupied = False
+                for k2 in ss:
+                    if k2 == k:
+                        continue
+                    m3 = medians[k2]
+                    step3 = max(1, len(m3) // 10)
+                    pts3 = m3[::step3]
+                    try:
+                        inC = sum(1 for p in pts3
+                                  if tgtCor.contains(_PtSnap(p[0], p[1])))
+                    except Exception:
+                        continue
+                    if inC >= 0.5 * len(pts3):
+                        occupied = True
+                        break
+                if occupied:
+                    continue
+                import os as _os2
+                if _os2.environ.get("SL_DEBUG_SNAP"):
+                    print("SNAP 笔%d %s 组%d off=%.0f sup %.0f->%.0f" % (
+                        k + 1, t, g, bestT, sup0, bestS))
                 newC = (placedPos[k][0] + nx1 * bestT,
                         placedPos[k][1] + ny1 * bestT)
                 conflict = False
