@@ -130,7 +130,7 @@ def _switchbackCount(m, thr=75.0):
 
 
 def _axisFails(result):
-    """verify TYPE 同款判据：名义横/竖的切割结果 PCA 主轴偏差>32°。
+    """横/竖的切割主轴偏离楷体该笔的弦向>32°。
     → [(笔序, 偏差度), ...]"""
     bad = []
     for s in result["strokes"]:
@@ -138,9 +138,16 @@ def _axisFails(result):
             continue
         d = shapeDescriptor([s["path"]])
         if d and d["elong"] >= 1.8:
-            ang = abs(math.degrees(d["mainAngle"])) % 180.0
-            dev = min(ang, 180.0 - ang) if s["type"] == "横" \
-                else abs(ang - 90.0)
+            ang = math.degrees(d["mainAngle"]) % 180.0
+            medians = result.get("kai", {}).get("medians", [])
+            km = medians[s["index"]] if s["index"] < len(medians) else []
+            if len(km) >= 2 and dist(tuple(km[0]), tuple(km[-1])) > 1e-6:
+                ref = math.degrees(math.atan2(km[-1][1] - km[0][1],
+                                             km[-1][0] - km[0][0])) % 180.0
+            else:
+                ref = 0.0 if s["type"] == "横" else 90.0
+            dev = abs(ang - ref)
+            dev = min(dev, 180.0 - dev)
             if dev > 32.0:
                 bad.append((s["index"], dev))
     return bad
@@ -1332,6 +1339,13 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     best = a
             return best
 
+        def _lineSupport2(line, region):
+            """中轴在线条墨带内的最长连续比例；横穿两侧竖壁不算横带。"""
+            inter = line.intersection(region)
+            return max((getattr(gm, "length", 0.0)
+                        for gm in getattr(inter, "geoms", [inter])),
+                       default=0.0) / max(1.0, line.length)
+
         kaiCent = [(sum(p[0] for p in m2) / len(m2),
                     sum(p[1] for p in m2) / len(m2))
                    for m2 in kai["medians"]]
@@ -1367,14 +1381,16 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     continue
                 nx1, ny1 = -ddy / L, ddx / L
                 try:
-                    cor = _Ls2([tuple(p) for p in m2]).buffer(24.0)
+                    axisLine = _Ls2([tuple(p) for p in m2])
+                    cor = axisLine.buffer(24.0)
                     sup0 = _bigPiece2(cor.intersection(reg))
+                    axisSup0 = _lineSupport2(axisLine, reg)
                 except Exception:
                     continue
                 # 贫瘠判定按走廊标称面积的占比：横走廊横穿竖壁也能蹭到
                 # ~2000 支撑（两片壁肉），绝对阈值会漏掉真悬空的封底横
                 corArea = L * 48.0
-                if sup0 >= corArea * 0.35:
+                if sup0 >= corArea * 0.35 and axisSup0 >= 0.65:
                     continue
                 cands2 = []
                 for i2 in range(-12, 13):
@@ -1382,6 +1398,10 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     if abs(off) < 1:
                         continue
                     try:
+                        movedLine = _Tr2(axisLine, xoff=nx1 * off,
+                                        yoff=ny1 * off)
+                        if _lineSupport2(movedLine, reg) < 0.8:
+                            continue
                         sv = _bigPiece2(_Tr2(cor, xoff=nx1 * off,
                                              yoff=ny1 * off).intersection(reg))
                     except Exception:
@@ -1389,7 +1409,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     cands2.append((sv, abs(off), off))
                 if not cands2:
                     continue
-                thr2 = max(corArea * 0.4, 2.0 * max(sup0, 1.0))
+                thr2 = max(corArea * 0.65, 1.25 * max(sup0, 1.0))
                 good2 = [c for c in cands2 if c[0] >= thr2]
                 if not good2:
                     continue

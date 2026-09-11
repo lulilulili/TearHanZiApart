@@ -402,6 +402,17 @@ def enforceConnectivity(contours, strokes, maxRounds=3, glyph=None):
             big.sort(key=lambda g: -g.area)
             keep = r
             for piece in big[1:]:
+                # 独立字体轮廓可以互相叠印：碎片若已由其它笔完整覆盖，
+                # 删除重复归属即可，不必跨组搬运。否则門内独立横上的
+                # 碎片会被组隔离挡住，在框的两笔之间来回转移。
+                covered = [r2 for j, r2 in enumerate(regions)
+                           if j != i and r2 is not None and not r2.is_empty
+                           and r2.intersects(piece)]
+                if covered and piece.difference(unary_union(covered)).area < 1e-6:
+                    keep = keep.difference(piece)
+                    dirty.add(i)
+                    changed = True
+                    continue
                 # 探测半径放宽到 4：裁剪的数值缝隙曾让残片"无人接壤"而
                 # 滞留原主（TC威的竖捺）；仍找不到接壤者则给距离最近的笔
                 pb = piece.buffer(4.0)
@@ -498,6 +509,8 @@ def clampStrokes(contours, strokes, excessTol=0.5, coverTol=99.5, glyph=None):
     replaced = [False] * len(strokes)
     for i, r in enumerate(regions):
         if r is None or r.is_empty:
+            strokes[i]["path"] = ""
+            strokes[i]["failed"] = True
             clamped.append(None)
             continue
         inter = r.intersection(glyph)
@@ -580,8 +593,17 @@ def clampStrokes(contours, strokes, excessTol=0.5, coverTol=99.5, glyph=None):
         if replaced[i] and clamped[i] is not None and not clamped[i].is_empty:
             p = _regionToPath(clamped[i])
             if p:
-                s["path"] = p
-                s["clamped"] = True
+                # 小数舍入可能把刚好贴着边界的薄片压成往返线。判定
+                # 必须针对写出的路径，否则 failed=False 会阻止后续
+                # 饿死救济，造成整字并集正常但某一笔为空。
+                written = _evenOddRegion(_loopPolys(p))
+                if written is None or written.is_empty or written.area < 4.0:
+                    s["path"] = ""
+                    s["failed"] = True
+                    clamped[i] = None
+                else:
+                    s["path"] = p
+                    s["clamped"] = True
 
     # 4) 收口后校验
     finalRegions = [c for c in clamped if c is not None and not c.is_empty]
