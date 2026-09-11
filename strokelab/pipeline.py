@@ -1040,6 +1040,85 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     except Exception:
         pass
 
+    # 轴向错家重排：横竖笔直出一根与其楷体轴向**垂直**的杆=铁证错家
+    # （博6横直出竖杆、11竖撇直出横杆、8竖占斜片——三笔连环错位，
+    # 同型互换救不了跨型链）。收集"单笔直出组×杆轴向与笔楷体弦向
+    # 偏差>50°"的错家名单，名单内全排列重指派（轴向匹配代价最小），
+    # 总偏差严格下降才施行。名单内排列=家数守恒，不会造成超载/空组。
+    def _barAxisOf(g):
+        bb = groupBBoxes.get(g)
+        if bb is None:
+            return None
+        if bb.w >= 1.8 * max(1.0, bb.h):
+            return 0.0
+        if bb.h >= 1.8 * max(1.0, bb.w):
+            return 90.0
+        outers = [c for c in contours if c["group"] == g and not c["isHole"]]
+        if len(outers) != 1:
+            return None
+        dsc = shapeDescriptor([contourToPath(outers[0]["segs"])])
+        if dsc and dsc["elong"] >= 2.5:
+            return math.degrees(dsc["mainAngle"]) % 180.0
+        return None
+
+    def _kaiChordAxis(k):
+        m2 = kai["medians"][k]
+        dx = m2[-1][0] - m2[0][0]
+        dy = m2[-1][1] - m2[0][1]
+        if math.hypot(dx, dy) < 60:
+            return None
+        return math.degrees(math.atan2(dy, dx)) % 180.0
+
+    def _fold90(a, b):
+        d = abs(a - b) % 180.0
+        return min(d, 180.0 - d)
+
+    misK = []
+    misG = []
+    for g in range(nGroups):
+        ss = groupStrokes.get(g, [])
+        if len(ss) != 1:
+            continue
+        k = ss[0]
+        if kai["strokeTypes"][k] == "点":
+            continue
+        bAx = _barAxisOf(g)
+        kAx = _kaiChordAxis(k)
+        if bAx is None or kAx is None:
+            continue
+        if _fold90(bAx, kAx) > 50.0:
+            misK.append(k)
+            misG.append((g, bAx))
+    if 2 <= len(misK) <= 5:
+        import itertools
+        axK = [_kaiChordAxis(k) for k in misK]
+
+        def _permCost(perm):
+            tot = 0.0
+            for a, gi2 in enumerate(perm):
+                dev = _fold90(axK[a], misG[gi2][1])
+                if dev > 40.0:
+                    return None
+                tot += dev
+            return tot
+
+        cur = sum(_fold90(axK[a], misG[a][1]) for a in range(len(misK)))
+        best = None
+        for perm in itertools.permutations(range(len(misG))):
+            c = _permCost(perm)
+            if c is not None and (best is None or c < best[0]):
+                best = (c, perm)
+        if best is not None and best[0] < cur - 30.0:
+            for a, gi2 in enumerate(best[1]):
+                k = misK[a]
+                gNew = misG[gi2][0]
+                gOld = strokeGroup[k]
+                if gNew == gOld:
+                    continue
+                strokeGroup[k] = gNew
+            for g, _ in misG:
+                groupStrokes[g] = [k for k in misK if strokeGroup[k] == g]
+
     # 序保持互换仲裁（ORDER 主攻）：墨距离对同型笔在代价接近时会把
     # "家"分反——狗的犭撇与勹撇左右互换（偏差500+）、根的木4点上蹿，
     # median 与切割路径质心一致地违背楷序=指派错而非切割错。组指派
