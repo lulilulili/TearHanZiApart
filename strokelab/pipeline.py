@@ -1049,15 +1049,15 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         bb = groupBBoxes.get(g)
         if bb is None:
             return None
-        if bb.w >= 1.8 * max(1.0, bb.h):
+        if bb.w >= 1.5 * max(1.0, bb.h):
             return 0.0
-        if bb.h >= 1.8 * max(1.0, bb.w):
+        if bb.h >= 1.5 * max(1.0, bb.w):
             return 90.0
         outers = [c for c in contours if c["group"] == g and not c["isHole"]]
         if len(outers) != 1:
             return None
         dsc = shapeDescriptor([contourToPath(outers[0]["segs"])])
-        if dsc and dsc["elong"] >= 2.5:
+        if dsc and dsc["elong"] >= 2.0:
             return math.degrees(dsc["mainAngle"]) % 180.0
         return None
 
@@ -1065,7 +1065,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         m2 = kai["medians"][k]
         dx = m2[-1][0] - m2[0][0]
         dy = m2[-1][1] - m2[0][1]
-        if math.hypot(dx, dy) < 60:
+        if math.hypot(dx, dy) < 40:
             return None
         return math.degrees(math.atan2(dy, dx)) % 180.0
 
