@@ -322,6 +322,65 @@ def rescueStarved(contours, strokes, kaiStrokePaths, kaiMedians=None, glyph=None
 
 
 
+def resolveKaiDisjointOverlaps(strokes, kaiMedians, ratio=0.6, kaiDist=40.0):
+    """楷体不相交笔对的重叠减除：同组两笔在楷体中轴线互不接近（最近
+    距离>kaiDist）却切出大面积重叠（>较小者60%）——融合日/目/口的
+    封底横被外框整体包含（亨/亭/勤 100%）。把重叠带从**较大**笔减除
+    （内横保带、外框让位）；减除后较大笔碎裂则放弃（宁留双重归属）。
+    返回修正的笔序号列表。"""
+    rs = []
+    for m in kaiMedians:
+        step = max(1, len(m) // 12)
+        rs.append([tuple(p) for p in m[::step]] + [tuple(m[-1])])
+
+    def kaiMin(i, j):
+        return min(math.hypot(p[0] - q[0], p[1] - q[1])
+                   for p in rs[i] for q in rs[j])
+
+    regions = [None if s["failed"] else _evenOddRegion(_loopPolys(s["path"]))
+               for s in strokes]
+    fixed = []
+    for i in range(len(strokes)):
+        for j in range(i + 1, len(strokes)):
+            if strokes[i]["failed"] or strokes[j]["failed"]:
+                continue
+            if strokes[i].get("group") != strokes[j].get("group"):
+                continue
+            ri, rj = regions[i], regions[j]
+            if ri is None or rj is None or ri.is_empty or rj.is_empty:
+                continue
+            if i < len(rs) and j < len(rs) and kaiMin(i, j) <= kaiDist:
+                continue
+            try:
+                inter = ri.intersection(rj)
+            except Exception:
+                continue
+            small = min(ri.area, rj.area)
+            if small < 25 or inter.area < ratio * small:
+                continue
+            big, sml = (i, j) if ri.area >= rj.area else (j, i)
+            try:
+                cand = regions[big].difference(regions[sml])
+                if not cand.is_valid:
+                    cand = cand.buffer(0)
+            except Exception:
+                continue
+            pieces = [g for g in _piecesOf(cand)
+                      if g.area >= max(25.0, cand.area * 0.02)]
+            # 允许减除后碎成两片（外框被内横拦腰截断的正常形态），
+            # 孤儿片随后由 enforceConnectivity 按共享边界归还邻笔
+            if len(pieces) > 2 or cand.area < 25:
+                continue
+            p = _regionToPath(cand)
+            if not p:
+                continue
+            strokes[big]["path"] = p
+            strokes[big]["clamped"] = True
+            regions[big] = cand
+            fixed.append(big)
+    return fixed
+
+
 def enforceConnectivity(contours, strokes, maxRounds=3, glyph=None):
     """单笔单连通终态收口（公理：同一笔画不会断成两个孤立连通组）。
     多片笔画只留最大片，其余显著片按共享边界最长原则划给相邻笔；

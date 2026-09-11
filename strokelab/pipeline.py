@@ -21,7 +21,8 @@ from .geometry import (dist, lineSeg, cubicSeg, parseContours, contourToPath,
                        recenterMedian, corridorPoint,
                        outlineCenterline, midpointRectify,
                        straightenSections, signedArea)
-from .classify import findLibEntry, similarTypes, PROBE_TABLE, semanticSegments
+from .classify import (findLibEntry, similarTypes, PROBE_TABLE,
+                       semanticSegments, matchTier)
 from . import boolean as booleanClamp
 
 ITERS = 5
@@ -1039,6 +1040,53 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     except Exception:
         pass
 
+    # 序保持互换仲裁（ORDER 主攻）：墨距离对同型笔在代价接近时会把
+    # "家"分反——狗的犭撇与勹撇左右互换（偏差500+）、根的木4点上蹿，
+    # median 与切割路径质心一致地违背楷序=指派错而非切割错。组指派
+    # 代价里没有楷体次序约束，这里补上：同型/相似型且不同组的笔对，
+    # 楷体质心某轴间距≥180 而目标组墨质心反向超60（verify ORDER 同
+    # 判据）时，若互换两家的墨距离总代价不明显恶化（≤+30）则互换。
+    kaiCentAll = [(sum(p[0] for p in m2) / len(m2),
+                   sum(p[1] for p in m2) / len(m2))
+                  for m2 in kai["medians"]]
+    for _pass in range(2):
+        swapped = False
+        for i in range(nStrokes):
+            for j in range(i + 1, nStrokes):
+                gi, gj = strokeGroup[i], strokeGroup[j]
+                if gi == gj:
+                    continue
+                ti, tj = kai["strokeTypes"][i], kai["strokeTypes"][j]
+                if ti != tj and not matchTier(ti, tj):
+                    continue
+                ci2 = groupCentroids.get(gi)
+                cj2 = groupCentroids.get(gj)
+                if ci2 is None or cj2 is None:
+                    continue
+                bad = False
+                for axis in (0, 1):
+                    dK = kaiCentAll[j][axis] - kaiCentAll[i][axis]
+                    dT = cj2[axis] - ci2[axis]
+                    if abs(dK) >= 180.0 and dK * dT < 0 and abs(dT) > 60.0:
+                        bad = True
+                        break
+                if not bad:
+                    continue
+                oldCost = costRows[i][gi] + costRows[j][gj]
+                newCost = costRows[i][gj] + costRows[j][gi]
+                if newCost > oldCost + 30.0:
+                    continue
+                groupStrokes[gi].remove(i)
+                groupStrokes[gj].remove(j)
+                strokeGroup[i], strokeGroup[j] = gj, gi
+                groupStrokes[gj].append(i)
+                groupStrokes[gj].sort()
+                groupStrokes[gi].append(j)
+                groupStrokes[gi].sort()
+                swapped = True
+        if not swapped:
+            break
+
     # 组局部重锚定（失配门控，用户设想：相对位置代替绝对位置）：全局
     # 仿射是绝对定位，部件比例悬殊时组内名义布局整体错位——磷·石口
     # 高瘦，楷体口的三笔名义全挤在组上半段，封底横悬在腔体中间，组下
@@ -1794,6 +1842,10 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                                        glyph=_glyph)
             unionCheck = booleanClamp.clampStrokes(contours, strokes,
                                                    glyph=_glyph)
+        # 楷体不相交笔对的重叠减除：融合日/目/口的封底横被外框整体
+        # 包含（亨/亭/勤 100% 重叠）——内横保带、外框让位；减除产生
+        # 的孤儿片由随后的 enforceConnectivity 按共享边界归还邻笔
+        booleanClamp.resolveKaiDisjointOverlaps(strokes, kai["medians"])
         # 单笔单连通终态收口：回填/减除偶发的断笔在此修复
         booleanClamp.enforceConnectivity(contours, strokes)
         # 终态校验统一按实际路径口径（clampStrokes 返回值基于裁剪区域，

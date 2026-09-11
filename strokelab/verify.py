@@ -274,20 +274,31 @@ def verifyChar(hub, font, ch):
     if typeBad:
         fail("TYPE", " ".join(typeBad))
 
-    # ---- ORDER：两笔质心相对方位 vs 楷体
+    # ---- ORDER：两笔质心相对方位 vs 楷体。硬门只判**同型/相似型**笔对
+    # ——ORDER 的本义是"张冠李戴"（身份互换），只有同型笔才可能换家；
+    # 跨型对的方位翻转（她：鸿蒙把女的提画得比也的短竖高、楷体相反）
+    # 是字体比例设计差异，全量 605/685 违规皆此类，降为软指标 orderX。
     cKai = [_centroid(m) for m in kai["medians"]]
     cTgt = [(_centroid(s["median"]) if s.get("median") else None) for s in strokes]
     orderBad = []
+    orderSoft = 0
     n = min(len(cKai), len(cTgt))
     for i in range(n):
         for j in range(i + 1, n):
             if cTgt[i] is None or cTgt[j] is None:
                 continue
+            ti = kai["strokeTypes"][i] if i < len(kai["strokeTypes"]) else ""
+            tj = kai["strokeTypes"][j] if j < len(kai["strokeTypes"]) else ""
+            sameKind = (ti == tj) or bool(matchTier(ti, tj))
             for axis in (0, 1):
                 dK = cKai[j][axis] - cKai[i][axis]
                 dT = cTgt[j][axis] - cTgt[i][axis]
                 if abs(dK) >= ORDER_KAI_GAP and dK * dT < 0 and abs(dT) > ORDER_TOL:
-                    orderBad.append("%d-%d%s" % (i, j, "xy"[axis]))
+                    if sameKind:
+                        orderBad.append("%d-%d%s" % (i, j, "xy"[axis]))
+                    else:
+                        orderSoft += 1
+    rec["m"]["orderX"] = orderSoft
     if orderBad:
         fail("ORDER", " ".join(orderBad[:8]))
 
