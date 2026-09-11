@@ -242,6 +242,9 @@ def verifyChar(hub, font, ch):
     # ---- TYPE：轮廓 PCA 主轴校验（仅横/竖，稳健硬门）。
     # D′ 中轴线 classifyMedian 全量重分类对精调后的短中轴线误报率过高
     # （口的竖曾被判捺折），降级为软指标 m.reclass 供统计分析。
+    # 参照轴 = 楷体该笔自身的弦向而非教条水平/垂直——楷体把丬的第二
+    # 笔画成 35° 陡提但标签叫"横"（分类器方言），目标字体照画 39° 被
+    # 教条轴误报（丬/冫族 76+ 字）。校验本义是"切出来的像楷体这一笔"。
     typeBad = []
     reclassBad = 0
     for s in strokes:
@@ -254,9 +257,17 @@ def verifyChar(hub, font, ch):
         if s["type"] in ("横", "竖"):
             d = shapeDescriptor([s["path"]])
             if d and d["elong"] >= 1.8:
-                ang = abs(math.degrees(d["mainAngle"])) % 180.0
-                dev = min(ang, 180.0 - ang) if s["type"] == "横" \
-                    else abs(ang - 90.0)
+                ang = math.degrees(d["mainAngle"]) % 180.0
+                km = kai["medians"][s["index"]] \
+                    if s["index"] < len(kai["medians"]) else None
+                if km and len(km) >= 2 and \
+                        dist(tuple(km[0]), tuple(km[-1])) > 1e-6:
+                    kAng = math.degrees(math.atan2(
+                        km[-1][1] - km[0][1], km[-1][0] - km[0][0])) % 180.0
+                else:
+                    kAng = 0.0 if s["type"] == "横" else 90.0
+                dev = abs(ang - kAng)
+                dev = min(dev, 180.0 - dev)
                 if dev > 32.0:
                     typeBad.append("%d:%s轴偏%.0f°" % (s["index"], s["type"], dev))
     rec["m"]["reclass"] = reclassBad

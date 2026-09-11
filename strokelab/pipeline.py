@@ -1060,8 +1060,15 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             continue
         covX = max(0.0, min(nb.x1, bb.x1) - max(nb.x0, bb.x0)) / max(1.0, bb.w)
         covY = max(0.0, min(nb.y1, bb.y1) - max(nb.y0, bb.y0)) / max(1.0, bb.h)
-        if min(covX, covY) >= 0.7:
-            continue
+        import os as _os
+        if _os.environ.get("SL_DEBUG_REMAP"):
+            print("DEBUG组%d 笔%s nb(%d,%d..%d,%d) bb(%d,%d..%d,%d) cov %.2f/%.2f" % (
+                g, [k+1 for k in ss], nb.x0, nb.y0, nb.x1, nb.y1,
+                bb.x0, bb.y0, bb.x1, bb.y1, covX, covY))
+        if min(covX, covY) >= 0.8:
+            continue  # 0.7→0.8：吃的口横折竖臂把联合框拉高、覆盖0.70压线
+                      # 漏网，底横仍悬空250单位颗粒无收（口底横族234字）；
+                      # 覆盖0.7-0.8区间的重锚定只是≤1.4×温和拉伸，失真小
         sx2 = bb.w / nb.w
         sy2 = bb.h / nb.h
         if not (0.25 <= sx2 <= 4.0 and 0.25 <= sy2 <= 4.0):
@@ -1076,6 +1083,129 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             "from": [round(nb.x0), round(nb.y0), round(nb.x1), round(nb.y1)],
             "to": [round(bb.x0), round(bb.y0), round(bb.x1), round(bb.y1)],
             "cov": [round(covX, 2), round(covY, 2)]})
+
+    # D 断面吸附（组内法向滑动预对位）：bbox 重锚定是线性映射，部件
+    # 内部的非线性比例差仍会把封底横放进腔体——楷体口的底横在竖臂
+    # 高度的 25-36% 处、鸿蒙高瘦口是 0-11% 的贴底带，重锚定后仍悬空
+    # 100+ 单位、迭代中颗粒无收（吃/口底横族 234+ 字 TYPE 失败）。
+    # 对走廊支撑贫瘠的横/竖笔，沿法向细扫组内最大单片支撑位吸附；
+    # 同向笔已占位（法向距<40）不吸附，吸附后同向笔楷体次序必须保持。
+    try:
+        from shapely.geometry import Polygon as _Pg2, LineString as _Ls2
+        from shapely.affinity import translate as _Tr2
+        _regCache2 = {}
+
+        def _regOf2(g):
+            if g not in _regCache2:
+                reg = None
+                for poly in groupOuters[g]:
+                    pg = _Pg2(poly)
+                    if not pg.is_valid:
+                        pg = pg.buffer(0)
+                    reg = pg if reg is None else reg.union(pg)
+                if reg is not None:
+                    for poly in groupHoles[g]:
+                        pg = _Pg2(poly)
+                        if not pg.is_valid:
+                            pg = pg.buffer(0)
+                        reg = reg.difference(pg)
+                    if not reg.is_valid:
+                        reg = reg.buffer(0)
+                _regCache2[g] = reg
+            return _regCache2[g]
+
+        def _bigPiece2(geom):
+            best = 0.0
+            for gm in getattr(geom, "geoms", [geom]):
+                a = getattr(gm, "area", 0.0)
+                if a > best:
+                    best = a
+            return best
+
+        kaiCent = [(sum(p[0] for p in m2) / len(m2),
+                    sum(p[1] for p in m2) / len(m2))
+                   for m2 in kai["medians"]]
+        for g in range(nGroups):
+            ss = groupStrokes.get(g, [])
+            if len(ss) < 2:
+                continue
+            axStrokes = [k for k in ss
+                         if kai["strokeTypes"][k] in ("横", "竖")]
+            if not axStrokes:
+                continue
+            reg = _regOf2(g)
+            if reg is None or reg.is_empty:
+                continue
+            bb = groupBBoxes.get(g)
+            if bb is None:
+                continue
+            span = max(bb.w, bb.h)
+            placedPos = {}
+            for k in ss:
+                m2 = medians[k]
+                placedPos[k] = (sum(p[0] for p in m2) / len(m2),
+                                sum(p[1] for p in m2) / len(m2))
+            for k in axStrokes:
+                t = kai["strokeTypes"][k]
+                m2 = medians[k]
+                if len(m2) < 2:
+                    continue
+                ddx = m2[-1][0] - m2[0][0]
+                ddy = m2[-1][1] - m2[0][1]
+                L = math.hypot(ddx, ddy)
+                if L < 8:
+                    continue
+                nx1, ny1 = -ddy / L, ddx / L
+                try:
+                    cor = _Ls2([tuple(p) for p in m2]).buffer(24.0)
+                    sup0 = _bigPiece2(cor.intersection(reg))
+                except Exception:
+                    continue
+                # 贫瘠判定按走廊标称面积的占比：横走廊横穿竖壁也能蹭到
+                # ~2000 支撑（两片壁肉），绝对阈值会漏掉真悬空的封底横
+                corArea = L * 48.0
+                if sup0 >= corArea * 0.35:
+                    continue
+                bestT, bestS = 0.0, sup0
+                for i2 in range(-12, 13):
+                    off = span * 0.5 * i2 / 12.0
+                    if abs(off) < 1:
+                        continue
+                    try:
+                        sv = _bigPiece2(_Tr2(cor, xoff=nx1 * off,
+                                             yoff=ny1 * off).intersection(reg))
+                    except Exception:
+                        continue
+                    if sv > bestS:
+                        bestS, bestT = sv, off
+                if bestT == 0.0 or                         bestS < max(corArea * 0.4, 2.0 * max(sup0, 1.0)):
+                    continue
+                newC = (placedPos[k][0] + nx1 * bestT,
+                        placedPos[k][1] + ny1 * bestT)
+                conflict = False
+                for k2 in ss:
+                    if k2 == k or kai["strokeTypes"][k2] != t:
+                        continue
+                    dPerp = abs((placedPos[k2][0] - newC[0]) * nx1 +
+                                (placedPos[k2][1] - newC[1]) * ny1)
+                    if dPerp < 40.0:
+                        conflict = True
+                        break
+                    sK = (kaiCent[k][0] - kaiCent[k2][0]) * nx1 + \
+                         (kaiCent[k][1] - kaiCent[k2][1]) * ny1
+                    sT = (newC[0] - placedPos[k2][0]) * nx1 + \
+                         (newC[1] - placedPos[k2][1]) * ny1
+                    if sK * sT < 0:
+                        conflict = True
+                        break
+                if conflict:
+                    continue
+                medians[k] = [(p[0] + nx1 * bestT, p[1] + ny1 * bestT)
+                              for p in medians[k]]
+                initMedians[k] = [tuple(p) for p in medians[k]]
+                placedPos[k] = newC
+    except Exception:
+        pass
 
     contourAllowed = [groupStrokes.get(c["group"], list(range(nStrokes)))
                       for c in contours]
