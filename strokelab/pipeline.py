@@ -21,7 +21,7 @@ from .geometry import (dist, lineSeg, cubicSeg, parseContours, contourToPath,
                        recenterMedian, corridorPoint,
                        outlineCenterline, midpointRectify,
                        straightenSections, signedArea)
-from .classify import findLibEntry, similarTypes, PROBE_TABLE
+from .classify import findLibEntry, similarTypes, PROBE_TABLE, semanticSegments
 from . import boolean as booleanClamp
 
 ITERS = 5
@@ -519,9 +519,111 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 strokeGroup[k] = match[k]
     groupStrokes = {g: [k for k in range(nStrokes) if strokeGroup[k] == g]
                     for g in range(nGroups)}
+
+    # 空组语义认领（用户规则 v14，门控：组数>笔画数）：交叠并组后仍
+    # 组数>笔画数 = 字体把复合笔画成了**不相交**的件（Noto 竖折=竖件
+    # +横件），公理的连通性单位降到语义单元。空组按墨轴向找构词里含
+    # 匹配单元的复合笔，取其 D 对应分段走廊滑动支撑最强者，以"子笔"
+    # 身份认领该组（主组不变=多重入组，最终该笔路径为多片）；认领的
+    # 内部顺序即构词顺序。找不到候选才退回全开竞争兜底。
+    semanticClaims = []
+
+    def _splitSections(m, angDeg=40.0):
+        if len(m) < 3:
+            return [list(m)]
+        cosA = math.cos(math.radians(angDeg))
+        secs = []
+        cur = [m[0]]
+        for i in range(1, len(m) - 1):
+            v1 = (m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1])
+            v2 = (m[i + 1][0] - m[i][0], m[i + 1][1] - m[i][1])
+            l1, l2 = math.hypot(*v1), math.hypot(*v2)
+            cur.append(m[i])
+            if l1 > 1e-6 and l2 > 1e-6 and \
+               (v1[0] * v2[0] + v1[1] * v2[1]) / (l1 * l2) < cosA:
+                secs.append(cur)
+                cur = [m[i]]
+        cur.append(m[-1])
+        secs.append(cur)
+        return secs
+
+    def _semanticClaim(g):
+        bb = groupBBoxes.get(g)
+        if bb is None or (bb.w < 6 and bb.h < 6):
+            return False
+        gAxis = "h" if bb.w > bb.h * 1.5 else ("v" if bb.h > bb.w * 1.5 else "d")
+        unitAxis = {"横": "h", "提": "h", "竖": "v"}
+        try:
+            from shapely.geometry import Polygon as _P1, LineString as _L1
+            from shapely.affinity import translate as _t1
+            reg = None
+            for poly in groupOuters[g]:
+                pg = _P1(poly)
+                if not pg.is_valid:
+                    pg = pg.buffer(0)
+                reg = pg if reg is None else reg.union(pg)
+            if reg is None:
+                return False
+            for poly in groupHoles[g]:
+                pg = _P1(poly)
+                if not pg.is_valid:
+                    pg = pg.buffer(0)
+                reg = reg.difference(pg)
+            if reg.is_empty:
+                return False
+            best = None
+            for k in range(nStrokes):
+                units = semanticSegments(kai["strokeTypes"][k])
+                if len(units) < 2 or costRows[k][g] > 220.0:
+                    continue
+                if gAxis != "d" and not any(
+                        unitAxis.get(u, "d") in (gAxis, "d") for u in units):
+                    continue
+                for sec in _splitSections(medians[k]):
+                    if len(sec) < 2:
+                        continue
+                    ddx = sec[-1][0] - sec[0][0]
+                    ddy = sec[-1][1] - sec[0][1]
+                    L = math.hypot(ddx, ddy)
+                    if L < 6:
+                        continue
+                    sAxis = "h" if abs(ddx) > abs(ddy) * 1.5 else \
+                        ("v" if abs(ddy) > abs(ddx) * 1.5 else "d")
+                    if gAxis != "d" and sAxis != "d" and sAxis != gAxis:
+                        continue
+                    cor = _L1([tuple(p) for p in sec]).buffer(
+                        max(14.0, min(120.0, min(bb.w, bb.h))) * 0.7)
+                    nx1, ny1 = -ddy / L, ddx / L
+                    rb = reg.bounds
+                    span = max(rb[2] - rb[0], rb[3] - rb[1])
+                    sup = 0.0
+                    for tt in range(-6, 7):
+                        off = span * 0.5 * tt / 6.0
+                        c2 = cor if tt == 0 else _t1(cor, xoff=nx1 * off,
+                                                     yoff=ny1 * off)
+                        try:
+                            inter = c2.intersection(reg)
+                        except Exception:
+                            continue
+                        for gm in getattr(inter, "geoms", [inter]):
+                            a = getattr(gm, "area", 0.0)
+                            if a > sup:
+                                sup = a
+                    if sup > max(400.0, reg.area * 0.25) and \
+                            (best is None or sup > best[0]):
+                        best = (sup, k)
+            if best is None:
+                return False
+            groupStrokes[g] = [best[1]]
+            semanticClaims.append({"group": g, "stroke": best[1]})
+            return True
+        except Exception:
+            return False
+
     for g in range(nGroups):
-        if not groupStrokes[g]:  # 无笔画映射到该组（异常兜底）：放开限制
-            groupStrokes[g] = list(range(nStrokes))
+        if not groupStrokes[g]:  # 无笔画映射到该组
+            if not (nGroups > nStrokes and _semanticClaim(g)):
+                groupStrokes[g] = list(range(nStrokes))  # 兜底：放开限制
 
     # 走廊可容纳度仲裁：墨距离对"名义位置不落在任何组墨内"的笔会就近
     # 错分——好的提名义位置横穿撇点宽腰（墨距离 59 胜出），真身在撇的
@@ -1639,6 +1741,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                                     if strokeGroup[k] == g) == 1}
                    for g in range(nGroups)],
         "groupRemap": groupRemapInfo,
+        "semanticClaims": semanticClaims,
         "unionCheck": unionCheck,
         "kai": {"strokes": kai["strokes"], "medians": kai["medians"],
                 "strokeTypes": kai["strokeTypes"], "radical": kai["radical"],

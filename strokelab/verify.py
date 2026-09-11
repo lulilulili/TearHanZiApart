@@ -31,7 +31,7 @@ import time
 
 from .geometry import (parseContours, flattenSegs, signedArea, resamplePolyline,
                        dist, shapeDescriptor)
-from .classify import classifyMedian, matchTier
+from .classify import classifyMedian, matchTier, semanticSegments
 
 UNION_TOL = 0.5      # 覆盖缺口/溢出 阈值（% of 字形面积）
 OVERLAP_RATIO = 0.6  # 两笔重叠占较小笔比例阈值
@@ -184,7 +184,14 @@ def verifyChar(hub, font, ch):
     if badIdx:
         fail("COUNT", "空/退化笔画 %s" % badIdx)
 
-    # ---- SPLIT：单笔单连通
+    # ---- 字形区域（SPLIT 放行判定与 UNION 共用）
+    glyphPath = " ".join(c["path"] for c in r["contours"])
+    glyph = windingRegion(glyphPath)
+    glyphPieces = _pieces(glyph) if glyph is not None else []
+
+    # ---- SPLIT：单笔单连通（复合笔形放行"设计性分离"：字体把竖折等
+    # 画成不相交的件时，正确拆解的该笔本就多片——片数≤语义单元数、
+    # 且各片落在字形墨的**不同连通分量**才放行，同分量内断裂仍算病）
     splitIdx = []
     for s, reg in zip(strokes, regions):
         if reg is None:
@@ -192,13 +199,29 @@ def verifyChar(hub, font, ch):
         big = [g for g in _pieces(reg)
                if g.area >= max(SPLIT_MIN_AREA, reg.area * 0.02)]
         if len(big) > 1:
-            splitIdx.append("%d(%d片)" % (s["index"], len(big)))
+            units = semanticSegments(kai["strokeTypes"][s["index"]]) \
+                if s["index"] < len(kai["strokeTypes"]) else []
+            allowed = False
+            if len(units) >= 2 and len(big) <= len(units) and len(glyphPieces) > 1:
+                comps = []
+                for pc in big:
+                    ci = -1
+                    for gi, gp in enumerate(glyphPieces):
+                        try:
+                            if gp.intersection(pc).area > pc.area * 0.5:
+                                ci = gi
+                                break
+                        except Exception:
+                            pass
+                    comps.append(ci)
+                if -1 not in comps and len(set(comps)) == len(comps):
+                    allowed = True
+            if not allowed:
+                splitIdx.append("%d(%d片)" % (s["index"], len(big)))
     if splitIdx:
         fail("SPLIT", " ".join(splitIdx))
 
     # ---- UNION：缠绕数区域 vs 笔画并集
-    glyphPath = " ".join(c["path"] for c in r["contours"])
-    glyph = windingRegion(glyphPath)
     if glyph is None or glyph.area < 1:
         fail("ERROR", "字形区域构造失败")
     else:

@@ -195,6 +195,40 @@ KAI_TARGET_MAP = {
 }
 
 
+# 复合笔形构词的语义单元（用户规则 v14）：折=对前一单元轴向取反
+# （横折的折=竖、竖折的折=横）、弯同折（转向）、钩→点（短尾，亦可
+# 短横）、斜→捺、卧→横；横竖撇捺点提为原子。用于"组数>笔画数"时的
+# 空组语义认领——字体把复合笔画成**不相交**的件（Noto 竖折=竖件+
+# 横件）时，公理的连通性单位是语义单元而非整笔。
+_SEG_PRIMS = set(u"横竖撇捺点提")
+_SEG_INVERT = {u"横": u"竖", u"竖": u"横", u"撇": u"横", u"捺": u"横",
+               u"点": u"横", u"提": u"竖"}
+
+
+def semanticSegments(t):
+    """复合笔形名 → 语义单元序列；不可拆（原子/未知构词/圈）返回 [t]。
+    例：横折折→[横,竖,横]，竖弯钩→[竖,横,点]，撇点→[撇,点]。"""
+    if not t or t == u"圈":
+        return [t]
+    out = []
+    for c in t:
+        if c in _SEG_PRIMS:
+            out.append(c)
+        elif c in (u"折", u"弯"):
+            if not out:
+                return [t]
+            out.append(_SEG_INVERT.get(out[-1], u"横"))
+        elif c == u"钩":
+            out.append(u"点")
+        elif c == u"斜":
+            out.append(u"捺")
+        elif c == u"卧":
+            out.append(u"横")
+        else:
+            return [t]
+    return out
+
+
 IDS_OPS2 = "⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻"
 IDS_OPS3 = "⿲⿳"
 
