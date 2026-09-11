@@ -1067,10 +1067,19 @@ def recenterMedian(m, contours, cap, maxOff=None):
             continue
         window.sort()
         off = window[len(window) // 2]
-        # 位移硬上限：合法的居中修正至多约半笔宽；更大的偏移意味着断面
-        # 跨进了交叠区/邻笔（对整字轮廓居中时尤甚），移过去必致之字形
+        # 位移上限的一致性门控：蛇形伪影（汉·横撇）的邻域偏移符号交替
+        # /量级散乱，硬拒正确；但真偏芯（爱·冖左垂的贴边中轴）需要超
+        # 上限的大修正才能拽回垂芯，硬拒会死锁贴边——偏得越远越需要大
+        # 修正，恰恰被拒。判别信号正交：窗口≥3、偏移全部同向、极差
+        # ≤max(0.5|off|, 0.6maxOff) 说明是整段一致的偏芯，放行大修正
         if maxOff is not None and abs(off) > maxOff:
-            continue
+            if len(window) < 3:
+                continue
+            sgn = 1.0 if off > 0 else -1.0
+            if window[0] * sgn <= 0 or window[-1] * sgn <= 0:
+                continue
+            if window[-1] - window[0] > max(0.5 * abs(off), 0.6 * maxOff):
+                continue
         if abs(off) > 0.5:
             ux, uy = dirs[i]
             out[i] = (m[i][0] - uy * off, m[i][1] + ux * off)
