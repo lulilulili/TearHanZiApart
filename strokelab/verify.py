@@ -144,6 +144,13 @@ def _centroid(median):
     return (sum(p[0] for p in median) / n, sum(p[1] for p in median) / n)
 
 
+def _centroid_region(reg):
+    if reg is None or reg.is_empty:
+        return None
+    c = reg.centroid
+    return (c.x, c.y)
+
+
 def _medianMinDist(mA, mB):
     a = resamplePolyline([tuple(p) for p in mA], 30)
     b = resamplePolyline([tuple(p) for p in mB], 30)
@@ -301,6 +308,73 @@ def verifyChar(hub, font, ch):
     rec["m"]["orderX"] = orderSoft
     if orderBad:
         fail("ORDER", " ".join(orderBad[:8]))
+
+    # ---- COMP 软指标（种子字体系，先观察后升门）：
+    # compQuota = 一级槽位字内笔数 vs 种子字条目笔数失配数（过省形
+    # 别名表后仍不一致才计）；compOut = 槽位离群笔数（笔的切割质心到
+    # 本槽成员质心中位的距离 > 1.8×到他槽中心——换家残余探测器）。
+    try:
+        from .datahub import COMPONENT_ALIASES, COMPONENT_CHAR_EXCEPTIONS
+        matches0 = kai.get("matches") or []
+        tree = kai.get("structure") or {}
+
+        def _compChar(idx0):
+            ch2 = (tree.get("children") or [])
+            if idx0 < len(ch2):
+                return ch2[idx0].get("char")
+            return None
+
+        slotStrokes = {}
+        for k in range(len(strokes)):
+            p = matches0[k] if k < len(matches0) else None
+            if p:
+                slotStrokes.setdefault(p[0], []).append(k)
+        quotaBad = 0
+        for s0, ks in slotStrokes.items():
+            cc = _compChar(s0)
+            if not cc or cc == "？":
+                continue
+            g2 = hub.geom(cc) if hasattr(hub, "geom") else None
+            if not g2:
+                continue
+            seedN = len(g2["medians"])
+            inN = len(ks)
+            if inN == seedN:
+                continue
+            rule = COMPONENT_ALIASES.get(cc)
+            if rule and rule.get("inChar") == inN:
+                continue
+            exc = COMPONENT_CHAR_EXCEPTIONS.get(rec["ch"], [])
+            if any(e.get("comp") == cc and e.get("inChar") == inN for e in exc):
+                continue
+            quotaBad += 1
+        rec["m"]["compQuota"] = quotaBad
+        cSt = [(_centroid_region(regions[k]) if k < len(regions) else None)
+               for k in range(len(strokes))]
+        centers = {}
+        for s0, ks in slotStrokes.items():
+            pts2 = [cSt[k] for k in ks if cSt[k] is not None]
+            if len(pts2) >= 2:
+                xs = sorted(p[0] for p in pts2)
+                ys = sorted(p[1] for p in pts2)
+                centers[s0] = (xs[len(xs) // 2], ys[len(ys) // 2])
+        outN = 0
+        for s0, ks in slotStrokes.items():
+            if s0 not in centers:
+                continue
+            for k in ks:
+                if cSt[k] is None:
+                    continue
+                dOwn = dist(cSt[k], centers[s0])
+                for s1, c1 in centers.items():
+                    if s1 == s0:
+                        continue
+                    if dist(cSt[k], c1) * 1.8 < dOwn:
+                        outN += 1
+                        break
+        rec["m"]["compOut"] = outN
+    except Exception:
+        pass
 
     # ---- OVERLAP：大重叠但楷体不相交
     overlapBad = []

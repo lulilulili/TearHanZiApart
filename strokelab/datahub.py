@@ -31,6 +31,21 @@ try:
 except Exception:
     KAI_TYPE_FIXES = {}
 
+# 省形/异体别名表（种子字统计 seedStats 聚合）：部件在字内的实际笔数
+# 与其种子字条目稳定不一致的规则（艹4/3、尚→⺌、攸省笔…）。COMP 配额
+# 校验与后续 C库部件模板按此表修正种子配额，把"结构同构"前提外的
+# 248 条字例拉回前提内。
+_ALIAS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "componentAliases.json")
+try:
+    with open(_ALIAS_PATH, encoding="utf-8") as _f:
+        _a = json.load(_f)
+    COMPONENT_ALIASES = _a.get("componentRules", {})
+    COMPONENT_CHAR_EXCEPTIONS = _a.get("charExceptions", {})
+except Exception:
+    COMPONENT_ALIASES = {}
+    COMPONENT_CHAR_EXCEPTIONS = {}
+
 
 class DataHub:
     def __init__(self, root):

@@ -1,0 +1,624 @@
+{
+ "note": "省形/异体别名表：部件在字内的实际笔数与其种子字条目不一致的稳定规则（源自 seedStats/consistency.json 聚合，2026-09-11）。COMP 校验遇表内部件按 inChar 笔数为准，不计失配；charExceptions 为字级特例。",
+ "componentRules": {
+  "艹": {
+   "inChar": 4,
+   "seed": 3,
+   "n": 88
+  },
+  "攸": {
+   "inChar": 6,
+   "seed": 7,
+   "n": 2
+  },
+  "尚": {
+   "inChar": 5,
+   "seed": 8,
+   "n": 2
+  },
+  "玉": {
+   "inChar": 4,
+   "seed": 5,
+   "n": 2
+  },
+  "鸟": {
+   "inChar": 4,
+   "seed": 5,
+   "n": 4
+  },
+  "雚": {
+   "inChar": 18,
+   "seed": 17,
+   "n": 5
+  },
+  "蒦": {
+   "inChar": 14,
+   "seed": 13,
+   "n": 6
+  },
+  "鬼": {
+   "inChar": 10,
+   "seed": 9,
+   "n": 7
+  },
+  "臣": {
+   "inChar": 7,
+   "seed": 6,
+   "n": 4
+  },
+  "户": {
+   "inChar": 3,
+   "seed": 4,
+   "n": 2
+  },
+  "戠": {
+   "inChar": 12,
+   "seed": 13,
+   "n": 5
+  },
+  "豕": {
+   "inChar": 6,
+   "seed": 7,
+   "n": 3
+  },
+  "蒙": {
+   "inChar": 14,
+   "seed": 13,
+   "n": 4
+  },
+  "昜": {
+   "inChar": 3,
+   "seed": 9,
+   "n": 9
+  },
+  "柬": {
+   "inChar": 5,
+   "seed": 9,
+   "n": 3
+  },
+  "毄": {
+   "inChar": 13,
+   "seed": 14,
+   "n": 2
+  },
+  "良": {
+   "inChar": 6,
+   "seed": 7,
+   "n": 2
+  },
+  "田": {
+   "inChar": 4,
+   "seed": 5,
+   "n": 2
+  },
+  "鳥": {
+   "inChar": 7,
+   "seed": 11,
+   "n": 2
+  },
+  "虚": {
+   "inChar": 12,
+   "seed": 11,
+   "n": 2
+  },
+  "禸": {
+   "inChar": 4,
+   "seed": 5,
+   "n": 2
+  },
+  "莫": {
+   "inChar": 11,
+   "seed": 10,
+   "n": 4
+  },
+  "舁": {
+   "inChar": 10,
+   "seed": 9,
+   "n": 2
+  },
+  "興": {
+   "inChar": 14,
+   "seed": 16,
+   "n": 2
+  },
+  "蔑": {
+   "inChar": 15,
+   "seed": 14,
+   "n": 2
+  },
+  "苗": {
+   "inChar": 9,
+   "seed": 8,
+   "n": 3
+  },
+  "敖": {
+   "inChar": 11,
+   "seed": 10,
+   "n": 2
+  },
+  "哉": {
+   "inChar": 6,
+   "seed": 9,
+   "n": 2
+  },
+  "骨": {
+   "inChar": 10,
+   "seed": 9,
+   "n": 5
+  }
+ },
+ "charExceptions": {
+  "㢟": [
+   {
+    "comp": "止",
+    "inChar": 3,
+    "seed": 4
+   }
+  ],
+  "严": [
+   {
+    "comp": "亚",
+    "inChar": 5,
+    "seed": 6
+   }
+  ],
+  "侯": [
+   {
+    "comp": "矦",
+    "inChar": 7,
+    "seed": 9
+   }
+  ],
+  "候": [
+   {
+    "comp": "矦",
+    "inChar": 8,
+    "seed": 9
+   }
+  ],
+  "冪": [
+   {
+    "comp": "幕",
+    "inChar": 14,
+    "seed": 13
+   }
+  ],
+  "剳": [
+   {
+    "comp": "荅",
+    "inChar": 10,
+    "seed": 9
+   }
+  ],
+  "務": [
+   {
+    "comp": "务",
+    "inChar": 6,
+    "seed": 5
+   }
+  ],
+  "半": [
+   {
+    "comp": "牛",
+    "inChar": 3,
+    "seed": 4
+   }
+  ],
+  "原": [
+   {
+    "comp": "泉",
+    "inChar": 8,
+    "seed": 9
+   }
+  ],
+  "咼": [
+   {
+    "comp": "冎",
+    "inChar": 6,
+    "seed": 5
+   }
+  ],
+  "喬": [
+   {
+    "comp": "高",
+    "inChar": 8,
+    "seed": 10
+   }
+  ],
+  "场": [
+   {
+    "comp": "勿",
+    "inChar": 3,
+    "seed": 4
+   }
+  ],
+  "堇": [
+   {
+    "comp": "黄",
+    "inChar": 8,
+    "seed": 11
+   }
+  ],
+  "壺": [
+   {
+    "comp": "亞",
+    "inChar": 9,
+    "seed": 8
+   }
+  ],
+  "妾": [
+   {
+    "comp": "辛",
+    "inChar": 5,
+    "seed": 7
+   }
+  ],
+  "尧": [
+   {
+    "comp": "戈",
+    "inChar": 3,
+    "seed": 4
+   }
+  ],
+  "島": [
+   {
+    "comp": "烏",
+    "inChar": 7,
+    "seed": 10
+   }
+  ],
+  "巤": [
+   {
+    "comp": "鼠",
+    "inChar": 12,
+    "seed": 13
+   }
+  ],
+  "帝": [
+   {
+    "comp": "立",
+    "inChar": 6,
+    "seed": 5
+   }
+  ],
+  "帶": [
+   {
+    "comp": "卌",
+    "inChar": 6,
+    "seed": 5
+   }
+  ],
+  "廌": [
+   {
+    "comp": "鹿",
+    "inChar": 7,
+    "seed": 11
+   },
+   {
+    "comp": "豸",
+    "inChar": 6,
+    "seed": 7
+   }
+  ],
+  "廣": [
+   {
+    "comp": "黄",
+    "inChar": 12,
+    "seed": 11
+   }
+  ],
+  "彧": [
+   {
+    "comp": "或",
+    "inChar": 7,
+    "seed": 8
+   }
+  ],
+  "懲": [
+   {
+    "comp": "徴",
+    "inChar": 15,
+    "seed": 14
+   }
+  ],
+  "戢": [
+   {
+    "comp": "咠",
+    "inChar": 8,
+    "seed": 9
+   }
+  ],
+  "拜": [
+   {
+    "comp": "手",
+    "inChar": 5,
+    "seed": 4
+   }
+  ],
+  "斤": [
+   {
+    "comp": "下",
+    "inChar": 2,
+    "seed": 3
+   }
+  ],
+  "暱": [
+   {
+    "comp": "匿",
+    "inChar": 11,
+    "seed": 10
+   }
+  ],
+  "曠": [
+   {
+    "comp": "日",
+    "inChar": 3,
+    "seed": 4
+   }
+  ],
+  "桌": [
+   {
+    "comp": "卓",
+    "inChar": 6,
+    "seed": 8
+   }
+  ],
+  "條": [
+   {
+    "comp": "条",
+    "inChar": 8,
+    "seed": 7
+   }
+  ],
+  "棄": [
+   {
+    "comp": "廾",
+    "inChar": 4,
+    "seed": 3
+   }
+  ],
+  "楛": [
+   {
+    "comp": "苦",
+    "inChar": 9,
+    "seed": 8
+   }
+  ],
+  "櫆": [
+   {
+    "comp": "魁",
+    "inChar": 14,
+    "seed": 13
+   }
+  ],
+  "殼": [
+   {
+    "comp": "壳",
+    "inChar": 8,
+    "seed": 7
+   }
+  ],
+  "民": [
+   {
+    "comp": "戈",
+    "inChar": 2,
+    "seed": 4
+   }
+  ],
+  "益": [
+   {
+    "comp": "水",
+    "inChar": 5,
+    "seed": 4
+   }
+  ],
+  "第": [
+   {
+    "comp": "弟",
+    "inChar": 5,
+    "seed": 7
+   }
+  ],
+  "粼": [
+   {
+    "comp": "巛",
+    "inChar": 2,
+    "seed": 3
+   }
+  ],
+  "聯": [
+   {
+    "comp": "絲",
+    "inChar": 11,
+    "seed": 12
+   }
+  ],
+  "脈": [
+   {
+    "comp": "永",
+    "inChar": 6,
+    "seed": 5
+   }
+  ],
+  "臟": [
+   {
+    "comp": "藏",
+    "inChar": 18,
+    "seed": 17
+   }
+  ],
+  "舞": [
+   {
+    "comp": "無",
+    "inChar": 8,
+    "seed": 12
+   }
+  ],
+  "芈": [
+   {
+    "comp": "羋",
+    "inChar": 7,
+    "seed": 8
+   }
+  ],
+  "蒯": [
+   {
+    "comp": "萠",
+    "inChar": 11,
+    "seed": 12
+   }
+  ],
+  "蠹": [
+   {
+    "comp": "橐",
+    "inChar": 12,
+    "seed": 16
+   }
+  ],
+  "表": [
+   {
+    "comp": "毛",
+    "inChar": 3,
+    "seed": 4
+   },
+   {
+    "comp": "衣",
+    "inChar": 5,
+    "seed": 6
+   }
+  ],
+  "袁": [
+   {
+    "comp": "衣",
+    "inChar": 7,
+    "seed": 6
+   }
+  ],
+  "襖": [
+   {
+    "comp": "奥",
+    "inChar": 13,
+    "seed": 12
+   }
+  ],
+  "諾": [
+   {
+    "comp": "若",
+    "inChar": 9,
+    "seed": 8
+   }
+  ],
+  "謊": [
+   {
+    "comp": "荒",
+    "inChar": 10,
+    "seed": 9
+   }
+  ],
+  "豪": [
+   {
+    "comp": "高",
+    "inChar": 7,
+    "seed": 10
+   }
+  ],
+  "重": [
+   {
+    "comp": "千",
+    "inChar": 2,
+    "seed": 3
+   }
+  ],
+  "釜": [
+   {
+    "comp": "金",
+    "inChar": 6,
+    "seed": 8
+   }
+  ],
+  "錚": [
+   {
+    "comp": "争",
+    "inChar": 8,
+    "seed": 6
+   }
+  ],
+  "鑽": [
+   {
+    "comp": "贊",
+    "inChar": 18,
+    "seed": 19
+   }
+  ],
+  "铓": [
+   {
+    "comp": "芒",
+    "inChar": 7,
+    "seed": 6
+   }
+  ],
+  "闞": [
+   {
+    "comp": "敢",
+    "inChar": 12,
+    "seed": 11
+   }
+  ],
+  "雋": [
+   {
+    "comp": "弓",
+    "inChar": 4,
+    "seed": 3
+   }
+  ],
+  "風": [
+   {
+    "comp": "虫",
+    "inChar": 7,
+    "seed": 6
+   }
+  ],
+  "飬": [
+   {
+    "comp": "食",
+    "inChar": 7,
+    "seed": 9
+   }
+  ],
+  "饈": [
+   {
+    "comp": "羞",
+    "inChar": 11,
+    "seed": 10
+   }
+  ],
+  "驚": [
+   {
+    "comp": "敬",
+    "inChar": 13,
+    "seed": 12
+   }
+  ],
+  "髒": [
+   {
+    "comp": "葬",
+    "inChar": 13,
+    "seed": 12
+   }
+  ],
+  "鬮": [
+   {
+    "comp": "龜",
+    "inChar": 17,
+    "seed": 18
+   }
+  ],
+  "黴": [
+   {
+    "comp": "微",
+    "inChar": 11,
+    "seed": 13
+   }
+  ]
+ }
+}

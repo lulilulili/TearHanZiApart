@@ -607,6 +607,41 @@ function renderSteps() {
   }
   if (key === "s1") {
     drawOutline(0.25); drawMedians();
+    /* 部件槽位层：按 matches 一级槽位画包络虚框 + 图例；G7 槽位互换
+       事件高亮（种子字体系：槽位错位是换家的硬证据） */
+    const slotOf = r.slotOf || [];
+    const slotMembers = new Map();
+    r.strokes.forEach((s, k) => {
+      const sl = slotOf[k];
+      if (sl == null || !showS(k)) return;
+      if (!slotMembers.has(sl)) slotMembers.set(sl, []);
+      slotMembers.get(sl).push(k);
+    });
+    const slotName = sl => {
+      const ch2 = ((r.kai || {}).structure || {}).children || [];
+      return (ch2[sl] && ch2[sl].char) ? ch2[sl].char : ("槽" + (sl + 1));
+    };
+    for (const [sl, ks] of slotMembers) {
+      let x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e18;
+      ks.forEach(k => r.strokes[k].median.forEach(p => {
+        x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]);
+        x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]);
+      }));
+      if (x1 < x0) continue;
+      el("path", { d: `M ${x0-14} ${y0-14} L ${x1+14} ${y0-14} L ${x1+14} ${y1+14} L ${x0-14} ${y1+14} Z`,
+                   fill: "none", stroke: colorOf(sl + 16), "stroke-width": 2.5,
+                   "stroke-dasharray": "6 8", "stroke-opacity": 0.8 }, g);
+      const item = document.createElement("span");
+      item.innerHTML = `<span class="sw" style="background:${colorOf(sl + 16)}"></span>` +
+        `槽位「${slotName(sl)}」：笔 ${ks.map(k => k + 1).join("、")}`;
+      legendEl.appendChild(item);
+    }
+    (r.slotSwaps || []).forEach(([a, b]) => {
+      const item = document.createElement("span");
+      item.innerHTML = `<span class="sw" style="background:#e0a030"></span>` +
+        `G7 槽位互换：笔${a + 1}(${r.strokes[a].type}) ⇄ 笔${b + 1}(${r.strokes[b].type})`;
+      legendEl.appendChild(item);
+    });
     /* 组局部重锚定可视化：红虚线=楷体名义联合框（全局仿射的绝对定位，
        失配处挤压/悬空），实线=重锚定后的组墨框；箭头连角指示重映射 */
     (r.groupRemap || []).forEach(rm => {

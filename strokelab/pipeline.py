@@ -1119,6 +1119,88 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             for g, _ in misG:
                 groupStrokes[g] = [k for k in misK if strokeGroup[k] == g]
 
+    # G7 槽位互换仲裁（种子字统计：92.2% 部件笔数与种子精确一致，
+    # 槽位错位是比轴向/次序更硬的换家证据）：各一级槽位中心 = 该槽
+    # 成员所在组墨质心的中位数（排除自身防污染）；互为错位的跨槽笔对
+    # （各自到对方槽中心的距离×1.8 仍小于到本槽中心）且互换组的墨
+    # 距离总代价不明显恶化(≤+60)则互换家。跨型允许——博的横占竖杆
+    # 类连环错位常跨槽跨型。
+    slotSwaps = []
+    kaiMatches0 = kai.get("matches") or []
+
+    def _slotOf0(k):
+        p = kaiMatches0[k] if k < len(kaiMatches0) else None
+        return p[0] if p else None
+
+    slotMembers = {}
+    for k in range(nStrokes):
+        s0 = _slotOf0(k)
+        if s0 is not None:
+            slotMembers.setdefault(s0, []).append(k)
+    if len(slotMembers) >= 2:
+        def _gCent0(k):
+            return groupCentroids.get(strokeGroup[k])
+
+        def _slotCenter0(s0, excl):
+            pts2 = []
+            for k in slotMembers[s0]:
+                if k == excl:
+                    continue
+                c = _gCent0(k)
+                if c is not None:
+                    pts2.append(c)
+            if len(pts2) < 2:
+                return None
+            xs = sorted(p[0] for p in pts2)
+            ys = sorted(p[1] for p in pts2)
+            return (xs[len(xs) // 2], ys[len(ys) // 2])
+
+        for _round in range(2):
+            movedG7 = False
+            for i in range(nStrokes):
+                si = _slotOf0(i)
+                ci = _gCent0(i)
+                if si is None or ci is None:
+                    continue
+                own = _slotCenter0(si, i)
+                if own is None:
+                    continue
+                dOwn = dist(ci, own)
+                for j in range(nStrokes):
+                    if j == i:
+                        continue
+                    sj = _slotOf0(j)
+                    if sj is None or sj == si:
+                        continue
+                    cj = _gCent0(j)
+                    if cj is None:
+                        continue
+                    ownJ = _slotCenter0(sj, j)
+                    if ownJ is None:
+                        continue
+                    if dist(ci, ownJ) * 1.8 >= dOwn or \
+                       dist(cj, own) * 1.8 >= dist(cj, ownJ):
+                        continue
+                    gi2, gj2 = strokeGroup[i], strokeGroup[j]
+                    if gi2 == gj2:
+                        continue
+                    oldC = costRows[i][gi2] + costRows[j][gj2]
+                    newC = costRows[i][gj2] + costRows[j][gi2]
+                    if newC > oldC + 60.0:
+                        continue
+                    groupStrokes[gi2].remove(i)
+                    groupStrokes[gj2].remove(j)
+                    strokeGroup[i], strokeGroup[j] = gj2, gi2
+                    groupStrokes[gj2].append(i)
+                    groupStrokes[gj2].sort()
+                    groupStrokes[gi2].append(j)
+                    groupStrokes[gi2].sort()
+                    slotSwaps.append([i, j])
+                    movedG7 = True
+                    break
+            if not movedG7:
+                break
+
     # 序保持互换仲裁（ORDER 主攻）：墨距离对同型笔在代价接近时会把
     # "家"分反——狗的犭撇与勹撇左右互换（偏差500+）、根的木4点上蹿，
     # median 与切割路径质心一致地违背楷序=指派错而非切割错。组指派
@@ -2003,6 +2085,9 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                    for g in range(nGroups)],
         "groupRemap": groupRemapInfo,
         "semanticClaims": semanticClaims,
+        "slotSwaps": slotSwaps,
+        "slotOf": [(kaiMatches0[k][0] if k < len(kaiMatches0) and kaiMatches0[k]
+                    else None) for k in range(nStrokes)],
         "unionCheck": unionCheck,
         "kai": {"strokes": kai["strokes"], "medians": kai["medians"],
                 "strokeTypes": kai["strokeTypes"], "radical": kai["radical"],
