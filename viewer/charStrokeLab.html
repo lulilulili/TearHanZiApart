@@ -484,7 +484,7 @@ function renderStructure() {
 /* ---------------- ⑤ 流程步骤 ---------------- */
 const STEP_DEFS = [
   { key: "s0", name: "S0 孤立识别", caption: "孤立路径识别（分组分治入口）：按外轮廓+孔洞划分连通组，每笔按初始设计位置指定唯一所属组（公理：正常字体中同一笔画不会断成两个孤立组）。仅含一笔的组（实色+✓）整组直出——该笔与该组路径精确恒等、保留率100%、零切割；多笔共存的组（半透明）进入组内竞争拆解，跨组互不干扰。" },
-  { key: "s1", name: "S1 对齐/D", caption: "对齐与 D 构建：目标字形轮廓（灰）与每笔的 D 骨架（彩色虚线）。D 骨架 = B库同类型笔画（目标字体自己的形态，A↔B 类型映射）按楷体结构 C 给出的该笔包围盒定位；B库缺该类型时退回楷体中轴线。" },
+  { key: "s1", name: "S1 对齐/D", caption: "对齐与 D 构建：目标字形轮廓（灰）与每笔的 D 骨架（彩色虚线）。D 骨架 = B库同类型笔画（目标字体自己的形态，A↔B 类型映射）按楷体结构 C 给出的该笔包围盒定位；B库缺该类型时退回楷体中轴线。部件比例悬殊导致组内名义布局整体错位时触发**组局部重锚定**（红虚框=错位的名义联合框 → 实线框=组墨框，按楷体相对布局重映射，磷·石口）。" },
   { key: "s2", name: "S2 模板", caption: "D 的形态模板：B库同类型笔画（半透明彩色）放置到各笔位置 —— 形态先验，用于归属评分与校验；真正的拆解在 S3–S5 用真实轮廓完成。无填充的笔表示 B库缺该类型（退回楷体中轴线）。" },
   { key: "s3", name: "S3 归属", caption: "边界归属（组内竞争）：轮廓按曲率密度采样，逐点按“宽度归一化距离 + 切向一致性”归属到本组各笔的 D 骨架，含主人判定整体归属、孔洞径向对应、标签平滑。" },
   { key: "s4", name: "S4 切割", caption: "矢量切割：标签跳变处沿轮廓参数二分（22 次迭代），De Casteljau 把原始贝塞尔段精确切开 —— 保留区段与原路径逐点恒等。黑圈为切割点。" },
@@ -607,6 +607,30 @@ function renderSteps() {
   }
   if (key === "s1") {
     drawOutline(0.25); drawMedians();
+    /* 组局部重锚定可视化：红虚线=楷体名义联合框（全局仿射的绝对定位，
+       失配处挤压/悬空），实线=重锚定后的组墨框；箭头连角指示重映射 */
+    (r.groupRemap || []).forEach(rm => {
+      if (solo != null && rm.group !== solo) return;
+      const [fa, fb, fc, fd] = rm.from, [ta, tb2, tc2, td] = rm.to;
+      el("path", { d: `M ${fa} ${fb} L ${fc} ${fb} L ${fc} ${fd} L ${fa} ${fd} Z`,
+                   fill: "none", stroke: "#e05555", "stroke-width": 4,
+                   "stroke-dasharray": "14 10" }, g);
+      el("path", { d: `M ${ta} ${tb2} L ${tc2} ${tb2} L ${tc2} ${td} L ${ta} ${td} Z`,
+                   fill: "none", stroke: colorOf(rm.group + 8),
+                   "stroke-width": 5 }, g);
+      el("path", { d: `M ${fa} ${fd} L ${ta} ${td}`, fill: "none",
+                   stroke: "#e05555", "stroke-width": 3,
+                   "stroke-dasharray": "4 6" }, g);
+      el("path", { d: `M ${fc} ${fb} L ${tc2} ${tb2}`, fill: "none",
+                   stroke: "#e05555", "stroke-width": 3,
+                   "stroke-dasharray": "4 6" }, g);
+      const item = document.createElement("span");
+      item.innerHTML = `<span class="sw" style="background:#e05555"></span>` +
+        `组${rm.group + 1} 局部重锚定：名义框覆盖不足（x ${Math.round(rm.cov[0] * 100)}% / ` +
+        `y ${Math.round(rm.cov[1] * 100)}% &lt;70%），按楷体相对布局映射到组墨框 ` +
+        `（笔 ${rm.strokes.map(k => k + 1).join("、")}）`;
+      legendEl.appendChild(item);
+    });
   } else if (key === "s2") {
     drawOutline(0.12);
     r.strokes.forEach((s, k) => {

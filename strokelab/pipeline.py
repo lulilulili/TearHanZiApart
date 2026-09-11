@@ -879,6 +879,44 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     except Exception:
         pass
 
+    # 组局部重锚定（失配门控，用户设想：相对位置代替绝对位置）：全局
+    # 仿射是绝对定位，部件比例悬殊时组内名义布局整体错位——磷·石口
+    # 高瘦，楷体口的三笔名义全挤在组上半段，封底横悬在腔体中间，组下
+    # 三分之一无人认领。组内≥2笔、成员名义联合框对组墨框轴向覆盖
+    # <0.7 时，改用楷体**相对布局**：联合名义框→组墨框整体仿射重映射
+    # （轴对齐缩放，横竖臂保持横竖）。v10 无门控全量复位曾净负收益
+    # ——放对的也被搬乱；门控确保只救真错位，正常字零扰动。
+    groupRemapInfo = []
+    for g in range(nGroups):
+        ss = groupStrokes.get(g, [])
+        if len(ss) < 2:
+            continue
+        bb = groupBBoxes.get(g)
+        if bb is None or bb.w < 8 or bb.h < 8:
+            continue
+        pts = [p for k in ss for p in initMedians[k]]
+        nb = bboxOfPoints(pts)
+        if nb.w < 4 or nb.h < 4:
+            continue
+        covX = max(0.0, min(nb.x1, bb.x1) - max(nb.x0, bb.x0)) / max(1.0, bb.w)
+        covY = max(0.0, min(nb.y1, bb.y1) - max(nb.y0, bb.y0)) / max(1.0, bb.h)
+        if min(covX, covY) >= 0.7:
+            continue
+        sx2 = bb.w / nb.w
+        sy2 = bb.h / nb.h
+        if not (0.25 <= sx2 <= 4.0 and 0.25 <= sy2 <= 4.0):
+            continue
+        for k in ss:
+            medians[k] = [(bb.x0 + (p[0] - nb.x0) * sx2,
+                           bb.y0 + (p[1] - nb.y0) * sy2)
+                          for p in medians[k]]
+            initMedians[k] = [tuple(p) for p in medians[k]]
+        groupRemapInfo.append({
+            "group": g, "strokes": list(ss),
+            "from": [round(nb.x0), round(nb.y0), round(nb.x1), round(nb.y1)],
+            "to": [round(bb.x0), round(bb.y0), round(bb.x1), round(bb.y1)],
+            "cov": [round(covX, 2), round(covY, 2)]})
+
     contourAllowed = [groupStrokes.get(c["group"], list(range(nStrokes)))
                       for c in contours]
 
@@ -1542,6 +1580,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     "isolated": sum(1 for k in range(nStrokes)
                                     if strokeGroup[k] == g) == 1}
                    for g in range(nGroups)],
+        "groupRemap": groupRemapInfo,
         "unionCheck": unionCheck,
         "kai": {"strokes": kai["strokes"], "medians": kai["medians"],
                 "strokeTypes": kai["strokeTypes"], "radical": kai["radical"],
