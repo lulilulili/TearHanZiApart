@@ -256,6 +256,64 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     contours = [{"segs": c["segs"]} for c in raw]
     analyzeContours(contours)
 
+    # 交叠件并组（门控：组数>笔画数才介入，否则完全维持原流程）。
+    # 现代字体常不合并交叠轮廓（口=⊓件+底横条角部交叠靠 nonzero 并集
+    # 渲染；Noto 尤碎，一笔可拆成 2+ 件）。组数>笔画数时匈牙利锚定
+    # 无解、空组兜底退化成全开竞争，四码齐爆。公理的本义（用户裁定）：
+    # 同一笔画不会断成**不相交**的连通组——相交的件就是连通的墨，
+    # 并为一组；组数≤笔画数时嵌套分组已工作良好，不动。
+    nKaiStrokes = len(kai["medians"])
+    nG0 = max((c["group"] for c in contours), default=-1) + 1
+    if nG0 > nKaiStrokes:
+        try:
+            from shapely.geometry import Polygon as _Pg0
+            groupPoly = {}
+            for c in contours:
+                if c["isHole"]:
+                    continue
+                try:
+                    pg = _Pg0(c["poly"])
+                    if not pg.is_valid:
+                        pg = pg.buffer(0)
+                except Exception:
+                    continue
+                g = c["group"]
+                groupPoly[g] = pg if g not in groupPoly \
+                    else groupPoly[g].union(pg)
+            parent = list(range(nG0))
+
+            def _find(x):
+                while parent[x] != x:
+                    parent[x] = parent[parent[x]]
+                    x = parent[x]
+                return x
+
+            keys = sorted(groupPoly.keys())
+            for ai in range(len(keys)):
+                for bi in range(ai + 1, len(keys)):
+                    a, b = keys[ai], keys[bi]
+                    pa, pb = groupPoly[a], groupPoly[b]
+                    ba, bb2 = pa.bounds, pb.bounds
+                    if ba[2] < bb2[0] or bb2[2] < ba[0] or \
+                       ba[3] < bb2[1] or bb2[3] < ba[1]:
+                        continue
+                    try:
+                        if pa.intersection(pb).area > 25.0:
+                            ra, rb = _find(a), _find(b)
+                            if ra != rb:
+                                parent[rb] = ra
+                    except Exception:
+                        pass
+            remap = {}
+            for g in range(nG0):
+                r = _find(g)
+                if r not in remap:
+                    remap[r] = len(remap)
+            for c in contours:
+                c["group"] = remap[_find(c["group"])]
+        except Exception:
+            pass
+
     _timings = []
     _tw = [time.perf_counter()]
 
