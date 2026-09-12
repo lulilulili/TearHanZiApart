@@ -510,6 +510,68 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     # 独立 argmin 曾让㡭的点挤进邻笔的组、正主组空置沦为全开竞争），
     # 余下笔画再就近入组。组数=笔画数时退化为严格一一对应
     costRows = [strokeGroupCost(k) for k in range(nStrokes)]
+    # 指派相容性罚（诊断元修复：五个失败簇独立诊断收敛于同一结论——
+    # 纯墨距离代价对轴向/尺寸完全失明，verify 的不变量应前置进代价矩阵
+    # 而非事后仲裁补救）：
+    # ①杆⊥笔罚 +200：杆状组(单外环无孔且elong≥2.5或bbox长宽比≥3)×
+    #   定向笔(横/提/竖，名义弦长≥40)且轴向差>50°（爺k11/螟k2/騫k11/
+    #   聞竖锚横杆族——匈牙利保底锚定曾把孤儿组锚给荒谬笔）
+    # ②点锚大墨罚 +250：点笔×(组bbox对角线≥3.5×名义弦长且组墨占比
+    #   ≥7%)（邸酞濮蜷——楷体点名义恰压长笔墨上代价≈0，匈牙利便
+    #   "点锚大墨、长笔流放点斑"）
+    penMatrix = {}
+    try:
+        _totInk = 0.0
+        _gInk = {}
+        for c in contours:
+            a0 = abs(c["area"])
+            if c["isHole"]:
+                _gInk[c["group"]] = _gInk.get(c["group"], 0.0) - a0
+            else:
+                _gInk[c["group"]] = _gInk.get(c["group"], 0.0) + a0
+                _totInk += a0
+        _barAx = {}
+        for g in range(nGroups):
+            bb = groupBBoxes.get(g)
+            if bb is None:
+                continue
+            outers0 = [c for c in contours
+                       if c["group"] == g and not c["isHole"]]
+            if len(outers0) != 1 or any(
+                    c["group"] == g and c["isHole"] for c in contours):
+                continue
+            aspect0 = max(bb.w, bb.h) / max(1.0, min(bb.w, bb.h))
+            if aspect0 >= 3.0:
+                _barAx[g] = 0.0 if bb.w >= bb.h else 90.0
+            else:
+                dsc0 = shapeDescriptor([contourToPath(outers0[0]["segs"])])
+                if dsc0 and dsc0["elong"] >= 2.5:
+                    _barAx[g] = math.degrees(dsc0["mainAngle"]) % 180.0
+        for k in range(nStrokes):
+            m0k = initMedians[k]
+            chord0 = dist(m0k[0], m0k[-1])
+            t0 = kai["strokeTypes"][k]
+            kAng0 = None
+            if chord0 >= 40 and t0 in ("横", "竖", "提"):
+                kAng0 = math.degrees(math.atan2(
+                    m0k[-1][1] - m0k[0][1], m0k[-1][0] - m0k[0][0])) % 180.0
+            for g in range(nGroups):
+                pen = 0.0
+                ax0 = _barAx.get(g)
+                if ax0 is not None and kAng0 is not None:
+                    dv0 = abs(ax0 - kAng0) % 180.0
+                    if min(dv0, 180.0 - dv0) > 50.0:
+                        pen += 200.0
+                if t0 == "点":
+                    bb = groupBBoxes.get(g)
+                    if bb is not None and _totInk > 0:
+                        diag0 = math.hypot(bb.w, bb.h)
+                        if diag0 >= 3.5 * max(20.0, chord0) and                                 _gInk.get(g, 0.0) / _totInk >= 0.07:
+                            pen += 250.0
+                if pen:
+                    penMatrix.setdefault(k, {})[g] = pen
+    except Exception:
+        pass
     strokeGroup = [min(range(nGroups), key=lambda g: costRows[k][g])
                    if nGroups else 0 for k in range(nStrokes)]
     if 0 < nGroups <= nStrokes:
@@ -519,7 +581,11 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         cost = []
         for k in range(nStrokes):
             free = min(costRows[k]) if nGroups else 0.0
-            cost.append([costRows[k][g] for g in range(nGroups)] +
+            # 相容性罚只作用于锚定矩阵（argmin 就近入组与各仲裁窗口仍用
+            # 纯几何代价）——罚进 costRows 本体曾把爱5竖的回家路也堵死
+            pk = penMatrix.get(k, {})
+            cost.append([costRows[k][g] + pk.get(g, 0.0)
+                         for g in range(nGroups)] +
                         [free] * (size - nGroups))
         match = _hungarian(cost)
         for k in range(nStrokes):
@@ -734,6 +800,15 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         p = kaiMatches[k] if k < len(kaiMatches) else None
         return tuple(p) if p else None
 
+    def _compMate(a, b):
+        """部件相容=一方为另一方前缀（matches 深化层级不齐：尃s3路径
+        (0,1) 与 s2 的 (0,1,0) 是同部件，exact 全等曾误判非亲——只
+        放宽 mate 认定、收紧迁移条件，不新增移动。"""
+        if a is None or b is None:
+            return False
+        la = min(len(a), len(b))
+        return a[:la] == b[:la]
+
     if nGroups >= 2 and kaiMatches:
         for k in range(nStrokes):
             g1 = strokeGroup[k]
@@ -744,7 +819,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             if comp is None:
                 continue
             mates = [j for j in range(nStrokes)
-                     if j != k and _compOf(j) == comp]
+                     if j != k and _compMate(_compOf(j), comp)]
             if not mates or any(strokeGroup[j] == g1 for j in mates):
                 continue
             if len(groupStrokes[g1]) <= 1:

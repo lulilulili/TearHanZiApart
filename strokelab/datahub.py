@@ -24,8 +24,12 @@ try:
     _SINGLE = set("横竖撇捺点提")
     KAI_TYPE_FIXES = {}
     for _ch, _m in _raw.items():
+        # 单元素互换整体不套用（几何共识标签在轴向校验里制造争议），
+        # 但**降级为点**放行：点不参与 TYPE 轴向校验，只减误报不增
+        # （糹3 竖→点：弦长163-176 被 classifyMedian 按长度判竖，
+        # 审计 12/17 票裁定真身是点）
         _keep = {_i: _t for _i, _t in _m.items()
-                 if not (_t in _SINGLE)}
+                 if (_t not in _SINGLE) or _t == "点"}
         if _keep:
             KAI_TYPE_FIXES[_ch] = _keep
 except Exception:
