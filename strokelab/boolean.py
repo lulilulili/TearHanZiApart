@@ -379,6 +379,83 @@ def resolveKaiDisjointOverlaps(strokes, kaiMedians, ratio=0.6, kaiDist=40.0):
     return fixed
 
 
+def fillResidualGaps(contours, strokes, glyph=None, minPiece=25.0):
+    """终态补缝：未覆盖残片（≥minPiece）无条件回填给同组共享边界最长
+    的笔。与 clampStrokes 的回填同逻辑，但没有 0.5% 总量闸——那是
+    校验容差不是跳过闸，0.4% 的缺口曾在爱的冖区留白缝。只该在救济/
+    减除/连通性全部尘埃落定后的终态调用（中间轮次调用会把救济前的
+    大残差乱粘给邻笔——質12横曾被粘26639）。返回是否有改动。"""
+    if glyph is None:
+        glyph = glyphRegion(contours)
+    if glyph is None or glyph.area < 1:
+        return False
+    regions = []
+    for s in strokes:
+        r = None if s["failed"] else _evenOddRegion(_loopPolys(s["path"]))
+        regions.append(r)
+    valid = [r for r in regions if r is not None and not r.is_empty]
+    if not valid:
+        return False
+    union = unary_union(valid)
+    if not union.is_valid:
+        union = union.buffer(0)
+    residual = glyph.difference(union)
+    if residual.is_empty or residual.area <= 4.0:
+        return False
+    changed = False
+    pieces = list(residual.geoms) if hasattr(residual, "geoms") else [residual]
+    for piece in pieces:
+        if piece.area < minPiece:
+            continue
+        pb = piece.buffer(1.5)
+        # 归属组=与残片交叠最大的轮廓组
+        pieceG, pgArea = None, 0.0
+        for g in sorted({c.get("group", 0) for c in contours}):
+            reg = _groupRegionOf(contours, g)
+            if reg is None:
+                continue
+            try:
+                a = reg.intersection(piece).area
+            except Exception:
+                a = 0.0
+            if a > pgArea:
+                pgArea, pieceG = a, g
+        bestI, bestL = -1, 0.0
+        for i, r in enumerate(regions):
+            if r is None or r.is_empty:
+                continue
+            if pieceG is not None and strokes[i].get("group") != pieceG:
+                continue
+            try:
+                shared = pb.intersection(r).area
+            except Exception:
+                shared = 0.0
+            if shared > bestL:
+                bestL, bestI = shared, i
+        if bestI < 0:
+            for i, r in enumerate(regions):
+                if r is None or r.is_empty:
+                    continue
+                try:
+                    shared = pb.intersection(r).area
+                except Exception:
+                    shared = 0.0
+                if shared > bestL:
+                    bestL, bestI = shared, i
+        if bestI < 0:
+            continue
+        merged = regions[bestI].union(piece)
+        if not merged.is_valid:
+            merged = merged.buffer(0)
+        p2 = _regionToPath(merged)
+        if p2:
+            strokes[bestI]["path"] = p2
+            strokes[bestI]["clamped"] = True
+            regions[bestI] = merged
+            changed = True
+    return changed
+
+
 def enforceConnectivity(contours, strokes, maxRounds=3, glyph=None):
     """单笔单连通终态收口（公理：同一笔画不会断成两个孤立连通组）。
     多片笔画只留最大片，其余显著片按共享边界最长原则划给相邻笔；

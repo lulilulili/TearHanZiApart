@@ -2229,6 +2229,12 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         # 终态校验统一按实际路径口径（clampStrokes 返回值基于裁剪区域，
         # 会掩盖未被替换路径的残余溢出）
         unionCheck = booleanClamp.reUnionCheck(contours, strokes, glyph=_glyph)
+        # 终态补缝：0.5% 容差内的可见缺口（爱冖区 0.4% 白缝）无条件
+        # 回填——此时救济/减除/连通性已尘埃落定，不会乱粘
+        if unionCheck.get("cover", 100) < 99.95:
+            if booleanClamp.fillResidualGaps(contours, strokes, glyph=_glyph):
+                unionCheck = booleanClamp.reUnionCheck(contours, strokes,
+                                                       glyph=_glyph)
         # 终态强制收口：连通性搬运/退化环奇偶翻转可能在收口后重引入溢出
         # （流江水曾终态溢出 19%）——超标就再收口一轮，硬保证优先
         if abs(unionCheck.get("excess", 0)) > 0.5 or            unionCheck.get("cover", 100) < 99.5:
