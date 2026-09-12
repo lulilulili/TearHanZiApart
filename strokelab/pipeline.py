@@ -27,6 +27,13 @@ from . import boolean as booleanClamp
 
 ITERS = 5
 
+# G8.5 梯队探针开关：开启时 result 附带 ladderProbe 信号（标定用），
+# 探测本身无副作用。执行器待探测精度在 25 字族+健康集上标定后接入。
+LADDER_PROBE = False
+# G8.5 梯队执行器开关：探测标定达标（家族14/25、健康0/23、抽样0/200）
+# 后接入。按 fired 部件的 plan 施行组重排+中轴带重置。
+LADDER_ACT = True
+
 
 def _medianDeviation(placed, kaiPlaced):
     """模板骨架放置后与楷体中轴线的形态偏差：按弧长重采样 24 点对齐的
@@ -1401,6 +1408,438 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         if not swapped:
             break
 
+    # ------------------------------------------------------------ G8.5 梯队探针
+    # 部件梯队秩配对探测层（诊断先行，零副作用，只读组指派与楷体名义
+    # 布局，只产 ladderProbe；执行器待接入）。三轮标定教训：
+    #  · v1 hostile（横躺非水平组）健康误触 11%——疒/厂/門族横撇融组
+    #    是健康常态；
+    #  · v2 barMisown+offBar 误触 16%——短横（弦长<100 被排出梯队池）
+    #    合法占条被算成"错主"，故 v3 池收笔不设长度门；
+    #  · v3 标定（家族25+健康点名23+通过抽样200）：孤立单条争议（事：
+    #    彐横折独占扁宽组、稀条对密池配对欠定）是健康常态，触发必须
+    #    成"链"（≥2 条占有≠配对）；門左右上横、鱄跨部件条是并排而非
+    #    叠放，y 秩配对无意义，须过"竖直梯子"结构门。
+    # 病字签名两型：
+    #  A/B 型（尃族吞框：搏/博/縛/鎛 + 卑族日中横错档 sigD）：条组按
+    #    墨 y 降序占有者 [3,7,10,5] vs 楷横池按楷 y 降序 [3,6,7,10]
+    #    ——主序保序但整体错一位（6 困框、5 横折垫底接盘），逆序检不
+    #    出，须做横池 × 条组的保序秩配对，比对占有关系与保序最优配对
+    #    的差异；
+    #  C 型（跨位抢条：睥/埤族）：条组占有者名义 x 走廊与条毫无重叠
+    #    （睥·目底横 x≈226 抢走右侧卑底条 x≈500，y 上却贴合），纯 y
+    #    模型不可见；而失所的正主（名义 x 走廊与条相容、名义 y 在梯队
+    #    一档之内）困在融合组里。省形（鱄）同样有跨位条，但其候选正主
+    #    名义 y 距条 1.8~2.6 档（睥/埤 ≤1.05 档）——字体少一档，正主
+    #    不存在，档距门 1.2 挡住。
+    # 触发即给出修复方案 plan=[[笔, 现组, 应去组], ...] 供执行器用。
+    # 终版标定成绩：家族 14/25（博啤埤搏睥碑稗縛萆蜱郫鎛陴髀，含
+    # 强制五字搏/博/縛/鎛/睥），健康点名 0/23，通过抽样 0/200 误触；
+    # 未覆盖：礴（寸点貌合条剔除后链证据消失，保零误触的代价）、
+    # 濞輻首鼽鼾齄（病在竖笔/切割中轴，条占有保序一致，横梯模型不可
+    # 见）、痺（横捺占条单争议=事·彐横折健康签名同型）、颦（正主候选
+    # 距条 2.6 档与鱄省形不可分）、導（现已通过验收）、鱄（省形，契约
+    # 不触发）。
+    ladderProbe = []
+    if (LADDER_PROBE or (LADDER_ACT and seedMedians is None)) and \
+            nStrokes >= 4 and kaiMatches0:
+        _dbgLP = (LADDER_PROBE == 2)    # 标定调试：dump 全部件（含未触发）
+
+        # 全字"纯横条组"表：单笔独占 + 宽≥100 + 主轴近水平。sigC 要越
+        # 过部件边界看条（抢条者常来自邻部件），故全字收集；部件内
+        # 秩配对按占有者∈成员过滤。
+        allBars = []                       # [组, 占有者, 墨y, x0, x1]
+        for g in sorted(groupStrokes):
+            ss = groupStrokes.get(g, [])
+            if len(ss) != 1:
+                continue
+            bbG = groupBBoxes.get(g)
+            if bbG is None or bbG.w < 100.0:
+                continue
+            gax = _barAxisOf(g)
+            if gax is None or min(gax, 180.0 - gax) > 32.0:
+                continue
+            c2 = groupCentroids.get(g)
+            if c2 is None:
+                continue
+            allBars.append([g, ss[0], c2[1], bbG.x0, bbG.x1])
+
+        _nomXRCache = {}
+
+        def _nomXR(k):
+            """笔 k 的楷体名义 x 走廊（affine 映射后的中轴 x 范围）。"""
+            if k not in _nomXRCache:
+                xs = [affine(p)[0] for p in kai["medians"][k]]
+                _nomXRCache[k] = (min(xs), max(xs))
+            return _nomXRCache[k]
+
+        def _xOvOf(k, bar):
+            """笔 k 名义 x 走廊与条组 x 范围的重叠占条宽比例。"""
+            lo, hi = _nomXR(k)
+            return ((min(hi, bar[4]) - max(lo, bar[3]))
+                    / max(1.0, bar[4] - bar[3]))
+
+        # 部件横池预扫：pool = 楷体横/提且弦向≤30°的全部笔（不设长度
+        # 门——短横合法占条）；rungs = 池中弦长≥100 者，k≥2 才算梯子
+        compPool = {}                      # ci -> (pool, rungs)
+        for ci in sorted(slotMembers):
+            pool = []
+            rungs = []
+            for k in slotMembers[ci]:
+                if kai["strokeTypes"][k] not in ("横", "提"):
+                    continue
+                km = kai["medians"][k]
+                if len(km) < 2:
+                    continue
+                dx = km[-1][0] - km[0][0]
+                dy = km[-1][1] - km[0][1]
+                chord = math.hypot(dx, dy)
+                if chord < 1e-6:
+                    continue
+                ang = abs(math.degrees(math.atan2(dy, dx))) % 180.0
+                if min(ang, 180.0 - ang) > 30.0:
+                    continue
+                pool.append(k)
+                if chord >= 100.0:
+                    rungs.append(k)
+            if pool:
+                compPool[ci] = (pool, rungs)
+
+        # —— A/B 型：部件内 横池 × 条组 保序秩配对 ——
+        for ci in sorted(compPool):
+            pool, rungs = compPool[ci]
+            if len(rungs) < 2:
+                if _dbgLP:
+                    ladderProbe.append({"comp": ci, "pool": pool,
+                                        "rungs": rungs, "fired": False,
+                                        "why": "rungs<2"})
+                continue
+            memberSet = set(slotMembers[ci])
+            poolSet = set(pool)
+            bars = [list(b) for b in allBars if b[1] in memberSet]
+            kaiY = {k: affine(kaiCentAll[k])[1] for k in pool}
+            poolSorted = sorted(pool, key=lambda k: -kaiY[k])
+            gapsP = [kaiY[poolSorted[i]] - kaiY[poolSorted[i + 1]]
+                     for i in range(len(poolSorted) - 1)]
+            gapP = sum(gapsP) / len(gapsP) if gapsP else 0.0
+            # 非池占有者的"貌合条"剔除：占有者虽非池笔，但名义 y 与条
+            # 贴合（≤0.75 档）——横折/撇/撇折/竖折/捺类独占扁宽组是
+            # 健康形态（鲁·魚头横折 Δ7、罴/握·厶撇折 Δ2~4、慟腫·撇
+            # Δ51~58、謊·竖折 Δ14~23），sample200 的 11 例误触全由这类
+            # 条强灌配对所致（#bars==#pool 时被迫全双射，把池笔拽向
+            # 荒谬档位）；名义远者（搏族·甫横折 Δ403~424 垫底接盘）
+            # 才是吞框签名，保留为错主证据
+            dropped = []
+            if gapP > 0:
+                kept = []
+                for b in bars:
+                    if b[1] not in poolSet and \
+                       abs(affine(kaiCentAll[b[1]])[1] - b[2]) <= 0.75 * gapP:
+                        dropped.append(b[0])
+                    else:
+                        kept.append(b)
+                bars = kept
+            if not bars or len(bars) > len(pool):
+                if _dbgLP:
+                    ladderProbe.append({
+                        "comp": ci, "pool": pool, "rungs": rungs,
+                        "bars": [[b[0], b[1], round(b[2], 1)] for b in bars],
+                        "dropped": dropped,
+                        "fired": False, "why": "bars=%d pool=%d" % (
+                            len(bars), len(pool))})
+                continue
+            bars.sort(key=lambda t: -t[2])           # 墨 y 降序（上→下）
+            # 结构门：条组集必须构成"竖直梯子"才有 y 秩配对语义——
+            #  · 两两 x 走廊重叠≥0.3×窄条宽（間/問的門左右上横、鱄的
+            #    跨部件条是并排而非叠放，y 秩序无意义，标定误触源）；
+            #  · 相邻档距≥30（同高并列条的 y 排序不可靠）。
+            ladderOK = True
+            for bi in range(len(bars)):
+                for bj in range(bi + 1, len(bars)):
+                    ov = (min(bars[bi][4], bars[bj][4])
+                          - max(bars[bi][3], bars[bj][3]))
+                    wmin = min(bars[bi][4] - bars[bi][3],
+                               bars[bj][4] - bars[bj][3])
+                    if ov < 0.3 * wmin:
+                        ladderOK = False
+            for bi in range(len(bars) - 1):
+                if bars[bi][2] - bars[bi + 1][2] < 30.0:
+                    ladderOK = False
+            if not ladderOK and not _dbgLP:
+                continue
+            # 保序最小代价配对：dp[i][j]=前 i 条条组只用前 j 根池笔的
+            # 最小 Σ|楷名义y-条y|；#bars==#pool 时退化为唯一保序双射
+            nb, npl = len(bars), len(poolSorted)
+            INF = 1e18
+            dp = [[INF] * (npl + 1) for _ in range(nb + 1)]
+            for j in range(npl + 1):
+                dp[0][j] = 0.0
+            for i in range(1, nb + 1):
+                for j in range(i, npl + 1):
+                    c = dp[i - 1][j - 1] + abs(bars[i - 1][2]
+                                               - kaiY[poolSorted[j - 1]])
+                    if dp[i][j - 1] < c:
+                        c = dp[i][j - 1]
+                    dp[i][j] = c
+            paired = [None] * nb
+            j = npl
+            for i in range(nb, 0, -1):
+                while j > i and dp[i][j] == dp[i][j - 1]:
+                    j -= 1
+                paired[i - 1] = poolSorted[j - 1]
+                j -= 1
+            ownerSet = {b[1] for b in bars}
+            offBar = [k for k in pool if k not in ownerSet]
+            misownBars = [b[0] for b in bars if b[1] not in poolSet]
+            mismatch = [b[0] for b, pk in zip(bars, paired) if b[1] != pk]
+            plan = [[pk, strokeGroup[pk], b[0]]
+                    for b, pk in zip(bars, paired) if b[1] != pk]
+            # 换位步幅门：配对给出的每一步 |楷名义y-条y| 必须 ≤1.15 档
+            # ——真病链步幅 ≤0.93 档（搏族 0.82~0.93、卑族 ≤0.36），
+            # 貌合条剔除后残留的荒谬配对（痕·艮横折衍生条 2.2 档、
+            # 嫘·撇折条 2.9 档）步幅越档，是配对欠定而非换家证据
+            planSane = (gapP >= 30.0 and
+                        all(abs(kaiY[pk] - b[2]) <= 1.15 * gapP
+                            for b, pk in zip(bars, paired) if b[1] != pk))
+            sigA = bool(set(misownBars) & set(mismatch))
+            sigB = any(b[1] in poolSet and b[1] != pk
+                       for b, pk in zip(bars, paired))
+            # sigD（卑族日中横错档）：允许单条争议触发的特异化路径——
+            # 争议条占有者必须是池笔（排除 事·彐横折独占扁宽组的合法
+            # 单争议），且配对首选笔困在"含竖类笔"的融合组（卑的日中
+            # 横与贯穿竖融组；疒/厂的横撇融组不含竖，v1 hostile 的
+            # 11% 误触由此隔离）
+            sigD = False
+            planD = []
+            for b, pk in zip(bars, paired):
+                if b[1] == pk or b[1] not in poolSet:
+                    continue
+                if pk in ownerSet:
+                    continue
+                gA = strokeGroup[pk]
+                mates = groupStrokes.get(gA, [])
+                if any(m != pk and kai["strokeTypes"][m].startswith("竖")
+                       for m in mates):
+                    sigD = True
+                    planD.append([pk, gA, b[0]])
+            # 触发门：错位须成"链"（≥2 条组占有≠配对）——孤立单条争议
+            # （事：彐横折独占扁宽组、稀条对密池配对欠定）是健康常态，
+            # v2 的单条 misown 即触发正是 16% 误触之源；且须 ∃池笔
+            # offBar（有笔被挤走——单纯少一根条=省形，不触发）。
+            # sigD 结构证据充分，豁免链长门，但要求**恰一根失所**
+            # （#bars=#pool-1，梯子被其余条锚定、秩归属确定）——碱·咸
+            # 1条对3池2失所是配对欠定，DP 就近猜中过一次健康占有者
+            # （在野误伤 AREA 2%→10%，抽样门实证）。
+            firedAB = (ladderOK and planSane and (sigA or sigB) and offBar
+                       and len(mismatch) >= 2)
+            firedD = (ladderOK and planSane and sigD
+                      and len(offBar) == 1)
+            fired = firedAB or firedD
+            if fired or _dbgLP:
+                ladderProbe.append({
+                    "comp": ci, "pool": poolSorted, "rungs": rungs,
+                    "kaiY": {k: round(v, 1) for k, v in kaiY.items()},
+                    "gapP": round(gapP, 1), "dropped": dropped,
+                    "bars": [[b[0], b[1], round(b[2], 1),
+                              round(b[3]), round(b[4]),
+                              kai["strokeTypes"][b[1]],
+                              round(affine(kaiCentAll[b[1]])[1], 1)]
+                             for b in bars],
+                    "paired": paired, "offBar": offBar,
+                    "misownBars": misownBars, "mismatch": mismatch,
+                    "plan": plan if firedAB else planD,
+                    "mode": "AB" if firedAB else "D",
+                    "sigA": sigA, "sigB": sigB, "sigD": sigD,
+                    "ladderOK": ladderOK, "fired": fired,
+                })
+
+        # —— C 型：跨位条占用（睥/埤族，纯 y 模型不可见）——
+        # 条组占有者名义 x 走廊与条重叠 <0.25 条宽（跨位铁证：睥·目底
+        # 横名义在左却独占右侧条），且存在失所正主 r：某梯子部件的长
+        # 横，不独占任何 x 相容条，名义 x 走廊与该条重叠 ≥0.5，名义 y
+        # 距条 ≤1.2×部件档距（标定：睥 0.99 档/埤 ≤1.04 档为真病，鱄
+        # 省形候选 1.8~2.6 档——字体少一档，正主不存在，档距门挡住）
+        for bar in allBars:
+            tOv = _xOvOf(bar[1], bar)
+            if tOv >= 0.25:
+                continue
+            best = None
+            cands = []
+            for ci in sorted(compPool):
+                pool, rungs = compPool[ci]
+                if len(rungs) < 2:
+                    continue
+                ys = sorted((affine(kaiCentAll[k])[1] for k in pool),
+                            reverse=True)
+                gaps = [ys[i] - ys[i + 1] for i in range(len(ys) - 1)]
+                gap = sum(gaps) / len(gaps) if gaps else 0.0
+                if gap < 30.0:
+                    continue
+                for r in rungs:
+                    if r == bar[1]:
+                        continue
+                    # r 失所 = 不独占任何与自己 x 相容的条
+                    if any(b[1] == r and _xOvOf(r, b) >= 0.25
+                           for b in allBars):
+                        continue
+                    rOv = _xOvOf(r, bar)
+                    dY = abs(affine(kaiCentAll[r])[1] - bar[2])
+                    if _dbgLP:
+                        cands.append([r, ci, round(rOv, 2), round(dY, 1),
+                                      round(gap, 1)])
+                    if rOv < 0.5 or dY > 1.2 * gap:
+                        continue
+                    if best is None or dY < best[0]:
+                        best = (dY, r, ci)
+            if best is not None or (_dbgLP and cands):
+                ladderProbe.append({
+                    "comp": best[2] if best else None, "sigC": True,
+                    "mode": "C",
+                    "bar": [bar[0], bar[1], round(bar[2], 1),
+                            round(bar[3]), round(bar[4]),
+                            kai["strokeTypes"][bar[1]], round(tOv, 2)],
+                    "cands": cands,
+                    "plan": ([[best[1], strokeGroup[best[1]], bar[0]]]
+                             if best else []),
+                    "fired": best is not None,
+                })
+
+    # ------------------------------------------------------------ G8.5 执行器
+    # 对 fired 部件按 plan 施行：组重排 + 中轴重置到目标条带 y。
+    # 评审红线落实：
+    #  · 采纳门不用名义 costRows（对本病失明——名义压错档时旧组代价
+    #    ≈0，Σ窗会否决旗舰修复、放行近距误伤），用**重置后**中轴调
+    #    strokeGroupCost 评新组贴合度（≤40）；
+    #  · all-or-nothing：任一步不达标整包回滚；
+    #  · 被顶出的原独占者（搏5横折垫底接盘/睥·目底横跨位窃占）名义
+    #    中轴重置后按重置代价 argmin 重指派，叠 penMatrix 杆⊥罚
+    #    （≥200 一票否决），禁投本轮已认领的条组；
+    #  · 空组断言：不得新增空组（休眠网既有空组豁免——组数>笔数时
+    #    S1b 语义认领的空组是常态）；
+    #  · ladderTouched 组在 G9 豁免——G9 是整组仿射复位，会把刚锚定
+    #    的带位搬走（对抗评审实锤）。
+    ladderRealign = []
+    ladderTouched = set()
+    if LADDER_ACT and seedMedians is None and ladderProbe:
+        _preEmpty = {g for g in range(nGroups) if not groupStrokes.get(g)}
+        _claimed = set()
+        for entry in ladderProbe:
+            if entry.get("fired") and entry.get("plan"):
+                for _, _, _gN in entry["plan"]:
+                    _claimed.add(_gN)
+        for entry in ladderProbe:
+            if not entry.get("fired") or not entry.get("plan"):
+                continue
+            plan = entry["plan"]
+            barY = {b[0]: b[2] for b in entry.get("bars", [])}
+            if entry.get("bar"):
+                barY[entry["bar"][0]] = entry["bar"][2]
+            movers = {k for k, _, _ in plan}
+            # 被顶出者：plan 目标条的现独占者且不在 movers 里
+            displaced = []
+            for _, _, gNew in plan:
+                ss = groupStrokes.get(gNew, [])
+                if len(ss) == 1 and ss[0] not in movers:
+                    displaced.append(ss[0])
+            touch = movers | set(displaced)
+            savG = {k: strokeGroup[k] for k in touch}
+            savM = {k: (medians[k], initMedians[k]) for k in touch}
+            savGS = {}
+
+            def _snapG(g):
+                if g not in savGS:
+                    savGS[g] = list(groupStrokes.get(g, []))
+
+            def _move(k, gTo):
+                gFrom = strokeGroup[k]
+                _snapG(gFrom)
+                _snapG(gTo)
+                if k in groupStrokes.get(gFrom, []):
+                    groupStrokes[gFrom].remove(k)
+                strokeGroup[k] = gTo
+                groupStrokes.setdefault(gTo, []).append(k)
+                groupStrokes[gTo].sort()
+
+            ok = True
+            rej = None
+            steps = []
+            for k, gOld, gNew in plan:
+                if strokeGroup[k] != gOld:
+                    ok = False
+                    rej = "drift:%d" % k
+                    break
+                km = [affine(tuple(p)) for p in kai["medians"][k]]
+                if gNew in barY:
+                    cy = sum(p[1] for p in km) / len(km)
+                    km = [(x, y + (barY[gNew] - cy)) for x, y in km]
+                medians[k] = km
+                initMedians[k] = [tuple(p) for p in km]
+                _move(k, gNew)
+                steps.append([k, gOld, gNew])
+            if ok:
+                _vacated = [gO for _, gO, _ in plan]
+                _swapMode = entry.get("mode") in ("D", "C")
+                for o in displaced:
+                    km = [affine(tuple(p)) for p in kai["medians"][o]]
+                    medians[o] = km
+                    initMedians[o] = [tuple(p) for p in km]
+                    # D/C 型是正主↔窃占者互换：被逐者(啤7/睥·目底横)
+                    # 的真档融在正主腾出的融合组里，全局 affine 重置
+                    # 代价对它必然虚高（部件内档位错位正是本病），
+                    # 直接对调、组内归属交给采样迭代分拣。penMatrix
+                    # 杆⊥罚不适用——那是给匈牙利锚定的"猜测"设的，
+                    # 互换目的地是正主刚腾出的组（它已实证住得下横；
+                    # sigD 的"含竖融合组"证据即结构担保），罚在卑族
+                    # 全族(啤碑稗萆蜱郫陴)一票否决过正当互换。
+                    if _swapMode and _vacated:
+                        dest = _vacated[0]
+                    else:
+                        row = strokeGroupCost(o)
+                        cand = sorted(_vacated, key=lambda g2: row[g2]) + \
+                            sorted(range(nGroups), key=lambda g2: row[g2])
+                        dest = None
+                        for g in cand:
+                            if g in _claimed or g == strokeGroup[o]:
+                                continue
+                            lim = 90.0 if g in _vacated else 60.0
+                            if row[g] > lim:
+                                continue
+                            if penMatrix.get(o, {}).get(g, 0) >= 200:
+                                continue
+                            dest = g
+                            break
+                        if dest is None:
+                            ok = False
+                            rej = "noDest:%d" % o
+                            break
+                    gO = strokeGroup[o]
+                    _move(o, dest)
+                    steps.append([o, gO, dest])
+            if ok:
+                for k, _, gNew in plan:
+                    _c = strokeGroupCost(k)[gNew]
+                    if _c > 40.0:
+                        ok = False
+                        rej = "cost:%d=%.0f" % (k, _c)
+                        break
+            if ok and any(not groupStrokes.get(g)
+                          for g in range(nGroups) if g not in _preEmpty):
+                ok = False
+                rej = "emptyGroup"
+            if not ok:
+                entry["actReject"] = rej
+                for k, g0 in savG.items():
+                    strokeGroup[k] = g0
+                for k, (m0, im0) in savM.items():
+                    medians[k] = m0
+                    initMedians[k] = im0
+                for g, ss in savGS.items():
+                    groupStrokes[g] = ss
+                continue
+            ladderRealign.extend(steps)
+            for k, gOld, gNew in steps:
+                ladderTouched.add(gOld)
+                ladderTouched.add(gNew)
+
     # 组局部重锚定（失配门控，用户设想：相对位置代替绝对位置）：全局
     # 仿射是绝对定位，部件比例悬殊时组内名义布局整体错位——磷·石口
     # 高瘦，楷体口的三笔名义全挤在组上半段，封底横悬在腔体中间，组下
@@ -1410,6 +1849,10 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     # ——放对的也被搬乱；门控确保只救真错位，正常字零扰动。
     groupRemapInfo = []
     for g in range(nGroups):
+        if g in ladderTouched:
+            # 梯队执行器刚按条带 y 锚定过的组：G9 的整组仿射复位会把
+            # 带位搬走（自己造成的联合框覆盖缺口自己豁免）
+            continue
         ss = groupStrokes.get(g, [])
         if len(ss) < 2:
             continue
@@ -2309,6 +2752,8 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         "groupRemap": groupRemapInfo,
         "semanticClaims": semanticClaims,
         "slotSwaps": slotSwaps,
+        "ladderProbe": ladderProbe if LADDER_PROBE else [],
+        "ladderRealign": ladderRealign,
         "slotOf": [(kaiMatches0[k][0] if k < len(kaiMatches0) and kaiMatches0[k]
                     else None) for k in range(nStrokes)],
         "unionCheck": unionCheck,
@@ -2339,6 +2784,10 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 r2["timings"] = r2.get("timings", []) + [
                     ["第一遍(被自洽二遍替换)",
                      sum(t[1] for t in _timings)]]
+                # 二遍走 seeds 路径不再触发执行器——诊断从一遍继承
+                # （照 timings 合并先例，验收翻转清单依赖）
+                if not r2.get("ladderRealign"):
+                    r2["ladderRealign"] = result.get("ladderRealign") or []
                 result = r2
             else:
                 result["timings"].append(
@@ -2355,8 +2804,12 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         if _f1:
             _bad = {k for k, _ in _f1}
             _seeds3 = []
+            _ladderK = {m[0] for m in (result.get("ladderRealign") or [])}
             for s in result["strokes"]:
-                if s["index"] in _bad or not s.get("median"):
+                # 梯队执行器纠正过的笔不回退楷体名义位——名义位正是
+                # 刚被纠正掉的错档位置（评审场景④）
+                if s["index"] in _bad and s["index"] not in _ladderK or \
+                        not s.get("median"):
                     _seeds3.append([affine(tuple(p))
                                     for p in kai["medians"][s["index"]]])
                 else:
@@ -2380,5 +2833,8 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                     r3["timings"] = (r3.get("timings") or []) + [
                         ["轴向守卫重试(已采纳)",
                          sum(t[1] for t in (result.get("timings") or []))]]
+                    if not r3.get("ladderRealign"):
+                        r3["ladderRealign"] = \
+                            result.get("ladderRealign") or []
                     result = r3
     return result

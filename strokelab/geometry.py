@@ -483,41 +483,15 @@ def _legacyStraighten(rs, secs):
     return out if len(out) >= 2 else rs
 
 
-def outlineCenterline(loops, step=8.0):
-    """从孤立笔画轮廓直接提取中线（Voronoi 中轴的图直径路径）。
-    纯矢量确定性：边界按 step 加密采样 → Voronoi 边 → 只留完全在
-    墨内的边建图 → 两次 Dijkstra 取最远叶对的路径 = 中线主干（分叉
-    自动剪除，钩在直径路径端部天然保留）。B 库骨架由此完全取决于
-    目标字体轮廓自身几何——臂长比例、弯直全是字体自己的，楷体中轴线
-    不再参与形状（bbox 映射楷体中线在臂比悬殊时会斜穿墨块，己的短竖
-    横折映到鸿蒙长竖 ㇕ 曾不可救药）。返回点列或 None（退化）。"""
-    import heapq
-    from shapely.geometry import MultiPoint, Polygon, Point
-    from shapely.ops import voronoi_diagram, unary_union
-
-    polys = []
-    for lp in loops:
-        if len(lp) >= 4:
-            try:
-                pg = Polygon(lp)
-                if not pg.is_valid:
-                    pg = pg.buffer(0)
-                if not pg.is_empty:
-                    polys.append(pg)
-            except Exception:
-                pass
-    if not polys:
-        return None
-    region = polys[0]
-    for pg in polys[1:]:
-        try:
-            region = region.symmetric_difference(pg)
-        except Exception:
-            region = region.buffer(0).symmetric_difference(pg.buffer(0))
-    if region.is_empty or region.area < 25:
-        return None
-    if hasattr(region, "geoms"):
-        region = max(region.geoms, key=lambda g: g.area)
+def _medialAdjacency(region, step=8.0):
+    """中轴图构建（outlineCenterline 的前半段抽取，行为不变）：region
+    边界按 step 加密采样 → Voronoi 边 → 只留完全在墨内的边 → 无向图。
+    返回 adj = {节点(坐标round0.1): {邻居: 边长}} 或 None（退化）。
+    入参直接收 shapely region——组区域必须由调用方按 boolean.glyphRegion
+    的 nonzero 语义构建（每外环先减自己的孔再组间并；"组并减组孔"会把
+    中竖在口内腔挖断）。"""
+    from shapely.geometry import MultiPoint, Point
+    from shapely.ops import voronoi_diagram
 
     bnd = []
     for ring in [region.exterior] + list(region.interiors):
@@ -563,6 +537,123 @@ def outlineCenterline(loops, step=8.0):
             adj.setdefault(ka, {})[kb] = min(adj.get(ka, {}).get(kb, 1e18), L)
             adj.setdefault(kb, {})[ka] = min(adj.get(kb, {}).get(ka, 1e18), L)
     if len(adj) < 2:
+        return None
+    return adj
+
+
+def medialJunctions(region, step=8.0):
+    """中轴图交叉点（度≥3）清单 → [(x, y, deg), ...]（拓扑度数证据层，
+    架构评审 #5 基础设施）。原始 Voronoi 图的度≥3 节点数是真值的 2-4 倍
+    （框角出头产生 58-111 单位短叶枝），须先做叶枝剪除——链长 <
+    max(2×挂点余隙+2, 120) 的叶链删除（合法最短分支实测 354，近 3×
+    余量），迭代至稳定；再按剩余图度数取交叉点。全字级不变量三字体
+    12/12 实测：日=2×deg3、口=0、田=4×deg3+1×deg4、中=2×deg4
+    （评审原论断"日=4三叉"不成立：框角是度2拐弯不是交叉点）。
+    注意：组级区域上纯环框（無档）交叉点=0，不产证据——组级仲裁接线
+    前必须重新标定（对抗评审实测结论）。"""
+    from shapely.geometry import Point
+
+    adj = _medialAdjacency(region, step)
+    if not adj:
+        return []
+    adj = {u: dict(vs) for u, vs in adj.items()}
+    rings = [region.exterior] + list(region.interiors)
+
+    def clearance(p):
+        pt = Point(p)
+        return min(r.distance(pt) for r in rings)
+
+    # 叶枝剪除：从每个度1叶沿度≤2链走到交叉点，链长不足阈值整链删除
+    def walkFromLeaf(leaf):
+        chain = [leaf]
+        chainLen = 0.0
+        cur = leaf
+        prev = None
+        while True:
+            nbrs = [(v, w) for v, w in adj[cur].items() if v != prev]
+            if not nbrs:
+                return chain, chainLen, None
+            v, w = nbrs[0]
+            chainLen += w
+            prev, cur = cur, v
+            if len(adj[cur]) != 2:
+                break
+            chain.append(cur)
+        return chain, chainLen, (cur if len(adj[cur]) >= 3 else None)
+
+    def dropChain(chain):
+        for n2 in chain:
+            for v in list(adj.get(n2, {})):
+                adj[v].pop(n2, None)
+            adj.pop(n2, None)
+
+    changed = True
+    while changed:
+        changed = False
+        for leaf in [u for u, vs in adj.items() if len(vs) == 1]:
+            if leaf not in adj or len(adj[leaf]) != 1:
+                continue
+            chain, chainLen, junc = walkFromLeaf(leaf)
+            if junc is None:
+                continue
+            if chainLen < max(2.0 * clearance(junc) + 2.0, 120.0):
+                dropChain(chain)
+                changed = True
+        if changed:
+            continue
+        # 角噪二段剪除：出头角常在角部产生两条斜枝、挂在相邻两个交叉
+        # 点上，第二条超长度阈（口实测 152-156）。该类交叉点实为 L 角
+        # 的 T 汇合（两主干 90° 相接）+角噪叶枝——度3 且第三臂是短叶链
+        # (<250) 即角噪；真 T 笔（土/王的竖端叶链）实测 354+ 不受影响。
+        # 真横档（日）两端接的是另一交叉点，无叶链，同样不受影响。
+        for leaf in [u for u, vs in adj.items() if len(vs) == 1]:
+            if leaf not in adj or len(adj[leaf]) != 1:
+                continue
+            chain, chainLen, junc = walkFromLeaf(leaf)
+            if junc is not None and len(adj[junc]) == 3 and chainLen < 250.0:
+                dropChain(chain)
+                changed = True
+    return [(u[0], u[1], len(vs)) for u, vs in adj.items() if len(vs) >= 3]
+
+
+def outlineCenterline(loops, step=8.0):
+    """从孤立笔画轮廓直接提取中线（Voronoi 中轴的图直径路径）。
+    纯矢量确定性：边界按 step 加密采样 → Voronoi 边 → 只留完全在
+    墨内的边建图 → 两次 Dijkstra 取最远叶对的路径 = 中线主干（分叉
+    自动剪除，钩在直径路径端部天然保留）。B 库骨架由此完全取决于
+    目标字体轮廓自身几何——臂长比例、弯直全是字体自己的，楷体中轴线
+    不再参与形状（bbox 映射楷体中线在臂比悬殊时会斜穿墨块，己的短竖
+    横折映到鸿蒙长竖 ㇕ 曾不可救药）。返回点列或 None（退化）。"""
+    import heapq
+    from shapely.geometry import MultiPoint, Polygon, Point
+    from shapely.ops import voronoi_diagram, unary_union
+
+    polys = []
+    for lp in loops:
+        if len(lp) >= 4:
+            try:
+                pg = Polygon(lp)
+                if not pg.is_valid:
+                    pg = pg.buffer(0)
+                if not pg.is_empty:
+                    polys.append(pg)
+            except Exception:
+                pass
+    if not polys:
+        return None
+    region = polys[0]
+    for pg in polys[1:]:
+        try:
+            region = region.symmetric_difference(pg)
+        except Exception:
+            region = region.buffer(0).symmetric_difference(pg.buffer(0))
+    if region.is_empty or region.area < 25:
+        return None
+    if hasattr(region, "geoms"):
+        region = max(region.geoms, key=lambda g: g.area)
+
+    adj = _medialAdjacency(region, step)
+    if not adj:
         return None
 
     def farthest(src):

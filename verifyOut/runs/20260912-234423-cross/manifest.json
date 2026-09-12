@@ -1,0 +1,486 @@
+{
+  "createdAt": "2026-09-13T00:10:45.987231+08:00",
+  "preset": "cross",
+  "root": "D:\\Personal_Work\\TearHanZiApart",
+  "fonts": [
+    {
+      "path": "D:\\Personal_Work\\TearHanZiApart\\Fonts\\simhei.ttf",
+      "size": 9753388,
+      "mtimeNs": 1571147160000000000
+    },
+    {
+      "path": "D:\\Personal_Work\\TearHanZiApart\\Fonts\\NotoSansSC-VariableFont_wght.ttf",
+      "size": 17773248,
+      "mtimeNs": 1767750530000000000
+    }
+  ],
+  "charCount": 320,
+  "charSha256": "b5c1575a235ec4bd8c9d0d8857e57fc6d6e183a59f38f8027d918825bc2a0852",
+  "stride": 30,
+  "jobs": 7,
+  "source": {
+    "algorithmSha256": "3f78d285439cdc7f3b6001f212a3b0ca91cd7c7ad2d42aaf360915e6026f36d8",
+    "python": "3.9.1",
+    "platform": "Windows-10-10.0.19041-SP0",
+    "machine": "AMD64"
+  },
+  "elapsedSeconds": 1582.934,
+  "summary": {
+    "NotoSansSC-VariableFont_wght": {
+      "total": 320,
+      "skipped": 0,
+      "tested": 320,
+      "passed": 239,
+      "passRate": 74.69,
+      "byCode": {
+        "SPLIT": {
+          "count": 2,
+          "chars": "艷醺"
+        },
+        "UNION": {
+          "count": 5,
+          "chars": "触谰醺馋骋"
+        },
+        "TYPE": {
+          "count": 37,
+          "chars": "向唷婕嫌嬸室尿崆希廄徜捫最橥焢璃綿绵腐膃苕蔺虺蜷蟏蠟贪蹀輸鑒锶頷駢鬍鯨鲞齪"
+        },
+        "ORDER": {
+          "count": 8,
+          "chars": "唷強最登膃褶鯨鱠"
+        },
+        "OVERLAP": {
+          "count": 3,
+          "chars": "㼌攮饨"
+        },
+        "AREA": {
+          "count": 50,
+          "chars": "减嗖圍威強捫揠攮敫斬最架榿櫛漱猲登眸磯禧竄級綿縮纂绵缴膃艷蠟裨諄谰軌輸還醺鎊锔镗霧頷餘鬍鯨鱠鲞鳃鷯齪"
+        }
+      },
+      "failChars": {
+        "㼌": [
+          "OVERLAP"
+        ],
+        "崆": [
+          "TYPE"
+        ],
+        "希": [
+          "TYPE"
+        ],
+        "廄": [
+          "TYPE"
+        ],
+        "強": [
+          "AREA",
+          "ORDER"
+        ],
+        "徜": [
+          "TYPE"
+        ],
+        "减": [
+          "AREA"
+        ],
+        "向": [
+          "TYPE"
+        ],
+        "捫": [
+          "AREA",
+          "TYPE"
+        ],
+        "揠": [
+          "AREA"
+        ],
+        "唷": [
+          "ORDER",
+          "TYPE"
+        ],
+        "嗖": [
+          "AREA"
+        ],
+        "圍": [
+          "AREA"
+        ],
+        "攮": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "敫": [
+          "AREA"
+        ],
+        "斬": [
+          "AREA"
+        ],
+        "最": [
+          "AREA",
+          "ORDER",
+          "TYPE"
+        ],
+        "架": [
+          "AREA"
+        ],
+        "威": [
+          "AREA"
+        ],
+        "婕": [
+          "TYPE"
+        ],
+        "嫌": [
+          "TYPE"
+        ],
+        "嬸": [
+          "TYPE"
+        ],
+        "室": [
+          "TYPE"
+        ],
+        "尿": [
+          "TYPE"
+        ],
+        "漱": [
+          "AREA"
+        ],
+        "焢": [
+          "TYPE"
+        ],
+        "榿": [
+          "AREA"
+        ],
+        "橥": [
+          "TYPE"
+        ],
+        "櫛": [
+          "AREA"
+        ],
+        "猲": [
+          "AREA"
+        ],
+        "璃": [
+          "TYPE"
+        ],
+        "登": [
+          "AREA",
+          "ORDER"
+        ],
+        "眸": [
+          "AREA"
+        ],
+        "磯": [
+          "AREA"
+        ],
+        "禧": [
+          "AREA"
+        ],
+        "绵": [
+          "AREA",
+          "TYPE"
+        ],
+        "缴": [
+          "AREA"
+        ],
+        "腐": [
+          "TYPE"
+        ],
+        "膃": [
+          "AREA",
+          "ORDER",
+          "TYPE"
+        ],
+        "竄": [
+          "AREA"
+        ],
+        "級": [
+          "AREA"
+        ],
+        "綿": [
+          "AREA",
+          "TYPE"
+        ],
+        "縮": [
+          "AREA"
+        ],
+        "纂": [
+          "AREA"
+        ],
+        "艷": [
+          "AREA",
+          "SPLIT"
+        ],
+        "苕": [
+          "TYPE"
+        ],
+        "蔺": [
+          "TYPE"
+        ],
+        "虺": [
+          "TYPE"
+        ],
+        "蜷": [
+          "TYPE"
+        ],
+        "蟏": [
+          "TYPE"
+        ],
+        "蠟": [
+          "AREA",
+          "TYPE"
+        ],
+        "裨": [
+          "AREA"
+        ],
+        "褶": [
+          "ORDER"
+        ],
+        "触": [
+          "UNION"
+        ],
+        "諄": [
+          "AREA"
+        ],
+        "谰": [
+          "AREA",
+          "UNION"
+        ],
+        "贪": [
+          "TYPE"
+        ],
+        "蹀": [
+          "TYPE"
+        ],
+        "鎊": [
+          "AREA"
+        ],
+        "鑒": [
+          "TYPE"
+        ],
+        "锔": [
+          "AREA"
+        ],
+        "锶": [
+          "TYPE"
+        ],
+        "镗": [
+          "AREA"
+        ],
+        "軌": [
+          "AREA"
+        ],
+        "輸": [
+          "AREA",
+          "TYPE"
+        ],
+        "還": [
+          "AREA"
+        ],
+        "醺": [
+          "AREA",
+          "SPLIT",
+          "UNION"
+        ],
+        "霧": [
+          "AREA"
+        ],
+        "頷": [
+          "AREA",
+          "TYPE"
+        ],
+        "餘": [
+          "AREA"
+        ],
+        "饨": [
+          "OVERLAP"
+        ],
+        "馋": [
+          "UNION"
+        ],
+        "駢": [
+          "TYPE"
+        ],
+        "骋": [
+          "UNION"
+        ],
+        "鬍": [
+          "AREA",
+          "TYPE"
+        ],
+        "鯨": [
+          "AREA",
+          "ORDER",
+          "TYPE"
+        ],
+        "鱠": [
+          "AREA",
+          "ORDER"
+        ],
+        "鲞": [
+          "AREA",
+          "TYPE"
+        ],
+        "鳃": [
+          "AREA"
+        ],
+        "鷯": [
+          "AREA"
+        ],
+        "齪": [
+          "AREA",
+          "TYPE"
+        ]
+      },
+      "avgRetain": 0.978,
+      "clampedStrokes": 920,
+      "kaiTplStrokes": 100
+    },
+    "simhei": {
+      "total": 320,
+      "skipped": 1,
+      "tested": 319,
+      "passed": 283,
+      "passRate": 88.71,
+      "byCode": {
+        "COUNT": {
+          "count": 1,
+          "chars": "跹"
+        },
+        "UNION": {
+          "count": 2,
+          "chars": "番跹"
+        },
+        "TYPE": {
+          "count": 10,
+          "chars": "呲嘽噼惶搠番艷蓖醺頷"
+        },
+        "OVERLAP": {
+          "count": 14,
+          "chars": "嬸孵屨擬猲番綿羴蔺诲醺鑒骷齪"
+        },
+        "AREA": {
+          "count": 18,
+          "chars": "㼌們屨岫憑摶氮滩纂謊谰跹迴醺鑒頷鱠鳴"
+        }
+      },
+      "failChars": {
+        "㼌": [
+          "AREA"
+        ],
+        "們": [
+          "AREA"
+        ],
+        "屨": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "岫": [
+          "AREA"
+        ],
+        "惶": [
+          "TYPE"
+        ],
+        "憑": [
+          "AREA"
+        ],
+        "搠": [
+          "TYPE"
+        ],
+        "摶": [
+          "AREA"
+        ],
+        "擬": [
+          "OVERLAP"
+        ],
+        "嬸": [
+          "OVERLAP"
+        ],
+        "孵": [
+          "OVERLAP"
+        ],
+        "呲": [
+          "TYPE"
+        ],
+        "嘽": [
+          "TYPE"
+        ],
+        "噼": [
+          "TYPE"
+        ],
+        "滩": [
+          "AREA"
+        ],
+        "氮": [
+          "AREA"
+        ],
+        "猲": [
+          "OVERLAP"
+        ],
+        "番": [
+          "OVERLAP",
+          "TYPE",
+          "UNION"
+        ],
+        "羴": [
+          "OVERLAP"
+        ],
+        "綿": [
+          "OVERLAP"
+        ],
+        "纂": [
+          "AREA"
+        ],
+        "艷": [
+          "TYPE"
+        ],
+        "蓖": [
+          "TYPE"
+        ],
+        "蔺": [
+          "OVERLAP"
+        ],
+        "诲": [
+          "OVERLAP"
+        ],
+        "谰": [
+          "AREA"
+        ],
+        "跹": [
+          "AREA",
+          "COUNT",
+          "UNION"
+        ],
+        "謊": [
+          "AREA"
+        ],
+        "鑒": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "迴": [
+          "AREA"
+        ],
+        "醺": [
+          "AREA",
+          "OVERLAP",
+          "TYPE"
+        ],
+        "頷": [
+          "AREA",
+          "TYPE"
+        ],
+        "骷": [
+          "OVERLAP"
+        ],
+        "鱠": [
+          "AREA"
+        ],
+        "鳴": [
+          "AREA"
+        ],
+        "齪": [
+          "OVERLAP"
+        ]
+      },
+      "avgRetain": 0.807,
+      "clampedStrokes": 1048,
+      "kaiTplStrokes": 119
+    }
+  }
+}
