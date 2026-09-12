@@ -23,17 +23,23 @@ try:
         _raw = json.load(_f)
     _SINGLE = set("横竖撇捺点提")
     KAI_TYPE_FIXES = {}
+    KAI_VERIFY_FIXES = {}
     for _ch, _m in _raw.items():
-        # 单元素互换整体不套用（几何共识标签在轴向校验里制造争议），
-        # 但**降级为点**放行：点不参与 TYPE 轴向校验，只减误报不增
-        # （糹3 竖→点：弦长163-176 被 classifyMedian 按长度判竖，
-        # 审计 12/17 票裁定真身是点）
+        # 双类型语义：楷体笔型在系统里承担双重角色——管线结构先验
+        # （模板选择/罚项判据/蹲杆排除）与校验参照。复合笔形修正
+        # （骨架结构性误判）两侧都用；**点降级只进校验侧**——爱5的
+        # 冖左垂恰靠"竖"的长模板才能正确归组（竖→点曾令其错入友横组
+        # 且被点锚大墨罚二次推离），而糹3按点豁免 TYPE 轴向是对的
         _keep = {_i: _t for _i, _t in _m.items()
-                 if (_t not in _SINGLE) or _t == "点"}
+                 if _t not in _SINGLE}
+        _vfy = {_i: _t for _i, _t in _m.items() if _t == "点"}
         if _keep:
             KAI_TYPE_FIXES[_ch] = _keep
+        if _vfy:
+            KAI_VERIFY_FIXES[_ch] = _vfy
 except Exception:
     KAI_TYPE_FIXES = {}
+    KAI_VERIFY_FIXES = {}
 
 # 省形/异体别名表（种子字统计 seedStats 聚合）：部件在字内的实际笔数
 # 与其种子字条目稳定不一致的规则（艹4/3、尚→⺌、攸省笔…）。COMP 配额
@@ -218,10 +224,19 @@ class DataHub:
                 i = int(idx)
                 if 0 <= i < len(strokeTypes):
                     strokeTypes[i] = t
+        # 校验参照类型 = 管线类型 + 点降级（双类型语义，见表加载处注释）
+        verifyTypes = list(strokeTypes)
+        vfixes = KAI_VERIFY_FIXES.get(ch)
+        if vfixes:
+            for idx, t in vfixes.items():
+                i = int(idx)
+                if 0 <= i < len(verifyTypes):
+                    verifyTypes[i] = t
         data = {
             "strokes": g["strokes"],
             "medians": medians,
             "strokeTypes": strokeTypes,
+            "verifyTypes": verifyTypes,
             "radical": entry.get("radical", ""),
             "decomposition": entry.get("decomposition", ""),
             "matches": self.deepenMatches(ch) or entry.get("matches", []),

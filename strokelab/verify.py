@@ -261,7 +261,9 @@ def verifyChar(hub, font, ch):
             cls = classifyMedian(s["median"])
             if matchTier(cls, s["type"]) == 0:
                 reclassBad += 1
-        if s["type"] in ("横", "竖"):
+        vTypes = kai.get("verifyTypes") or kai["strokeTypes"]
+        vType = vTypes[s["index"]] if s["index"] < len(vTypes) else s["type"]
+        if vType in ("横", "竖"):
             d = shapeDescriptor([s["path"]])
             if d and d["elong"] >= 1.8:
                 ang = math.degrees(d["mainAngle"]) % 180.0
@@ -272,18 +274,18 @@ def verifyChar(hub, font, ch):
                     kAng = math.degrees(math.atan2(
                         km[-1][1] - km[0][1], km[-1][0] - km[0][0])) % 180.0
                 else:
-                    kAng = 0.0 if s["type"] == "横" else 90.0
+                    kAng = 0.0 if vType == "横" else 90.0
                 devK = abs(ang - kAng)
                 devK = min(devK, 180.0 - devK)
                 # 双参照取小：楷体弦向治丬族方言（楷体自画35°陡提），
                 # 教条轴治镜像斜向（糹底左点楷体右下斜/鸿蒙左下斜为合法
                 # 镜像，对弦向偏43°对教条轴仅18°）。真错家双参照皆超仍抓
-                canon = 0.0 if s["type"] == "横" else 90.0
+                canon = 0.0 if vType == "横" else 90.0
                 devC = abs(ang - canon)
                 devC = min(devC, 180.0 - devC)
                 dev = min(devK, devC)
                 if dev > 32.0:
-                    typeBad.append("%d:%s轴偏%.0f°" % (s["index"], s["type"], dev))
+                    typeBad.append("%d:%s轴偏%.0f°" % (s["index"], vType, dev))
     rec["m"]["reclass"] = reclassBad
     if typeBad:
         fail("TYPE", " ".join(typeBad))
