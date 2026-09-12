@@ -367,8 +367,6 @@ def resolveKaiDisjointOverlaps(strokes, kaiMedians, ratio=0.6, kaiDist=40.0):
                 continue
             pieces = [g for g in _piecesOf(cand)
                       if g.area >= max(25.0, cand.area * 0.02)]
-            # 允许减除后碎成两片（外框被内横拦腰截断的正常形态），
-            # 孤儿片随后由 enforceConnectivity 按共享边界归还邻笔
             if len(pieces) > 2 or cand.area < 25:
                 continue
             p = _regionToPath(cand)
@@ -440,6 +438,26 @@ def enforceConnectivity(contours, strokes, maxRounds=3, glyph=None):
                             continue
                         if d < bestD:
                             bestD, bestJ = d, j
+                    if bestJ >= 0 and bestD > 15.0:
+                        bestJ = -1
+                    # 同组全空/全远时的接壤跨组捐赠（勤：竖2残留1936孤儿
+                    # 片距同组邻笔178，而他组笔与其 buffer(4) 交286/311——
+                    # 融合条带的墨本就属于邻部件）。门控：仅当同组无人
+                    # 接壤且他组确有实接壤者；防跨组污染的原禁令针对的
+                    # "悬浮部件与外组孔洞共享边界"场景同组也接壤，不入此支
+                    if bestJ < 0:
+                        bestX, bestXs = -1, 25.0
+                        for j, r2 in enumerate(regions):
+                            if j == i or r2 is None or r2.is_empty or \
+                                    strokes[j].get("group") == gi:
+                                continue
+                            try:
+                                share = pb.intersection(r2).area
+                            except Exception:
+                                continue
+                            if share > bestXs:
+                                bestXs, bestX = share, j
+                        bestJ = bestX
                 if bestJ < 0:
                     continue
                 keep = keep.difference(piece)

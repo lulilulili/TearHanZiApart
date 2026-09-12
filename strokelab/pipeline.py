@@ -884,6 +884,54 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 continue
             ss = list(groupStrokes.get(g, []))
             par = [k for k in ss if _parallel(_medianAngle(k), barAng)]
+            # 垂直蹲杆放逐（钾：杆内1平行主+1⊥竖，落在"超载需≥2平行"
+            # 与"轴向错家需单笔组"的夹缝）：杆里有平行主时，⊥向的
+            # 横/竖直笔且名义长>2×杆厚=墨装不下，放逐到孔腔包含本杆
+            # 质心的环组（结构铁证同包含性豁免）
+            perp = []
+            bbG = groupBBoxes.get(g)
+            if bbG is not None and len(par) >= 1:
+                thickG = min(bbG.w, bbG.h)
+                for k in ss:
+                    if k in par:
+                        continue
+                    tK = kai["strokeTypes"][k]
+                    if tK not in ("横", "竖"):
+                        continue
+                    mk = initMedians[k]
+                    chordK = dist(mk[0], mk[-1])
+                    aK = _medianAngle(k)
+                    dv = abs(aK - barAng) % 180.0
+                    if min(dv, 180.0 - dv) > 50.0 and chordK > 2.0 * thickG:
+                        perp.append(k)
+            if perp:
+                gcS = groupCentroids.get(g)
+                for kP in perp:
+                    bestH2, bestS2 = -1, 400.0
+                    for h in range(nGroups):
+                        if h == g:
+                            continue
+                        contained2 = False
+                        if gcS is not None:
+                            for c0 in contours:
+                                if c0["group"] == h and c0["isHole"] and                                         pointInPolygon(gcS, c0["poly"]):
+                                    contained2 = True
+                                    break
+                        if not contained2 and costRows[kP][h] > max(
+                                120.0, costRows[kP][g] + 100.0):
+                            continue
+                        sup2 = _support(kP, h)
+                        if contained2:
+                            sup2 *= 1.5
+                        if sup2 > bestS2:
+                            bestS2, bestH2 = sup2, h
+                    if bestH2 >= 0:
+                        groupStrokes[g].remove(kP)
+                        strokeGroup[kP] = bestH2
+                        if kP not in groupStrokes[bestH2]:
+                            groupStrokes[bestH2].append(kP)
+                            groupStrokes[bestH2].sort()
+                        ss = groupStrokes.get(g, [])
             if len(par) < 2:
                 continue
             gc = groupCentroids.get(g)
@@ -903,6 +951,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
 
             # 放逐目标：全体笔的候选里支撑最强的组
             bestH, bestS = -1, 400.0
+            gcSelf = groupCentroids.get(g)
             for h in range(nGroups):
                 if h == g:
                     continue
@@ -910,10 +959,23 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 if hOk and any(_parallel(_medianAngle(k2), hAng)
                                for k2 in groupStrokes.get(h, [])):
                     continue
-                rows = [costRows[k][h] for k in par]
-                if min(rows) > max(60.0, min(costRows[k][g] for k in par) + 60.0):
-                    continue
+                # 包含性豁免：候选组带孔且超载杆质心落在其孔腔内——
+                # "框包着悬浮杆"是结构铁证（甲早曱野的环底边名义代价
+                # 90-150 远超代价窗被拒，恰是真家）
+                contained = False
+                if gcSelf is not None:
+                    for c0 in contours:
+                        if c0["group"] == h and c0["isHole"] and                                 pointInPolygon(gcSelf, c0["poly"]):
+                            contained = True
+                            break
+                if not contained:
+                    rows = [costRows[k][h] for k in par]
+                    if min(rows) > max(60.0,
+                                       min(costRows[k][g] for k in par) + 60.0):
+                        continue
                 sup = max(_support(k, h) for k in par)
+                if contained:
+                    sup *= 1.5  # 结构证据加权，优先环组
                 if sup > bestS:
                     bestS, bestH = sup, h
             if bestH < 0:
@@ -954,8 +1016,17 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
             # 落点（走廊最优滑动位置）必须保持楷体给定的上下次序（酉框
             # 质心在杆上方、可容墨的框底在杆下方，按质心猜方向曾放错笔）
             ordered = sorted(par, key=lambda k: _perp(_cen(k)))
+            # tie-break：两极端候选对杆的墨距离代价差>25 时直接放逐
+            # 代价高者（甲：笔3代价63 vs 笔2代价28→放逐笔3；質/醌类
+            # gap≈0 时回退落点序判定）
+            cLo = costRows[ordered[0]][g]
+            cHi = costRows[ordered[-1]][g]
+            forced = None
+            if abs(cHi - cLo) > 25.0:
+                forced = ordered[-1] if cHi > cLo else ordered[0]
             chosen = None
-            for exile in {ordered[0], ordered[-1]}:
+            for exile in ({forced} if forced is not None
+                          else {ordered[0], ordered[-1]}):
                 sup, dPerp = _supportOff(exile, bestH)
                 if sup <= 400.0:
                     continue
@@ -1345,6 +1416,25 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         bb = groupBBoxes.get(g)
         if bb is None or bb.w < 8 or bb.h < 8:
             continue
+        # 守卫：无孔单杆组内仍有≥2条与杆平行的笔=未解决的超载状态，
+        # 重锚定把双横一起压进单横带只会钉死错误（甲曾 cov[1.0,0.5]
+        # 触发把笔2压成高2的切片），交给 G4 超载重指派处理
+        outersG = [c for c in contours if c["group"] == g and not c["isHole"]]
+        if len(outersG) == 1 and not any(
+                c["group"] == g and c["isHole"] for c in contours):
+            aspectG = max(bb.w, bb.h) / max(1.0, min(bb.w, bb.h))
+            if aspectG >= 3.0:
+                barAngG = 0.0 if bb.w >= bb.h else 90.0
+                nPar = 0
+                for k in ss:
+                    mk = initMedians[k]
+                    aK = math.degrees(math.atan2(
+                        mk[-1][1] - mk[0][1], mk[-1][0] - mk[0][0])) % 180.0
+                    d0 = abs(aK - barAngG) % 180.0
+                    if min(d0, 180.0 - d0) <= 30.0:
+                        nPar += 1
+                if nPar >= 2:
+                    continue
         pts = [p for k in ss for p in initMedians[k]]
         nb = bboxOfPoints(pts)
         if nb.w < 4 or nb.h < 4:
