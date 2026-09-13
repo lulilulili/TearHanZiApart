@@ -8,12 +8,19 @@ D 构建：每笔初始模板中轴线 = B 库同类型骨架按楷体该笔包�
 原有算法注释（含阈值来历与事故字例）逐条随代码保留。
 """
 
+import functools
 import math
 
 from ..classify import PROBE_TABLE, similarTypes
 from ..geometry import (bboxOfPoints, flattenSegs, parseContours,
                         polylineLength, straightenSections)
 from .helpers import _medianDeviation
+
+
+def _affinePoint(kb, tb, sx, sy, p):
+    """楷体坐标→目标坐标的轴对齐仿射（运行期桥本体；ctx 上以
+    functools.partial 绑定 kb/tb/sx/sy 后即原 affine(p) 闭包）。"""
+    return (tb.x0 + (p[0] - kb.x0) * sx, tb.y0 + (p[1] - kb.y0) * sy)
 
 
 def run(ctx):
@@ -44,9 +51,7 @@ def run(ctx):
         allPts.extend(c["poly"])
     tb = bboxOfPoints(allPts)
     sx, sy = tb.w / kb.w, tb.h / kb.h
-
-    def affine(p):
-        return (tb.x0 + (p[0] - kb.x0) * sx, tb.y0 + (p[1] - kb.y0) * sy)
+    affine = functools.partial(_affinePoint, kb, tb, sx, sy)
 
     # ------------------------------------------------------------ D 构建
     # 每笔初始模板中轴线 = B库同类型骨架按楷体该笔包围盒定位；缺类型退回楷体中轴线
