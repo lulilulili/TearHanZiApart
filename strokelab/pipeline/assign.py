@@ -155,6 +155,40 @@ def _semanticClaim(kai, groups, pose, costRows, g):
         return None
 
 
+def _penShiftTrace(costRows, penTags, match, nGroups):
+    """罚作用面审计仪（矩阵归并·对抗评审裁定#1，仅 TRACE_ON 跑）：
+    用**无罚**代价矩阵再解一次匈牙利，与带罚解锚定不同的笔各记一条
+    penShift 迹。背景：罚的作用形态是"把笔推离被罚组"，成功时目的组
+    必然无罚，只看采纳条目的罚字段永远 0 命中（评审实证 1207 条）——
+    带罚/无罚双解的差集才是罚作用面的真实清单。只读不改判（零行为，
+    penShift 条目不参与任何判定）；匈牙利 O(n³) 但 n=笔数，实测双解
+    增量成本可忽略。列语义与带罚矩阵同构：前 nGroups 列=真实组，
+    其余自由列（代价=argmin，锚定→None）。"""
+    nStrokes = len(costRows)
+    noPenCost = []
+    for k in range(nStrokes):
+        free = min(costRows[k]) if nGroups else 0.0
+        noPenCost.append([costRows[k][g] for g in range(nGroups)] +
+                         [free] * (nStrokes - nGroups))
+    matchNoPen = _hungarian(noPenCost)
+    entries = []
+    for k in range(nStrokes):
+        withPen = match[k] if match[k] < nGroups else None
+        noPen = matchNoPen[k] if matchNoPen[k] < nGroups else None
+        if withPen == noPen:
+            continue
+        # penFrom=无罚解归宿组上的罚（把笔推走的那笔账；空 dict=本笔
+        # 无罚、被他笔的罚连锁挤位）,penTo=带罚解归宿组上的残余罚
+        tags = penTags.get(k, {})
+        entries.append({
+            "level": "G1", "action": "penShift", "stroke": k,
+            "withPen": withPen, "noPen": noPen, "adopted": True,
+            "evidence": {
+                "penFrom": {} if noPen is None else tags.get(noPen, {}),
+                "penTo": {} if withPen is None else tags.get(withPen, {})}})
+    return entries
+
+
 def run(geom, kaiRef, groups, pose, cost):
     """产出 cost.strokeGroupCost/costRows/penMatrix/penTags +
     groups.strokeGroup/groupStrokes；返回 (semanticClaims, trace)
@@ -259,6 +293,8 @@ def run(geom, kaiRef, groups, pose, cost):
                           for g in range(nGroups)] +
                          [free] * (size - nGroups))
         match = _hungarian(cost2)
+        if tOn and penTags:
+            trace.extend(_penShiftTrace(costRows, penTags, match, nGroups))
         for k in range(nStrokes):
             if match[k] < nGroups:
                 # 决策迹：匈牙利锚定与逐笔 argmin 不同 = G1 强制改判
