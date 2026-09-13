@@ -11,6 +11,8 @@ clampStrokes：
 
 import math
 
+from functools import lru_cache
+
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import unary_union
 
@@ -51,6 +53,17 @@ def _evenOddRegion(polys):
     if not region.is_valid:
         region = region.buffer(0)
     return region
+
+
+@lru_cache(maxsize=2048)
+def _pathRegion(pathStr):
+    """路径串 → 奇偶合成区域，模块级 LRU 只读共享。同一笔的区域在
+    rescueStarved/clampStrokes/enforceConnectivity/reUnionCheck 之间
+    曾重建 4-5 次。键=路径串，笔画路径被收口改写即换新串、自然失效。
+    Shapely 2.x 几何不可变，所有调用点只做 intersection/difference/
+    union（均产新对象）后重绑定，无就地改写（已逐点审计）。容量
+    2048：单次收口触达路径至多数百，批量按 LRU 淘汰。"""
+    return _evenOddRegion(_loopPolys(pathStr))
 
 
 def glyphRegion(contours):
@@ -167,7 +180,7 @@ def rescueStarved(contours, strokes, kaiStrokePaths, kaiMedians=None, glyph=None
         return []
     kaiAreas = []
     for p in kaiStrokePaths:
-        r = _evenOddRegion(_loopPolys(p))
+        r = _pathRegion(p)
         kaiAreas.append(r.area if r is not None else 0.0)
     kaiTotal = sum(kaiAreas) or 1.0
 
@@ -208,7 +221,7 @@ def rescueStarved(contours, strokes, kaiStrokePaths, kaiMedians=None, glyph=None
                 for p in kaiMedians[i]]
 
     for i, s in enumerate(strokes):
-        cur = None if s["failed"] else _evenOddRegion(_loopPolys(s["path"]))
+        cur = None if s["failed"] else _pathRegion(s["path"])
         curArea = cur.area if cur is not None else 0.0
         expect = glyph.area * (kaiAreas[i] / kaiTotal if i < len(kaiAreas) else 0.0)
         starved = curArea < max(100.0, expect * 0.35)
@@ -301,7 +314,7 @@ def rescueStarved(contours, strokes, kaiStrokePaths, kaiMedians=None, glyph=None
         for j, s2 in enumerate(strokes):
             if j == i or s2["failed"] or s2.get("group") != s.get("group"):
                 continue
-            r2 = _evenOddRegion(_loopPolys(s2["path"]))
+            r2 = _pathRegion(s2["path"])
             if r2 is None or r2.is_empty:
                 continue
             inter = r2.intersection(body)
@@ -337,7 +350,7 @@ def resolveKaiDisjointOverlaps(strokes, kaiMedians, ratio=0.6, kaiDist=40.0):
         return min(math.hypot(p[0] - q[0], p[1] - q[1])
                    for p in rs[i] for q in rs[j])
 
-    regions = [None if s["failed"] else _evenOddRegion(_loopPolys(s["path"]))
+    regions = [None if s["failed"] else _pathRegion(s["path"])
                for s in strokes]
     fixed = []
     for i in range(len(strokes)):
@@ -391,7 +404,7 @@ def fillResidualGaps(contours, strokes, glyph=None, minPiece=25.0):
         return False
     regions = []
     for s in strokes:
-        r = None if s["failed"] else _evenOddRegion(_loopPolys(s["path"]))
+        r = None if s["failed"] else _pathRegion(s["path"])
         regions.append(r)
     valid = [r for r in regions if r is not None and not r.is_empty]
     if not valid:
@@ -462,7 +475,7 @@ def enforceConnectivity(contours, strokes, maxRounds=3, glyph=None):
     无人接壤的片留回原主（宁可 SPLIT 不丢墨——并集恒等优先）。
     残差回填/邻笔减除等上游环节偶发的断笔在此统一修复。
     返回是否有改动。"""
-    regions = [None if s["failed"] else _evenOddRegion(_loopPolys(s["path"]))
+    regions = [None if s["failed"] else _pathRegion(s["path"])
                for s in strokes]
     dirty = set()
     for _ in range(maxRounds):
@@ -571,7 +584,7 @@ def reUnionCheck(contours, strokes, glyph=None):
     for s in strokes:
         if s["failed"]:
             continue
-        r = _evenOddRegion(_loopPolys(s["path"]))
+        r = _pathRegion(s["path"])
         if r is not None and not r.is_empty:
             regions.append(r)
     if not regions:
@@ -595,7 +608,7 @@ def clampStrokes(contours, strokes, excessTol=0.5, coverTol=99.5, glyph=None):
     for s in strokes:
         r = None
         if not s["failed"]:
-            r = _evenOddRegion(_loopPolys(s["path"]))
+            r = _pathRegion(s["path"])
         regions.append(r)
 
     # 1) 裁剪：越界删除；与字形交集为空（整笔落在墨外——退化重构环的
@@ -691,7 +704,7 @@ def clampStrokes(contours, strokes, excessTol=0.5, coverTol=99.5, glyph=None):
                 # 小数舍入可能把刚好贴着边界的薄片压成往返线。判定
                 # 必须针对写出的路径，否则 failed=False 会阻止后续
                 # 饿死救济，造成整字并集正常但某一笔为空。
-                written = _evenOddRegion(_loopPolys(p))
+                written = _pathRegion(p)
                 if written is None or written.is_empty or written.area < 4.0:
                     s["path"] = ""
                     s["failed"] = True
