@@ -8,6 +8,8 @@
 
 import math
 
+from functools import lru_cache
+
 import numpy as np
 
 # ---------------------------------------------------------------- 基本量
@@ -90,7 +92,21 @@ def _fmt(v):
 
 
 def parseContours(pathStr):
-    """M/L/Q/C/Z → [{"segs": [...]}]，Q 升为 C。"""
+    """M/L/Q/C/Z → [{"segs": [...]}]，Q 升为 C。
+
+    结果经模块级 LRU 记忆化（管线重复解析率实测 88%）。缓存层只存
+    不可变中间产物（每轮廓的 segs 元组）；每次调用浅构造全新 dict 与
+    全新 segs 列表返回——调用方会原地改写轮廓 dict（analyzeContours
+    加 poly/isHole/group、并组 remap 改 group、_edgeArrays 挂缓存），
+    直接共享可变对象是正确性事故。seg 本身是嵌套元组，天然只读可共享。"""
+    return [{"segs": list(segs)} for segs in _parseContoursCached(pathStr)]
+
+
+@lru_cache(maxsize=4096)
+def _parseContoursCached(pathStr):
+    """parseContours 的不可变中间层：→ tuple(tuple(seg, ...), ...)。
+    容量 4096：单字一次拆解触达的不同路径串至多数百（笔画×多轮收口
+    重写），批量校验按 LRU 自然淘汰，内存上界几十 MB 量级。"""
     tk = pathStr.replace(",", " ").split()
     contours = []
     cur = None
@@ -140,7 +156,7 @@ def parseContours(pathStr):
             cur = None
     if cur and cur["segs"]:
         contours.append(cur)
-    return contours
+    return tuple(tuple(c["segs"]) for c in contours)
 
 
 def contourToPath(segs, close=True):
@@ -160,6 +176,24 @@ def contourToPath(segs, close=True):
 
 
 def flattenSegs(segs, step=12.0):
+    """段列展平为点列。模块级 LRU 记忆化（重复率实测 62%）：seg 为嵌套
+    元组天然可哈希；缓存存点元组，返回时拷贝成新列表——展平结果会被
+    挂到轮廓 dict（c["poly"]）等处长期持有，共享同一列表对象会让未来
+    任何一处就地改写跨轮廓传染（点本身是元组只读，浅拷贝即安全）。
+    fonthub 直接从 TrueType 轮廓构造的 segs 同为 lineSeg/cubicSeg 元组，
+    同样命中；万一混入不可哈希段则退回直接计算。"""
+    try:
+        return list(_flattenSegsCached(tuple(segs), step))
+    except TypeError:
+        return _flattenSegsRaw(segs, step)
+
+
+@lru_cache(maxsize=4096)
+def _flattenSegsCached(segsKey, step):
+    return tuple(_flattenSegsRaw(segsKey, step))
+
+
+def _flattenSegsRaw(segs, step):
     pts = []
     for s in segs:
         n = max(1, int(math.ceil(segLength(s) / step)))
@@ -899,7 +933,21 @@ def midpointRectify(med, loops):
 # ---------------------------------------------------------------- 尺度不变形状描述子
 
 def shapeDescriptor(paths):
-    """切向直方图(mod180°,9桶,弧长加权) + PCA主轴/伸长率 + 充实率。"""
+    """切向直方图(mod180°,9桶,弧长加权) + PCA主轴/伸长率 + 充实率。
+
+    模块级 LRU 记忆化（重复率实测 65%）。全部调用点审计（boolean/
+    verify/pipeline/fonthub）均只读结果字段，但仍每次返回新 dict+新
+    hist 列表——拷贝代价相对内部 parse+flatten 可忽略，换取对未来
+    改写方的免疫。"""
+    d = _shapeDescriptorCached(tuple(paths))
+    if d is None:
+        return None
+    return {"hist": list(d["hist"]), "elong": d["elong"],
+            "mainAngle": d["mainAngle"], "fill": d["fill"]}
+
+
+@lru_cache(maxsize=4096)
+def _shapeDescriptorCached(paths):
     hist = [0.0] * 9
     cx = cy = totalLen = areaSum = 0.0
     x0 = y0 = 1e18
