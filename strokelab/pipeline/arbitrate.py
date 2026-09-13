@@ -20,17 +20,30 @@ G8.5 直接写 diag.trace。埋点只读不回写——TRACE_ON 开/关逐位同
 import functools
 import itertools
 import math
+import os
 import sys
 
 from ..classify import matchTier
-from ..geometry import (contourToPath, dist, flattenSegs, parseContours,
-                        pointInPolygon, polylineLength, shapeDescriptor,
-                        signedArea)
+from ..geometry import (bboxOfPoints, contourToPath, dist, flattenSegs,
+                        medialJunctions, parseContours, pointInPolygon,
+                        polylineLength, shapeDescriptor, signedArea)
+from .helpers import _switchbackCount
 
 
 def _pkg():
     """包模块本体：运行期读 LADDER_* 开关的当前值（import 时不固化）。"""
     return sys.modules["strokelab.pipeline"]
+
+
+# G8.5-F 融合框执行器开关（架构评审遗留 B/C 型：鬼/皃族——框笔+内档融为
+# 一个连通组，档 median 错档/挤带/框笔 median 游走，G8.5 条组路径射程外
+# ——条组=单笔独占组，融合组根本不产条）。开关放本模块而非包 __init__
+# （本轮授权路径只含 arbitrate/state/tools）：运行期改 arbitrate.LADDER_F
+# 即生效；环境变量 STROKELAB_LADDER_F=0 关（spawn worker 继承语义同
+# CLIB_ENABLE）。值语义：0/False=关（基线逐位一致，parity 硬门）；
+# 1/True=执行；2=仅探测（标定：dump 全候选，预筛中招才跑 Voronoi 确认）；
+# 3=探测调试（全候选都跑 Voronoi——只给标定脚本看行真值用，别在批跑开）。
+LADDER_F = os.environ.get("STROKELAB_LADDER_F", "1") != "0"
 
 
 def _traceOn():
@@ -1558,5 +1571,416 @@ def ladderActStage(kaiRef, groups, pose, cost, diag):
                     "evidence": {"mode": entry.get("mode"),
                                  "comp": entry.get("comp")}})
 
+    # G8.5-F 融合框组内档位修复（评审遗留 B/C 型，探针先行+交叉行确认，
+    # 见 ladderFrameStage）。采纳步并入 ladderRealign（[k,g,g,"F"] 条目，
+    # m[0] 消费方兼容——finalize 轴向守卫种子排除/诊断继承照常工作）；
+    # 触及组并入 ladderTouched（G9 豁免同 G8.5——整组仿射复位会把刚
+    # 锚定到墨行的带位搬走）。
+    for _st in ladderFrameStage(kaiRef, groups, pose, diag):
+        ladderRealign.append(_st)
+        ladderTouched.add(_st[1])
+
     diag.ladderRealign = ladderRealign
     diag.ladderTouched = ladderTouched
+
+
+# ============================================================ G8.5-F 融合框
+
+# G8.5-F 标定常数（simsun 病字集 鬼白皃自目倪晚魁魂醒 + cross 融框失败字
+# + 健康集 SC 抽样200/融框高频字 标定，数据见 docs/梯队秩配对设计.md
+# "G8.5-F 融合框扩展"章）。
+_F_MIN_GAP = 30.0    # 楷体档距下限：并排/同高档的 y 秩配对无意义（同 G8.5）
+_F_SQUEEZE = 0.5     # 挤带门：相邻两档 median 质心 y 距 < 0.5×该对楷体档距
+_F_INV_EPS = 8.0     # 倒置判定余量：近同高的秩交换是噪声不是病
+_F_WANDER_SB = 2     # 框笔游走：折返数 ≥2（横折名义至多 1 个拐角）
+_F_WANDER_R = 1.35   # 或 median bbox 纵横皆 ≥1.35×affine 楷体名义框
+_F_FIRE_TOL = 0.30   # 触发门：≥1 档 |median质心y-行y| > 0.30×档距 才算
+                     # 病（0.35 曾差之毫厘漏掉 嫌0.348/裨0.344，二者
+                     # OVERLAP 病笔正是该档；健康点名集最大偏 0.23×档距
+                     # ——0.30 居中，健康margin ≥0.07×档距）
+_F_ANCHOR_TOL = 10.0 # 档锚定门：组一旦确诊（触发门过），全部配对档中
+                     # 偏 >10 单位者一起锚到各自行 y——行是墨的真值，
+                     # 组内整体锚定比只动病档收敛稳（藐·皃 病档14 偏
+                     # 21<触发门却是 TYPE39°+AREA 病灶，标定实证）；
+                     # ≤10 单位纯属噪声不折腾
+_F_DANGLE = 0.5      # 档名义悬空门：档笔 initMedian 落墨率 < 0.5 即疑似
+                     # ——标定实测这是错档在钩点期唯一可见病征（inv/
+                     # squeeze/wander 是终态病征，钩点期 median 仍近名义：
+                     # 病字集 10 字预筛 0 命中的教训）；白/魁/醒·酉 名义
+                     # 悬空 dev 71-146 落墨率低，鬼/自/目 名义近对齐
+                     # （dev≤33）不触发（其终态帧游走归下轮终态守卫层）
+_F_INK_FRAC = 0.7    # 采纳门：重置后档 median 9 采样点落墨率 ≥0.7
+_F_BAND_R = 2.0      # 行带宽门：行 y 截线带 ≥2×wEst 才算档行（交叉噪声
+                     # "行"截线只有笔宽量级——磯·石 撇×横交叉对曾被当
+                     # 档行拉错 横0，AREA→AREA+OVERLAP 标定实证；真档
+                     # 行截线横贯框内宽：鬼·田底行交叉跨度仅4 截线588）
+
+
+def _rungInkFrac(groups, pose, g, k):
+    """档笔 initMedian 采样点的落墨率（组外环−孔，pointInPolygon 廉价版，
+    不建 shapely——预筛预算所在）。名义档悬空=名义 y 落进孔腔（框内
+    档带之间是孔），是错档在钩点期的可见病征。孔语义按单外环融合组
+    （本层承载族）成立；多外环组的穿孔实体会被低估落墨率——只可能
+    多预筛几次，Voronoi 确认层兜底，不产误执行。"""
+    m = pose.initMedians[k]
+    step = max(1, len(m) // 9)
+    pts = m[::step]
+    outers = groups.groupOuters.get(g) or []
+    holes = groups.groupHoles.get(g) or []
+    inside = 0
+    for p in pts:
+        if any(pointInPolygon(p, poly) for poly in outers) and \
+                not any(pointInPolygon(p, poly) for poly in holes):
+            inside += 1
+    return inside / max(1, len(pts))
+
+
+def _fusedGroupRegion(groups, g):
+    """融合组 shapely 区域，照 boolean.glyphRegion 的 nonzero 语义：每
+    外环先减**自己的**孔再并（孔按包含关系归属外环——评审红线："组并
+    减组孔"会把穿越他环孔腔的实体挖断，中·中竖教训）。融合框族
+    （simsun 鬼白自目…）实测单外环多孔，本构造与 tools/calib_frame_rows.
+    groupRegion（行规律标定数据的出处）在该族逐点一致。多片时取最大
+    单片——medialJunctions 输入契约不收 MultiPolygon（Codex 审查实测
+    抛 AttributeError）。"""
+    from shapely.geometry import Polygon as _Pg
+    from shapely.ops import unary_union as _uu
+    outers = []
+    holes = []
+    for src, dst in ((groups.groupOuters.get(g) or [], outers),
+                     (groups.groupHoles.get(g) or [], holes)):
+        for poly in src:
+            if len(poly) < 4:
+                continue
+            try:
+                pg = _Pg(poly)
+                if not pg.is_valid:
+                    pg = pg.buffer(0)
+                if not pg.is_empty:
+                    dst.append(pg)
+            except Exception:
+                pass
+    if not outers:
+        return None
+    regs = []
+    for og in outers:
+        r = og
+        for h in holes:
+            try:
+                if og.contains(h.representative_point()):
+                    r = r.difference(h)
+            except Exception:
+                pass
+        if not r.is_valid:
+            r = r.buffer(0)
+        if not r.is_empty:
+            regs.append(r)
+    if not regs:
+        return None
+    try:
+        region = _uu(regs)
+    except Exception:
+        return None
+    if region.is_empty:
+        return None
+    if hasattr(region, "geoms"):
+        region = max(region.geoms, key=lambda gm: gm.area)
+    return region
+
+
+def _junctionRows(region, gap=40.0):
+    """组级中轴交叉点按 y 聚成"行" → [(行y, 点数, x0, x1), ...]（y 升序）。
+    标定已验规律（simsun 鬼白自目田曲典里甫，tools/calib_frame_rows）：
+    内部横档行可靠（行内点数≥2，穿竖再+2）；封底横不产行（闭框角=
+    度2弯不是交叉点）；单点行=笔画入口噪声——由调用方过滤。gap=40
+    与标定工具同。"""
+    pts = sorted(medialJunctions(region), key=lambda j: (j[1], j[0]))
+    rows = []
+    for x, y, _deg in pts:
+        if rows and y - rows[-1][-1][1] <= gap:
+            rows[-1].append((x, y))
+        else:
+            rows.append([(x, y)])
+    return [(sum(p[1] for p in r) / len(r), len(r),
+             min(p[0] for p in r), max(p[0] for p in r)) for r in rows]
+
+
+def _frameLadderScan(kaiRef, groups, pose):
+    """G8.5-F 廉价预筛（不跑 Voronoi）：融合组=框笔(类型含折)+k≥2 楷体
+    横/提档同组，四病征任一即疑似。病征（simsun 病字集标定）：
+     · inv     档 median 质心 y 秩与楷体 y 秩倒置（超 _F_INV_EPS 余量）；
+     · squeeze 相邻两档 median 质心 y 距 < 0.5×该对楷体档距（挤带）；
+     · wander  框笔 median 折返 ≥2 或 bbox 纵横皆 ≥1.35×affine 名义框；
+     · dangle  档笔名义 median 落墨率 < 0.5（名义 y 悬在孔腔上）。
+    标定教训：设计稿设想的 inv/squeeze/wander 是**终态**病征（鬼·横折
+    终态 bbox 629×390 游走属实），钩点期 median 仍近名义、三征 0 命中；
+    钩点期唯一可见病征是 dangle（白 dev86/魁 dev71/醒·酉 dev146 名义
+    悬空）。预筛不中不跑组级 Voronoi（0.5-1s/组，算力预算所在）。
+    返回候选表（含未中招者——标定 dump 分母用）。"""
+    kai = kaiRef.kai
+    affine = kaiRef.affine
+    kaiCentAll = kaiRef.kaiCentAll
+    types = kai["strokeTypes"]
+    out = []
+    for g in sorted(groups.groupStrokes):
+        ss = groups.groupStrokes.get(g) or []
+        if len(ss) < 3:
+            continue
+        frames = [k for k in ss if "折" in types[k]]
+        rungs = [k for k in ss if types[k] in ("横", "提")]
+        if not frames or len(rungs) < 2:
+            continue
+        kaiY = {k: affine(kaiCentAll[k])[1] for k in rungs}
+        rungsDesc = sorted(rungs, key=lambda k: -kaiY[k])
+        gaps = [kaiY[rungsDesc[i]] - kaiY[rungsDesc[i + 1]]
+                for i in range(len(rungsDesc) - 1)]
+        gapP = sum(gaps) / len(gaps)
+        if gapP < _F_MIN_GAP:
+            continue
+        curY = {k: _medianCenter(pose.initMedians, k)[1] for k in rungs}
+        inv = any(curY[rungsDesc[i]] < curY[rungsDesc[i + 1]] - _F_INV_EPS
+                  for i in range(len(rungsDesc) - 1))
+        squeeze = any(gaps[i] >= _F_MIN_GAP and
+                      abs(curY[rungsDesc[i]] - curY[rungsDesc[i + 1]])
+                      < _F_SQUEEZE * gaps[i] for i in range(len(gaps)))
+        wander = []
+        fmet = []
+        for f in frames:
+            m = pose.initMedians[f]
+            sb = _switchbackCount(m)
+            mb = bboxOfPoints(m)
+            nb = bboxOfPoints([affine(tuple(p)) for p in kai["medians"][f]])
+            big = (mb.w >= _F_WANDER_R * max(1.0, nb.w) and
+                   mb.h >= _F_WANDER_R * max(1.0, nb.h))
+            fmet.append([f, sb, round(mb.w), round(mb.h),
+                         round(nb.w), round(nb.h)])
+            if sb >= _F_WANDER_SB or big:
+                wander.append(f)
+        rif = {k: _rungInkFrac(groups, pose, g, k) for k in rungs}
+        dangle = any(v < _F_DANGLE for v in rif.values())
+        out.append({"group": g, "frames": frames, "rungs": rungsDesc,
+                    "kaiY": kaiY, "curY": curY, "gapP": gapP,
+                    "inv": inv, "squeeze": squeeze, "wander": wander,
+                    "fmet": fmet, "rif": rif, "dangle": dangle,
+                    "pre": bool(inv or squeeze or wander or dangle)})
+    return out
+
+
+def _rowBandSpan(region, row, wEst):
+    """行 y 处区域水平截线中含行交叉点跨度中心的连通段 → (s0,s1)|None。
+    真档行的截线横贯框内宽——鬼·田底行交叉点跨度仅 4（行内点只标穿竖
+    处）截线却 ~588；交叉噪声"行"（磯·石 撇×横交叉对 y404 截线仅笔宽
+    量级）截线窄——_F_BAND_R×wEst 门在 plan 层滤掉（磯曾被这类假行
+    拉错档 AREA→AREA+OVERLAP，标定实证）。行 y=交叉点均值，可能落在
+    带缘（藐·皃底行 y236 恰在带下缘，正截线掉进孔，真行被误滤——
+    标定实证），故 ±0.5×wEst 三截取最宽。"""
+    from shapely.geometry import LineString as _LsF
+    rowY, jx0, jx1 = row[0], row[2], row[3]
+    rb = region.bounds
+    cx = (jx0 + jx1) / 2.0
+    best = None
+    for dy in (0.0, 0.5 * wEst, -0.5 * wEst):
+        try:
+            inter = _LsF([(rb[0] - 10.0, rowY + dy),
+                          (rb[2] + 10.0, rowY + dy)]).intersection(region)
+        except Exception:
+            continue
+        segs = []
+        for gm in getattr(inter, "geoms", [inter]):
+            cs = list(getattr(gm, "coords", []))
+            if len(cs) >= 2:
+                segs.append((min(c[0] for c in cs), max(c[0] for c in cs)))
+        if not segs:
+            continue
+        hit = None
+        for s in segs:
+            if s[0] - 2.0 <= cx <= s[1] + 2.0:
+                hit = s
+                break
+        if hit is None:
+            hit = max(segs, key=lambda s: min(s[1], jx1) - max(s[0], jx0))
+        if best is None or hit[1] - hit[0] > best[1] - best[0]:
+            best = hit
+    return best
+
+
+def _frameRowPlan(groups, pose, cand):
+    """G8.5-F 交叉行确认（预筛中招才付 Voronoi 代价）：行内点数≥2 且
+    截线带宽 ≥_F_BAND_R×wEst 的行（y 降序）与楷体档（y 降序）严格
+    #行==#档 保序配对（不等长即不动——设计稿的剔封底横分支跨字体误触，
+    见下方裁定注释）。触发门：≥1 档偏 >_F_FIRE_TOL×档距（健康融框字
+    全对齐即不触发的第二道门）；触发后全部配对档中偏 >_F_ANCHOR_TOL
+    者一起入 pairs（组内整体锚定，藐教训见常数注释）。
+    返回 (region, rows, pairs, why)；rows 条目
+    (行y, 点数, 锚x0, 锚x1, 带宽)，锚 x=截线带两端各收 0.6×wEst 从框
+    外壁退内壁、并至少覆盖交叉点跨度（设计稿"组bbox收0.9"对含斜捺/
+    儿脚的融合组严重外扩——重置线冲出框被落墨门整包否决，魁教训）；
+    pairs=[(档笔, 行y, 锚x0, 锚x1)]。"""
+    region = _fusedGroupRegion(groups, cand["group"])
+    if region is None:
+        return None, [], [], "noRegion"
+    wEst = pose.wEst or 20.0
+    rows = []
+    try:
+        for r in _junctionRows(region):
+            if r[1] < 2:
+                continue          # 单点行=笔画入口噪声（标定已验）
+            seg = _rowBandSpan(region, r, wEst)
+            bandW = (seg[1] - seg[0]) if seg else 0.0
+            if bandW < _F_BAND_R * wEst:
+                continue
+            rows.append((r[0], r[1],
+                         min(seg[0] + 0.6 * wEst, r[2]),
+                         max(seg[1] - 0.6 * wEst, r[3]), round(bandW)))
+    except Exception:
+        return region, [], [], "junctionErr"
+    rows.sort(key=lambda r: -r[0])
+    rungsDesc = cand["rungs"]
+    # 严格 #行==#档 才配对——设计稿的"#行=#档-1 剔封底横"分支在跨字体
+    # 标定上是首要误触源：simsun/simhei/Noto 上 14 例健康字（老綿竄廄
+    # 態谑潺粝攮暮葉驦蹀）走该分支被强灌配对（框外单交叉行/衍生行凑数），
+    # 仅换来 嫌鷯 2 例真修复（14:2）。封底横本就不产行（标定已验），
+    # 真融合框族（鬼白目魁鳃鑒藐）内档全部产行、#行恒等#档，无需该
+    # 分支。等长要求下 rungs≥2 保证 rows≥2（单行等长不可能）。
+    if len(rows) != len(rungsDesc):
+        return region, rows, [], "rows=%d rungs=%d" % (len(rows),
+                                                       len(rungsDesc))
+    pairedRungs = rungsDesc
+    pairs = []
+    firedGate = False
+    for row, k in zip(rows, pairedRungs):
+        dev = abs(cand["curY"][k] - row[0])
+        if dev > _F_FIRE_TOL * cand["gapP"]:
+            firedGate = True
+        if dev > _F_ANCHOR_TOL:
+            pairs.append((k, row[0], row[2], row[3]))
+    if not firedGate:
+        return region, rows, [], "aligned"
+    if not pairs:
+        return region, rows, [], "noAnchor"
+    return region, rows, pairs, None
+
+
+def _frameLadderAct(kaiRef, pose, cand, plan):
+    """G8.5-F 执行器（单组整包 all-or-nothing）：错档档笔 median 重置为
+    水平线段@行y——x 范围=plan 预计算的行带锚跨度；框笔游走且档已
+    重置时，框笔 median 重置为 affine 楷体名义（行只锚档，框形回名义
+    最稳）。采纳门：每条重置档 median 的 9 采样点落墨率 ≥_F_INK_FRAC
+    （0.7 论证：内档带横贯框内壁，允许两端点因内壁圆角/斜壁越界 ≤2/9；
+    更低=行配对错/区域碎——整包回滚，档与框全部还原）。返回
+    (steps, rej)；steps=[[k, g, g, "F"], ...]。"""
+    region, pairs = plan
+    g = cand["group"]
+    kai = kaiRef.kai
+    affine = kaiRef.affine
+    from shapely.geometry import Point as _PtF
+    sav = {}
+    steps = []
+    rej = None
+    for k, rowY, x0, x1 in pairs:
+        newM = [(x0 + (x1 - x0) * i / 8.0, rowY) for i in range(9)]
+        inside = 0
+        for p in newM:
+            try:
+                if region.contains(_PtF(p)):
+                    inside += 1
+            except Exception:
+                pass
+        if inside < _F_INK_FRAC * len(newM):
+            rej = "ink:%d=%d/9" % (k, inside)
+            break
+        sav[k] = (pose.medians[k], pose.initMedians[k])
+        pose.medians[k] = newM
+        pose.initMedians[k] = [tuple(p) for p in newM]
+        steps.append([k, g, g, "F"])
+    if rej is None:
+        for f in cand["wander"]:
+            km = [affine(tuple(p)) for p in kai["medians"][f]]
+            sav[f] = (pose.medians[f], pose.initMedians[f])
+            pose.medians[f] = km
+            pose.initMedians[f] = [tuple(p) for p in km]
+            steps.append([f, g, g, "F"])
+        return steps, None
+    for k, (m0, im0) in sav.items():
+        pose.medians[k] = m0
+        pose.initMedians[k] = im0
+    return [], rej
+
+
+def _frameProbeEntry(cand, rows, pairs, why):
+    """G8.5-F 探针诊断条目（diag.ladderProbe，mode="F"，标定/审计用）。"""
+    return {
+        "mode": "F", "comp": None, "group": cand["group"],
+        "frames": cand["frames"], "rungs": cand["rungs"],
+        "kaiY": {k: round(v, 1) for k, v in cand["kaiY"].items()},
+        "curY": {k: round(v, 1) for k, v in cand["curY"].items()},
+        "gapP": round(cand["gapP"], 1),
+        "pre": cand["pre"], "inv": cand["inv"],
+        "squeeze": cand["squeeze"], "wander": cand["wander"],
+        "fmet": cand["fmet"],
+        "rif": {k: round(v, 2) for k, v in cand["rif"].items()},
+        "dangle": cand["dangle"],
+        "rows": [[round(r[0], 1), r[1], round(r[2]), round(r[3])] +
+                 ([r[4]] if len(r) > 4 else [])
+                 for r in rows],
+        "resets": [[k, round(y, 1), round(x0), round(x1)]
+                   for k, y, x0, x1 in pairs],
+        "fired": bool(pairs), "why": why,
+    }
+
+
+def ladderFrameStage(kaiRef, groups, pose, diag):
+    """G8.5-F 融合框组内档位修复（探测器先行三段：廉价预筛 → 组级交叉
+    行确认+锚点 → all-or-nothing 执行）。LADDER_F: 0关/1执行/2仅探测/
+    3探测调试（确认不看预筛，标定看行真值用）。fired 条目并采纳步的
+    trace 依 G8.5 现有结构（evidence.mode="F"）。返回采纳 steps。"""
+    mode = LADDER_F
+    if not mode or pose.seedMedians is not None:
+        return []
+    _pl = _pkg()
+    tOn = _traceOn()
+    probeOnly = mode in (2, 3)
+    keepEntries = probeOnly or _pl.LADDER_PROBE
+    stepsAll = []
+    for cand in _frameLadderScan(kaiRef, groups, pose):
+        if not cand["pre"] and mode != 3:
+            if probeOnly:
+                diag.ladderProbe.append(_frameProbeEntry(
+                    cand, [], [], "preMiss"))
+            continue
+        region, rows, pairs, why = _frameRowPlan(groups, pose, cand)
+        entry = _frameProbeEntry(cand, rows, pairs, why)
+        if keepEntries:
+            diag.ladderProbe.append(entry)
+        if not pairs:
+            continue
+        if probeOnly:
+            if tOn:
+                diag.trace.append({
+                    "level": "G8.5", "strokes": [p[0] for p in pairs],
+                    "moves": [[p[0], cand["group"], cand["group"]]
+                              for p in pairs],
+                    "action": "fProbeOnly", "adopted": False,
+                    "evidence": {"mode": "F", "group": cand["group"]}})
+            continue
+        steps, rej = _frameLadderAct(kaiRef, pose, cand,
+                                     (region, pairs))
+        if rej is not None:
+            entry["actReject"] = rej
+            if tOn:
+                diag.trace.append({
+                    "level": "G8.5", "strokes": [p[0] for p in pairs],
+                    "moves": [[p[0], cand["group"], cand["group"]]
+                              for p in pairs],
+                    "action": rej, "adopted": False,
+                    "evidence": {"mode": "F", "group": cand["group"]}})
+            continue
+        stepsAll.extend(steps)
+        if tOn:
+            diag.trace.append({
+                "level": "G8.5", "strokes": [st[0] for st in steps],
+                "moves": [[st[0], st[1], st[2]] for st in steps],
+                "adopted": True,
+                "evidence": {"mode": "F", "group": cand["group"],
+                             "rows": [round(r[0], 1) for r in rows]}})
+    return stepsAll

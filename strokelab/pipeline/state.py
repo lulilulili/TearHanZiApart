@@ -96,7 +96,9 @@ class Diagnostics:
     slotSwaps: list = None            # G7 槽位互换记录
     groupRemapInfo: list = None       # G9 组重锚定记录
     ladderProbe: list = None          # G8.5 探针信号
-    ladderRealign: list = None        # G8.5 执行器施行步骤
+    ladderRealign: list = None        # G8.5 执行器施行步骤 [k,gOld,gNew]；
+                                      # G8.5-F 档位重置条目 [k,g,g,"F"]
+                                      # （消费方只依赖 m[0]，已审计）
     ladderTouched: set = None         # G8.5 动过的组（G9 豁免名单）
     cutPoints: list = None            # 切割点记录
     # 统一决策迹（架构评审#1 仲裁 Tracer）：全谱仲裁级的改判提议逐条
