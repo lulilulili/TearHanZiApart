@@ -1001,6 +1001,20 @@ def orderPreserve(kaiRef, groups, pose, cost):
     kaiCentAll = [(sum(p[0] for p in m2) / len(m2),
                    sum(p[1] for p in m2) / len(m2))
                   for m2 in kai["medians"]]
+    # 矩阵归并 2a（docs/矩阵归并设计.md 实施记录）：互换执行由 ARB_G8_EXEC
+    # 门控。sample958 胜率表曾判死刑（采纳仅攮/銲且全败），但全库枚举
+    # （tools/enum_g8.py）推翻：采纳字 SC19+simsun4=23，其中 11 字现通过，
+    # 撤除会砸 9 字（乹啇喼嫜掉狗谿/澱鬒 通过→ORDER 等，含本段注释里的
+    # 设计动机字"狗"），仅修 5 字（睜睢瞘瞟瞪 目族）——净 -4，按裁定
+    # "通过→失败即回退阀"默认保持执行。False=撤除态（诊断实验）：满足
+    # 互换条件时不施行，记 action="demoted"（evidence 含 wouldSwap）。
+    # 撤除态口径差异（评审裁定第5条，胜率表消费端注意）：执行态双 pass
+    # 由 swapped 驱动——换过一遍后再扫一遍；demoted 不置 swapped，撤除
+    # 态恒单遍、全部条目按"首遍未换状态"评估。两态的迹不逐位对应：首个
+    # adopted↔demoted 一一对应（此前状态逐位相同），其后条目因组状态
+    # 分叉可增减；无 adopted 条目的字两态逐位同判（demoted 分支不可达，
+    # 全库 9574×双字体非采纳字 0 迹差异实证）。
+    execOn = bool(_pkg().ARB_G8_EXEC)
     for _pass in range(2):
         swapped = False
         for i in range(nStrokes):
@@ -1040,6 +1054,23 @@ def orderPreserve(kaiRef, groups, pose, cost):
                                          "dT": round(badEv[2], 1),
                                          "oldC": round(oldCost, 1),
                                          "newC": round(newCost, 1)}})
+                    continue
+                if not execOn:
+                    if tOn:
+                        # 决策迹 G8：楷序反转成立且互换代价可接受，但执行
+                        # 已撤除——只记诊断信号，不改 strokeGroup/
+                        # groupStrokes、不置 swapped（单遍口径见段首注释）
+                        trace.append({
+                            "level": "G8", "strokes": [i, j],
+                            "from": [gi, gj], "action": "demoted",
+                            "adopted": False,
+                            "evidence": {"axis": "xy"[badEv[0]],
+                                         "dK": round(badEv[1], 1),
+                                         "dT": round(badEv[2], 1),
+                                         "oldC": round(oldCost, 1),
+                                         "newC": round(newCost, 1),
+                                         "wouldSwap": [[i, gi, gj],
+                                                       [j, gj, gi]]}})
                     continue
                 if tOn:
                     trace.append({

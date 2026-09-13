@@ -54,6 +54,20 @@ CLIB_ENABLE = _os.environ.get("STROKELAB_CLIB", "") == "1"
 # 默认开——trace 本身轻量（只在病征触发处记录，健康字近零条目）。
 # 环境变量 STROKELAB_TRACE=0 可关（spawn worker 继承语义同 CLIB）。
 TRACE_ON = _os.environ.get("STROKELAB_TRACE", "1") != "0"
+# G8 序保持互换执行开关（矩阵归并 2a，docs/矩阵归并设计.md 实施记录）：
+# sample958 胜率表曾判死刑（双字体采纳率 3.7%/0.8%、采纳字通过率 0%，仅
+# 攮/銲且现状均失败），但全库枚举（tools/enum_g8.py，9574 字×双字体）
+# **推翻该判决**：采纳字实为 SC 19 + simsun 4 = 23 字，其中 11 字现通过；
+# 撤除执行会砸 9 字（乹啇喼嫜掉狗谿/澱鬒 通过→ORDER 等硬失败，含 G8
+# 设计动机字"狗"的犭撇勹撇互换），仅修 5 字（睜睢瞘瞟瞪 目族）——净 -4。
+# 抽样死刑=stride-10 只采到攮/銲的伪象。按裁定"出现通过→失败即回退阀"，
+# 默认保持 True=执行（与基线逐位一致）。False=撤除态（诊断实验用）：判据
+# 评估照跑，满足互换条件时不施行，迹记 action="demoted"（adopted=False，
+# evidence 含 wouldSwap 明细），且不置 swapped——恒单遍、按首遍未换状态
+# 评估（与执行态双 pass 口径不逐位对应，见 arbitrate.py G8 段注释）。
+# 环境变量 STROKELAB_G8_EXEC=0 切撤除态（spawn worker 继承语义同
+# CLIB_ENABLE——批跑子进程读不到主进程包属性赋值）。
+ARB_G8_EXEC = _os.environ.get("STROKELAB_G8_EXEC", "1") != "0"
 
 from .helpers import (_medianDeviation, _hungarian, _switchbackCount,
                       _axisFails, _reMedianFromStroke, _selfSeeds,
