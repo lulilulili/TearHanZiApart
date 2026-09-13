@@ -83,7 +83,8 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     arbitrate.orderPreserve(kaiRef, groups, pose, cost)
     diag.ladderProbe = arbitrate.ladderProbeStage(kaiRef, groups, pose)
     arbitrate.ladderActStage(kaiRef, groups, pose, cost, diag)
-    anchor.run(ctx)               # G9 组重锚定 + G10 断面吸附
+    # G9 组重锚定 + G10 断面吸附
+    anchor.run(geom, kaiRef, groups, pose, diag)
     iterate.run(ctx)              # 归属迭代精调 + 终态吸直
     cutting.run(ctx)              # 主人判定→矢量切割→划分重构
     finalize.run(ctx)             # 收口→result→自洽二遍→轴向守卫

@@ -5,22 +5,27 @@ G9：失配门控下用楷体相对布局对组内名义位整体仿射重映射
 才救，梯队执行器动过的组豁免）。G10：对走廊支撑贫瘠的横/竖笔沿法向
 细扫最大单片支撑位吸附（同向占位/楷序倒置不吸）。事故史注释随代码
 保留（磷·石口、吃/口底横族、甲、肝左竖、钾等）。
+
+组区域构造复用 arbitrate.groupRegionOf（G10 用独立缓存——G2 的桥
+缓存建于仲裁期，此处按吸附时点的组表重建，语义同原 _regOf2）。
 """
 
+import functools
 import math
 
 from ..geometry import bboxOfPoints
+from .arbitrate import groupRegionOf
 
 
-def groupRemap(ctx):
-    """G9 组局部重锚定（失配门控的组内相对布局复位）。"""
-    contours = ctx.geom.contours
-    nGroups = ctx.groups.nGroups
-    medians = ctx.pose.medians
-    initMedians = ctx.pose.initMedians
-    groupStrokes = ctx.groups.groupStrokes
-    groupBBoxes = ctx.groups.groupBBoxes
-    ladderTouched = ctx.diag.ladderTouched
+def groupRemap(geom, groups, pose, diag):
+    """G9 组局部重锚定（失配门控的组内相对布局复位）；写 diag.groupRemapInfo。"""
+    contours = geom.contours
+    nGroups = groups.nGroups
+    medians = pose.medians
+    initMedians = pose.initMedians
+    groupStrokes = groups.groupStrokes
+    groupBBoxes = groups.groupBBoxes
+    ladderTouched = diag.ladderTouched
 
     # 组局部重锚定（失配门控，用户设想：相对位置代替绝对位置）：全局
     # 仿射是绝对定位，部件比例悬殊时组内名义布局整体错位——磷·石口
@@ -90,19 +95,35 @@ def groupRemap(ctx):
             "to": [round(bb.x0), round(bb.y0), round(bb.x1), round(bb.y1)],
             "cov": [round(covX, 2), round(covY, 2)]})
 
-    ctx.diag.groupRemapInfo = groupRemapInfo
+    diag.groupRemapInfo = groupRemapInfo
 
 
-def sectionSnap(ctx):
+def _largestPieceArea(geomObj):
+    """shapely 几何（可能为多片）中最大单片的面积。"""
+    best = 0.0
+    for gm in getattr(geomObj, "geoms", [geomObj]):
+        a = getattr(gm, "area", 0.0)
+        if a > best:
+            best = a
+    return best
+
+
+def _lineSupportRatio(line, region):
+    """中轴在线条墨带内的最长连续比例；横穿两侧竖壁不算横带。"""
+    inter = line.intersection(region)
+    return max((getattr(gm, "length", 0.0)
+                for gm in getattr(inter, "geoms", [inter])),
+               default=0.0) / max(1.0, line.length)
+
+
+def sectionSnap(kaiRef, groups, pose):
     """G10 D 断面吸附（组内法向滑动预对位）。"""
-    kai = ctx.kaiRef.kai
-    nGroups = ctx.groups.nGroups
-    medians = ctx.pose.medians
-    initMedians = ctx.pose.initMedians
-    groupStrokes = ctx.groups.groupStrokes
-    groupBBoxes = ctx.groups.groupBBoxes
-    groupOuters = ctx.groups.groupOuters
-    groupHoles = ctx.groups.groupHoles
+    kai = kaiRef.kai
+    nGroups = groups.nGroups
+    medians = pose.medians
+    initMedians = pose.initMedians
+    groupStrokes = groups.groupStrokes
+    groupBBoxes = groups.groupBBoxes
 
     # D 断面吸附（组内法向滑动预对位）：bbox 重锚定是线性映射，部件
     # 内部的非线性比例差仍会把封底横放进腔体——楷体口的底横在竖臂
@@ -111,44 +132,9 @@ def sectionSnap(ctx):
     # 对走廊支撑贫瘠的横/竖笔，沿法向细扫组内最大单片支撑位吸附；
     # 同向笔已占位（法向距<40）不吸附，吸附后同向笔楷体次序必须保持。
     try:
-        from shapely.geometry import (Polygon as _Pg2, LineString as _Ls2,
-                                      Point as _PtSnap)
+        from shapely.geometry import LineString as _Ls2, Point as _PtSnap
         from shapely.affinity import translate as _Tr2
-        _regCache2 = {}
-
-        def _regOf2(g):
-            if g not in _regCache2:
-                reg = None
-                for poly in groupOuters[g]:
-                    pg = _Pg2(poly)
-                    if not pg.is_valid:
-                        pg = pg.buffer(0)
-                    reg = pg if reg is None else reg.union(pg)
-                if reg is not None:
-                    for poly in groupHoles[g]:
-                        pg = _Pg2(poly)
-                        if not pg.is_valid:
-                            pg = pg.buffer(0)
-                        reg = reg.difference(pg)
-                    if not reg.is_valid:
-                        reg = reg.buffer(0)
-                _regCache2[g] = reg
-            return _regCache2[g]
-
-        def _bigPiece2(geom):
-            best = 0.0
-            for gm in getattr(geom, "geoms", [geom]):
-                a = getattr(gm, "area", 0.0)
-                if a > best:
-                    best = a
-            return best
-
-        def _lineSupport2(line, region):
-            """中轴在线条墨带内的最长连续比例；横穿两侧竖壁不算横带。"""
-            inter = line.intersection(region)
-            return max((getattr(gm, "length", 0.0)
-                        for gm in getattr(inter, "geoms", [inter])),
-                       default=0.0) / max(1.0, line.length)
+        _regOf2 = functools.partial(groupRegionOf, {}, groups)
 
         kaiCent = [(sum(p[0] for p in m2) / len(m2),
                     sum(p[1] for p in m2) / len(m2))
@@ -187,8 +173,8 @@ def sectionSnap(ctx):
                 try:
                     axisLine = _Ls2([tuple(p) for p in m2])
                     cor = axisLine.buffer(24.0)
-                    sup0 = _bigPiece2(cor.intersection(reg))
-                    axisSup0 = _lineSupport2(axisLine, reg)
+                    sup0 = _largestPieceArea(cor.intersection(reg))
+                    axisSup0 = _lineSupportRatio(axisLine, reg)
                 except Exception:
                     continue
                 # 贫瘠判定按走廊标称面积的占比：横走廊横穿竖壁也能蹭到
@@ -204,10 +190,11 @@ def sectionSnap(ctx):
                     try:
                         movedLine = _Tr2(axisLine, xoff=nx1 * off,
                                         yoff=ny1 * off)
-                        if _lineSupport2(movedLine, reg) < 0.8:
+                        if _lineSupportRatio(movedLine, reg) < 0.8:
                             continue
-                        sv = _bigPiece2(_Tr2(cor, xoff=nx1 * off,
-                                             yoff=ny1 * off).intersection(reg))
+                        sv = _largestPieceArea(
+                            _Tr2(cor, xoff=nx1 * off,
+                                 yoff=ny1 * off).intersection(reg))
                     except Exception:
                         continue
                     cands2.append((sv, abs(off), off))
@@ -273,7 +260,7 @@ def sectionSnap(ctx):
         pass
 
 
-def run(ctx):
+def run(geom, kaiRef, groups, pose, diag):
     """G9 -> G10 定序执行（G10 依赖 G9 复位后的中轴位）。"""
-    groupRemap(ctx)
-    sectionSnap(ctx)
+    groupRemap(geom, groups, pose, diag)
+    sectionSnap(kaiRef, groups, pose)
