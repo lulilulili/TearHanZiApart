@@ -723,8 +723,13 @@ def outlineCenterline(loops, step=8.0):
         return None
 
     # 端枝剪除：矩形端帽处中轴分叉出 45° 角枝（伸向端帽角落、到边界
-    # 余隙递减趋零），直径路径会带上一条。从两端向内丢弃余隙 <0.8×
-    # 路径中位余隙的点，剪掉角枝、留主干
+    # 余隙递减趋零），直径路径会带上一条。从两端向内丢弃余隙 <0.9×
+    # 路径中位余隙的点，剪掉角枝、留主干。
+    # 弧长上限：角枝长度与挂点余隙同量级（实测 58-111 ≈1.2-2.2×余隙），
+    # 每端最多剪 2.4×中位余隙+8——衬线体(宋体)的撇/捺是全长渐细的
+    # 楔形，无上限的相对阈值会把中位余隙压到楔中段、整段剪掉近半
+    # 尾锋（simsun 撇骨架仅覆盖轮廓对角线 0.78，威8撇 D 初始过短、
+    # 归属竞争输掉尾段只剩上半，用户目检发现）。
     bndRings = [region.exterior] + list(region.interiors)
 
     def clearance(p):
@@ -734,11 +739,16 @@ def outlineCenterline(loops, step=8.0):
     clr = [clearance(p) for p in pts]
     sc = sorted(clr)
     medClr = sc[len(sc) // 2]
+    pruneCap = 2.4 * medClr + 8.0
     lo = 0
     hi = len(pts) - 1
-    while lo < hi and clr[lo] < medClr * 0.9:
+    cut = 0.0
+    while lo < hi and clr[lo] < medClr * 0.9 and cut < pruneCap:
+        cut += dist(pts[lo], pts[lo + 1])
         lo += 1
-    while hi > lo and clr[hi] < medClr * 0.9:
+    cut = 0.0
+    while hi > lo and clr[hi] < medClr * 0.9 and cut < pruneCap:
+        cut += dist(pts[hi], pts[hi - 1])
         hi -= 1
     if hi - lo >= 1:
         pts = pts[lo:hi + 1]
