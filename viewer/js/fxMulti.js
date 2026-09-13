@@ -387,12 +387,21 @@ async function fx2SwapEffect(ctx) {
   const outBox = (box, pl) => ({
     x0: pl.tx + pl.s * box.x0, y0: pl.ty + pl.s * box.y0,
     x1: pl.tx + pl.s * box.x1, y1: pl.ty + pl.s * box.y1 });
+  // 同型结构（根 IDS 算子一致，如 乒/乓 都是⿱丘X、清/晴 都是⿰X青）：
+  // 来件保留原生 em 坐标直接落到对方面板——fitBox 按对方旧件包围盒
+  // 重定位会张冠李戴（乓的丶在右下，乒的丿在左下，互换后点落错边，
+  // 用户目检发现）；两字 1024 框对齐时原生坐标即真身位置。
+  // 异型结构才退回 fitBox 适配。
+  const sameOp = (((A.kai || {}).structure) || {}).op &&
+    (((A.kai || {}).structure) || {}).op === (((B.kai || {}).structure) || {}).op;
   eng.swapCtx = {
     key: pair.join(""), swapped: false,
     label: `「${fxU.childChar(chA[slot])}」⇄「${fxU.childChar(chB[slot])}」（槽位${slot + 1}）`,
     movers: [
-      { g: movA, home: pA, away: fxU.fitBox(boxA, outBox(boxB, pB)), lift: 1 },
-      { g: movB, home: pB, away: fxU.fitBox(boxB, outBox(boxA, pA)), lift: -1 },
+      { g: movA, home: pA,
+        away: sameOp ? pB : fxU.fitBox(boxA, outBox(boxB, pB)), lift: 1 },
+      { g: movB, home: pB,
+        away: sameOp ? pA : fxU.fitBox(boxB, outBox(boxA, pA)), lift: -1 },
     ],
   };
   ctx.setInfo(`偏旁交换 ${pair.join(" / ")}：${eng.swapCtx.label} 交换中…`);
@@ -467,7 +476,13 @@ async function fx2SwapMorphEffect(ctx) {
     }
     return items;
   };
-  const fitBtoA = fxU.fitBox(boxB, boxA), fitAtoB = fxU.fitBox(boxA, boxB);
+  // 同型结构保留原生坐标(理由同 swap:fitBox 会把 乒丿⇢乓丶 的终态
+  // 錨到旧件盒,点落错边);异型才做槽位盒适配
+  const _sameOp = (((A.kai || {}).structure) || {}).op &&
+    (((A.kai || {}).structure) || {}).op === (((B.kai || {}).structure) || {}).op;
+  const ID_FIT = { s: 1, tx: 0, ty: 0 };
+  const fitBtoA = _sameOp ? ID_FIT : fxU.fitBox(boxB, boxA);
+  const fitAtoB = _sameOp ? ID_FIT : fxU.fitBox(boxA, boxB);
   const itemsA = mkItems(A, pA, ksA, B, ksB, fitBtoA, "#e6194b");
   const itemsB = mkItems(B, pB, ksB, A, ksA, fitAtoB, "#2b6fb3");
   if (!itemsA.length || !itemsB.length) { ctx.setInfo("重采样失败"); return; }
