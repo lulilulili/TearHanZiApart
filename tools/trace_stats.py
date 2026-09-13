@@ -262,12 +262,19 @@ def main():
         len(chars), tag, ",".join(fonts), a.jobs, outDir), flush=True)
 
     md = ["# 仲裁 Tracer 胜率表", "",
-          "生成 %s · rev %s · 字集 %s(%d 字) · jobs %d" % (
+          "生成 %s · rev %s · 字集 %s(%d 字) · jobs %d · G8_EXEC=%s" % (
               datetime.now().strftime("%Y-%m-%d %H:%M"), gitRev(),
-              tag, len(chars), a.jobs), "",
+              tag, len(chars), a.jobs,
+              os.environ.get("STROKELAB_G8_EXEC", "1")), "",
           "口径：触发=该级病征门控成立并形成改判提议（含被拒绝的，"
           "adopted=False）；笔次=提议涉及笔数；采纳率=采纳条目/触发条目；"
-          "通过率=verifyChar 零失败码。trace 为首遍（名义指派）口径。", ""]
+          "通过率=verifyChar 零失败码。trace 为首遍（名义指派）口径。", "",
+          "G8 口径注（矩阵归并 2a）：撤除态（STROKELAB_G8_EXEC=0，诊断"
+          "实验用，默认为执行态）为**单遍未换状态**口径——原 adopted 条目"
+          "改记 action=demoted/adopted=False（采纳笔次恒 0），与执行态"
+          "双 pass（swapped 驱动二遍）不逐位对应：首个 adopted↔demoted "
+          "一一对应，其后条目因组状态分叉可增减。跨态对比胜率表时 G8 行"
+          "按 demoted=原采纳读。", ""]
     for fontFile in fonts:
         outPath = os.path.join(
             outDir, os.path.splitext(fontFile)[0] + ".trace.jsonl")
