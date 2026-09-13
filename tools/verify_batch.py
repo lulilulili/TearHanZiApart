@@ -27,7 +27,7 @@ from pathlib import Path
 
 DEFAULT_FONTS = {
     "sample": "HarmonyOS_Sans_SC.ttf",
-    "cross": "simhei.ttf,NotoSansSC-VariableFont_wght.ttf",
+    "cross": "simhei.ttf,NotoSansSC-VariableFont_wght.ttf,simsun.ttc",
     "full": "HarmonyOS_Sans_SC.ttf",
     "coverage": "HarmonyOS_Sans_SC.ttf",
 }
