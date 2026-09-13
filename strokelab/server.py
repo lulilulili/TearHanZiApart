@@ -13,6 +13,15 @@ API：
                                          同源位形等价，structure ∈ IDS首算子|独体）
     GET /api/dict?ch=<c>               → 字典完整条目 + hasGlyph/strokeCount
 前端：/ → viewer/charStrokeLab.html
+
+并发模型：ThreadingHTTPServer（每请求一线程），因此吞吐三件套全部用真锁：
+    1. /api/decompose 按 (字体,字) key 级互斥——首到者拆解，后到者等锁醒来
+       直接命中缓存（等价 Future 语义），并发重复请求只算一次；
+    2. /api/library 与拆解结果缓存的是**序列化后的 bytes**（大响应 500KB+，
+       此前每次命中都重新 json.dumps），键含 字体文件签名+算法签名，LRU 限
+       RESP_CACHE_MAX 条防内存膨胀；
+    3. 字体建库为字体级锁 + double-check，不同字体互不阻塞；B库骨架 dirty
+       回写走 临时文件+os.replace 原子替换（见 _flushSkeletons）。
 """
 
 import argparse
@@ -21,19 +30,30 @@ import os
 import sys
 import threading
 import time
+import types
 import urllib.parse
 import webbrowser
+from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .datahub import DataHub, DEFAULT_CHIPS
-from .fonthub import FontEntry
+from .fonthub import FontEntry, _algoSignature
 from .pipeline import runPipeline
 
 PKG_DIR = os.path.dirname(os.path.abspath(__file__))
 VIEWER_DIR = os.path.normpath(os.path.join(PKG_DIR, "..", "viewer"))
 
-_state = {"hub": None, "root": ".", "fonts": {}, "results": {}, "lock": threading.Lock(),
-          "radicals": {"radicals": []}, "radVariants": {}}
+# 序列化 bytes 缓存上限：单条拆解 ~25KB、library ~550KB，512 条量级封顶
+# 约 10~30MB，防长跑进程内存膨胀
+RESP_CACHE_MAX = 512
+
+_state = {"hub": None, "root": ".", "fonts": {}, "lock": threading.Lock(),
+          "radicals": {"radicals": []}, "radVariants": {},
+          "fontLocks": {},      # 字体名 → 建库/骨架落盘锁（字体间互不阻塞）
+          "fontLibVer": {},     # 字体名 → 库内容版本号（骨架懒算回写时 +1）
+          "inflight": {},       # decompose 缓存键 → key级锁（仅在算时存在）
+          "respCache": OrderedDict(),   # 缓存键 → 响应 bytes（LRU）
+          "decomposeRuns": 0}   # 实际执行 runPipeline 的次数（并发去重打点）
 
 
 def _loadRadicals():
@@ -66,32 +86,190 @@ def _listFonts():
     return sorted(f for f in os.listdir(d) if f.lower().endswith((".ttf", ".otf", ".ttc")))
 
 
+def _fontFileSig(name):
+    """字体文件签名（大小-mtime，与 FontEntry._fontSig 同构）。直接 stat 文件、
+    不加载字体——缓存命中路径零建库成本；文件被替换时签名变化 → 旧缓存键
+    自然失效（旧条目由 LRU 淘汰）。未知字体 → KeyError（接口层回 400）。"""
+    if name not in _listFonts():
+        raise KeyError("未知字体: " + name)
+    try:
+        st = os.stat(os.path.join(_fontsDir(), name))
+        return "%d-%d" % (st.st_size, int(st.st_mtime))
+    except OSError:
+        return "?"
+
+
+def _fontLock(name):
+    """字体级锁（建库、骨架缓存落盘共用）：不同字体互不阻塞。"""
+    with _state["lock"]:
+        return _state["fontLocks"].setdefault(name, threading.Lock())
+
+
 def _getFont(name):
+    """FontEntry 单例获取：字体级锁 + double-check。此前建库持全局锁——
+    建字体 A 的 40s 会把字体 B 的请求全堵死；改为每字体一把锁，全局锁只
+    护 dict 存取的短临界区。"""
     if name not in _listFonts():
         raise KeyError("未知字体: " + name)
     with _state["lock"]:
-        if name not in _state["fonts"]:
+        fe = _state["fonts"].get(name)
+    if fe is not None:
+        return fe
+    with _fontLock(name):
+        with _state["lock"]:
+            fe = _state["fonts"].get(name)
+        if fe is None:          # double-check：排队等锁期间他人已建好
             fe = FontEntry(os.path.join(_fontsDir(), name))
             fe.buildLibraryB(_state["hub"])
             added = fe.completeLibraryB(_state["hub"])
             if added:
                 print("  %s 自举补全 %d 类: %s" % (name, len(added), " ".join(added)))
-            _state["fonts"][name] = fe
-    return _state["fonts"][name]
+            with _state["lock"]:
+                _state["fonts"][name] = fe
+    return fe
+
+
+# ---------------------------------------------------------------- 响应 bytes LRU
+def _respCacheGet(key):
+    """LRU 命中 → bytes；未命中 → None。命中移到队尾维持最近使用序。"""
+    with _state["lock"]:
+        body = _state["respCache"].get(key)
+        if body is not None:
+            _state["respCache"].move_to_end(key)
+        return body
+
+
+def _respCachePut(key, body):
+    with _state["lock"]:
+        cache = _state["respCache"]
+        cache[key] = body
+        cache.move_to_end(key)
+        while len(cache) > RESP_CACHE_MAX:
+            cache.popitem(last=False)   # 淘汰最久未用
+
+
+def _flushSkeletons(font, fe):
+    """B库骨架 dirty 批量回写：单写者 + 原子替换。
+
+    现状核查：fonthub.saveSkeletonsIfDirty 的**批量**语义已具备——_skelDirty
+    仅在拆解懒算出新骨架时置位，整字拆完只全量回写一次，并非逐骨架逐次写；
+    但底层 _saveLibCache 直接 open(最终路径,"w") 重写，非原子——进程中断或
+    并发写会留半截 JSON，下次 _loadLibCache 虽容错返回 None，整库缓存却白丢
+    （重建 40s+）。本轮约束只改 server.py，故在调用侧补两件：
+      1) 单写者：持字体锁，同字体并发拆解不会交叠写同一缓存文件；
+      2) 原子性：把写盘目标重定向到 .blibCache/_tmp/ 下（伪 hub 只带 root 字段
+         ——_saveLibCache 对 dataHub 仅用 .root 拼路径），写完 os.replace 原子
+         替换到最终路径（同卷内 Windows/NTFS 亦原子）。
+    有骨架更新时字体库版本号 +1：ensureSkeleton 会就地改 libraryBAll 条目
+    （skeleton/outlineBBox 字段），/api/library 的 bytes 缓存须随之失效。"""
+    if not getattr(fe, "_skelDirty", False):
+        return
+    hub = _state["hub"]
+    realPath = fe._libCachePath(hub)
+    tmpHub = types.SimpleNamespace(root=os.path.join(hub.root, ".blibCache", "_tmp"))
+    tmpPath = fe._libCachePath(tmpHub)
+    with _fontLock(font):
+        if not getattr(fe, "_skelDirty", False):    # double-check：他人已回写
+            return
+        fe.saveSkeletonsIfDirty(tmpHub)
+        try:
+            if os.path.isfile(tmpPath):
+                os.makedirs(os.path.dirname(realPath), exist_ok=True)
+                os.replace(tmpPath, realPath)
+        except OSError:
+            pass    # 与 fonthub 同纪律：缓存写失败不打断请求
+        with _state["lock"]:
+            _state["fontLibVer"][font] = _state["fontLibVer"].get(font, 0) + 1
+
+
+def _runDecompose(font, ch, cacheKey):
+    """实际拆解 + 序列化 + 入缓存。调用方必须持有 cacheKey 的 inflight 锁。
+    serverTimings 的赋值顺序与旧实现一致（拆解 计时含骨架落盘），保证响应
+    JSON 字段序不变。"""
+    tL = time.perf_counter()
+    fe = _getFont(font)
+    tP = time.perf_counter()
+    r = runPipeline(_state["hub"], fe, ch)
+    _flushSkeletons(font, fe)
+    r["serverTimings"] = {
+        "库准备": round((tP - tL) * 1000),
+        "拆解": round((time.perf_counter() - tP) * 1000)}
+    body = json.dumps(r, ensure_ascii=False).encode("utf-8")
+    _respCachePut(cacheKey, body)
+    with _state["lock"]:
+        _state["decomposeRuns"] += 1
+        n = _state["decomposeRuns"]
+    # 打点：每次**实际计算**打一行（缓存命中/等锁命中不打）——并发去重
+    # 验证即数这行的条数
+    print("[decompose#%d] %s %s %dB" % (n, font, ch, len(body)))
+    return body
+
+
+def _decomposeBody(font, ch):
+    """/api/decompose 主体：bytes LRU + key 级锁去重。
+
+    缓存键含 字体文件签名+算法签名：字体文件替换或核心源码变动自动失效。
+    并发重复请求（同 字体+字）只算一次：首到者在 _state["inflight"] 登记
+    key 锁并实际拆解，后到者阻塞在同一把锁上，醒来后 double-check 缓存直接
+    命中——即 Future 语义（threading.Lock 版，不引额外依赖）。拆解抛异常时
+    不缓存（与旧实现一致），inflight 条目在 finally 清掉；极端时序下（首到者
+    失败瞬间又来新请求）可能重算一次，无正确性影响。"""
+    cacheKey = ("decompose", font, ch, _fontFileSig(font), _algoSignature())
+    body = _respCacheGet(cacheKey)
+    if body is not None:
+        return body
+    with _state["lock"]:
+        keyLock = _state["inflight"].setdefault(cacheKey, threading.Lock())
+    try:
+        with keyLock:
+            body = _respCacheGet(cacheKey)  # double-check：等锁期间首到者已算完
+            if body is None:
+                body = _runDecompose(font, ch, cacheKey)
+    finally:
+        with _state["lock"]:
+            _state["inflight"].pop(cacheKey, None)
+    return body
+
+
+def _libraryBody(font):
+    """/api/library 主体：序列化 bytes 缓存（响应 500KB+，此前每次命中都重新
+    json.dumps 约 40ms）。缓存键 = 字体文件签名+算法签名+库内容版本号：
+    前两者管磁盘文件/源码变化，版本号管进程内变异——拆解可能懒算骨架并就地
+    改 libraryBAll 条目（_flushSkeletons 时 +1），保证命中字节与实时序列化
+    一致。JSON 结构与字段序不变；serverTimings 随首次序列化定格（重复请求
+    字节级一致，正是缓存语义）。"""
+    with _state["lock"]:
+        ver = _state["fontLibVer"].get(font, 0)
+    cacheKey = ("library", font, _fontFileSig(font), _algoSignature(), ver)
+    body = _respCacheGet(cacheKey)
+    if body is not None:
+        return body
+    tL = time.perf_counter()
+    fe = _getFont(font)
+    obj = {"A": _state["hub"].libraryA, "B": fe.libraryBAll,
+           "Btypes": sorted(fe.libraryB.keys()),
+           "serverTimings": {
+               "库准备": round((time.perf_counter() - tL) * 1000)}}
+    body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+    _respCachePut(cacheKey, body)
+    return body
 
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
 
-    def _json(self, obj, code=200):
-        body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+    def _jsonBytes(self, body, code=200):
+        """已序列化 JSON bytes 直发（缓存命中零序列化）；头与 _json 完全一致。"""
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
+
+    def _json(self, obj, code=200):
+        self._jsonBytes(json.dumps(obj, ensure_ascii=False).encode("utf-8"), code)
 
     def _static(self, relPath):
         path = os.path.normpath(os.path.join(VIEWER_DIR, relPath))
@@ -155,27 +333,9 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/api/fonts":
                 self._json({"fonts": _listFonts(), "chips": DEFAULT_CHIPS})
             elif route == "/api/library":
-                tL = time.perf_counter()
-                fe = _getFont(qs["font"][0])
-                self._json({"A": _state["hub"].libraryA, "B": fe.libraryBAll,
-                            "Btypes": sorted(fe.libraryB.keys()),
-                            "serverTimings": {
-                                "库准备": round((time.perf_counter() - tL) * 1000)}})
+                self._jsonBytes(_libraryBody(qs["font"][0]))
             elif route == "/api/decompose":
-                font = qs["font"][0]
-                ch = qs["char"][0]
-                key = (font, ch)
-                if key not in _state["results"]:
-                    tL = time.perf_counter()
-                    fe = _getFont(font)
-                    tP = time.perf_counter()
-                    r = runPipeline(_state["hub"], fe, ch)
-                    fe.saveSkeletonsIfDirty(_state["hub"])
-                    r["serverTimings"] = {
-                        "库准备": round((tP - tL) * 1000),
-                        "拆解": round((time.perf_counter() - tP) * 1000)}
-                    _state["results"][key] = r
-                self._json(_state["results"][key])
+                self._jsonBytes(_decomposeBody(qs["font"][0], qs["char"][0]))
             elif route == "/api/family":
                 comp = qs["comp"][0]
                 kind = qs.get("kind", ["phonetic"])[0]
