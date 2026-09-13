@@ -156,6 +156,7 @@
         <label>字符串</label><input id="fx2Input" type="text" size="8" maxlength="8"
           placeholder="留空用各效果默认字">
         <button id="fx2Swap" class="primary">🔁 偏旁交换</button>
+        <button id="fx2SwapM">🎭 偏旁变形</button>
         <button id="fx2Family">🧬 家族接龙</button>
         <button id="fx2Morph">🔀 跨结构转化</button>
       </div>
@@ -1423,6 +1424,11 @@ function flyFrame(outs, ins, t) {
     o.g.setAttribute("opacity", fmt(Math.min(1, (1 - ei) * 1.4)));
   }
 }
+function smFrame(it, t) {              // 偏旁变形帧：环插值 + 直接重写 d
+  const e = fxU.easeInOut(fxU.clamp01(t));
+  it.p.setAttribute("d", fxU.ptsPath(fxU.lerpPts(it.src, it.dst, e)));
+}
+
 function swapFrame(ctx, dir, t) {      // dir=1 交换 / 0 还原；弧线互飞
   const e = fxU.easeInOut(t), lift = Math.sin(Math.PI * t);
   for (const mv of ctx.movers) {
@@ -1572,6 +1578,92 @@ const fx2 = {
     if (await this.anim(950, tk, t => swapFrame(this.swapCtx, 1, t))) {
       this.swapCtx.swapped = true;
       this.setInfo(`偏旁交换：${this.swapCtx.label} — 已交换（再按一次换回）`);
+    }
+  },
+
+  /* ⑤b 偏旁变形：差异槽位不位移，原地逐笔插值变成对方部首（形状经
+     fitBox 适配本字槽位盒；笔画数不等按序比例配对——源笔可被复用/
+     拆分，保证两侧终态都是完整目标部首；再按一次反向变回）。 */
+  async swapMorph() {
+    const tk = this.bump();
+    const pair = this.chars("清晴", 2, 2);
+    if (pair.length < 2) { this.setInfo("请输入两个字（如 清晴）"); return; }
+    if (this.mode === "swapM" && this.smCtx && this.smCtx.key === pair.join("")) {
+      const c = this.smCtx, toB = !c.morphed;
+      if (await this.anim(1100, tk, t =>
+          c.items.forEach(it => smFrame(it, toB ? t : 1 - t)))) {
+        c.morphed = toB;
+        this.setInfo(`偏旁变形：${c.label} — ${c.morphed ? "已变形（再按一次变回）" : "已还原"}`);
+      }
+      return;
+    }
+    this.mode = "swapM"; this.smCtx = null;
+    const decos = await this.fetchAll(pair, tk, "偏旁变形");
+    if (!decos) return;
+    if (!decos[0] || !decos[1]) {
+      this.setInfo("拆解失败：" + pair.filter((c, i) => !decos[i]).join("、"));
+      return;
+    }
+    const A = decos[0], B = decos[1];
+    const chA = (((A.kai || {}).structure) || {}).children || [];
+    const chB = (((B.kai || {}).structure) || {}).children || [];
+    let slot = -1;
+    for (let i = 0; i < Math.min(chA.length, chB.length); i++) {
+      const a = fxU.childChar(chA[i]), b = fxU.childChar(chB[i]);
+      if (a && b && a !== b) { slot = i; break; }
+    }
+    if (slot < 0) { this.setInfo("未找到差异槽位"); return; }
+    const ksA = fxU.slotStrokes(A, slot), ksB = fxU.slotStrokes(B, slot);
+    if (!ksA.length || !ksB.length) { this.setInfo("差异槽位无笔画"); return; }
+    const boxA = fxU.strokesBox(A, ksA), boxB = fxU.strokesBox(B, ksB);
+    if (!boxA || !boxB) { this.setInfo("槽位包围盒计算失败"); return; }
+    const root = this.root();
+    const pA = rowPlace(0, 2, 0.45), pB = rowPlace(1, 2, 0.45);
+    const N = 96;
+    const ringOf = (deco, k) => fxU.samplePath(deco.strokes[k].path, N);
+    const applyFit = (pts, f) => pts.map(p => [f.s * p[0] + f.tx, f.s * p[1] + f.ty]);
+    // 一侧的变形项：本侧源笔组 srcKs(本地坐标) → 对方笔组 dstKs
+    // 经 fit(对方槽盒→本侧槽盒) 适配后的目标环;按目标笔数建项
+    const mkItems = (deco, place, srcKs, other, dstKs, fit, tint) => {
+      const stat = el("g", { transform: fxU.tf(place) }, root);
+      deco.strokes.forEach((s, k) => {
+        if (s.failed || !s.path || srcKs.indexOf(k) >= 0) return;
+        el("path", { d: s.path, "fill-rule": "nonzero", fill: "#565b63" }, stat);
+      });
+      const mg = el("g", { transform: fxU.tf(place) }, root);
+      const srcRings = srcKs.map(k => ringOf(deco, k)).filter(Boolean);
+      const items = [];
+      const nS = srcRings.length, nD = dstKs.length;
+      for (let j = 0; j < nD; j++) {
+        const si = nD === 1 ? 0
+          : Math.round(j * (nS - 1) / Math.max(1, nD - 1));
+        const src = srcRings[Math.min(si, nS - 1)];
+        let dst = fxU.samplePath(other.strokes[dstKs[j]].path, N);
+        if (!src || !dst) continue;
+        dst = fxU.alignClosed(src, applyFit(dst, fit));
+        const pEl = el("path", { "fill-rule": "nonzero", fill: tint }, mg);
+        items.push({ p: pEl, src, dst, tint });
+      }
+      // 源笔多于目标笔时,多余源笔(未被任何项覆盖首选)淡出即可——
+      // 上面的比例映射已保证每个目标有源;未当源的笔并入最近项无必要,
+      // 用整组重绘覆盖(初始帧画全部源笔,见 smFrame 的 t=0 处理)
+      return items;
+    };
+    const fitBtoA = fxU.fitBox(boxB, boxA), fitAtoB = fxU.fitBox(boxA, boxB);
+    const itemsA = mkItems(A, pA, ksA, B, ksB, fitBtoA, "#e6194b");
+    const itemsB = mkItems(B, pB, ksB, A, ksA, fitAtoB, "#2b6fb3");
+    if (!itemsA.length || !itemsB.length) { this.setInfo("重采样失败"); return; }
+    this.smCtx = {
+      key: pair.join(""), morphed: false,
+      label: `「${fxU.childChar(chA[slot])}」⇢「${fxU.childChar(chB[slot])}」（原地插值）`,
+      items: itemsA.concat(itemsB),
+    };
+    this.smCtx.items.forEach(it => smFrame(it, 0));
+    this.setInfo(`偏旁变形 ${pair.join(" / ")}：${this.smCtx.label} 变形中…`);
+    if (await this.anim(1100, tk, t =>
+        this.smCtx.items.forEach(it => smFrame(it, t)))) {
+      this.smCtx.morphed = true;
+      this.setInfo(`偏旁变形：${this.smCtx.label} — 已变形（再按一次变回）`);
     }
   },
 
@@ -1898,6 +1990,7 @@ document.getElementById("fxWrite").onclick = () => fx.write();
 document.getElementById("fxFace").onclick = () => fx.face();
 document.getElementById("fxTone").onclick = () => fx.tone();
 document.getElementById("fx2Swap").onclick = () => fx2.swap();
+document.getElementById("fx2SwapM").onclick = () => fx2.swapMorph();
 document.getElementById("fx2Family").onclick = () => fx2.family();
 document.getElementById("fx2Grow").onclick = () => fx2.grow();
 document.getElementById("fx2Morph").onclick = () => fx2.morphStruct();
