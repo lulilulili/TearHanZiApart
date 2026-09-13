@@ -8,13 +8,22 @@ G9：失配门控下用楷体相对布局对组内名义位整体仿射重映射
 
 组区域构造复用 arbitrate.groupRegionOf（G10 用独立缓存——G2 的桥
 缓存建于仲裁期，此处按吸附时点的组表重建，语义同原 _regOf2）。
+G9/G10 决策迹（含守卫/占位/秩序拒绝）直接写 diag.trace（仲裁 Tracer，
+架构评审#1），埋点只读不回写。
 """
 
 import functools
 import math
+import sys
 
 from ..geometry import bboxOfPoints
 from .arbitrate import groupRegionOf
+
+
+def _traceOn():
+    """统一决策迹开关（运行期读包属性，语义同 arbitrate._traceOn）。"""
+    _pl = sys.modules["strokelab.pipeline"]
+    return bool(getattr(_pl, "TRACE_ON", False) or _pl.LADDER_PROBE)
 
 
 def groupRemap(geom, groups, pose, diag):
@@ -35,6 +44,7 @@ def groupRemap(geom, groups, pose, diag):
     # （轴对齐缩放，横竖臂保持横竖）。v10 无门控全量复位曾净负收益
     # ——放对的也被搬乱；门控确保只救真错位，正常字零扰动。
     groupRemapInfo = []
+    tOn = _traceOn()
     for g in range(nGroups):
         if g in ladderTouched:
             # 梯队执行器刚按条带 y 锚定过的组：G9 的整组仿射复位会把
@@ -64,6 +74,25 @@ def groupRemap(geom, groups, pose, diag):
                     if min(d0, 180.0 - d0) <= 30.0:
                         nPar += 1
                 if nPar >= 2:
+                    if tOn:
+                        # 决策迹 G9（守卫拒绝）：超载未解才轮到守卫——
+                        # 覆盖缺口另算（trace 专用，纯只读，不入主流程）
+                        pts0 = [p for k2 in ss for p in initMedians[k2]]
+                        nb0 = bboxOfPoints(pts0)
+                        if nb0.w >= 4 and nb0.h >= 4:
+                            covX0 = max(0.0, min(nb0.x1, bb.x1) -
+                                        max(nb0.x0, bb.x0)) / max(1.0, bb.w)
+                            covY0 = max(0.0, min(nb0.y1, bb.y1) -
+                                        max(nb0.y0, bb.y0)) / max(1.0, bb.h)
+                            if min(covX0, covY0) < 0.8:
+                                diag.trace.append({
+                                    "level": "G9", "group": g,
+                                    "strokes": list(ss),
+                                    "action": "overloadGuard",
+                                    "adopted": False,
+                                    "evidence": {"cov": [round(covX0, 2),
+                                                         round(covY0, 2)],
+                                                 "nPar": nPar}})
                     continue
         pts = [p for k in ss for p in initMedians[k]]
         nb = bboxOfPoints(pts)
@@ -83,6 +112,13 @@ def groupRemap(geom, groups, pose, diag):
         sx2 = bb.w / nb.w
         sy2 = bb.h / nb.h
         if not (0.25 <= sx2 <= 4.0 and 0.25 <= sy2 <= 4.0):
+            if tOn:
+                # 决策迹 G9：覆盖缺口成立但缩放超 0.25-4× 被拒
+                diag.trace.append({
+                    "level": "G9", "group": g, "strokes": list(ss),
+                    "action": "scaleOut", "adopted": False,
+                    "evidence": {"cov": [round(covX, 2), round(covY, 2)],
+                                 "sx": round(sx2, 2), "sy": round(sy2, 2)}})
             continue
         for k in ss:
             medians[k] = [(bb.x0 + (p[0] - nb.x0) * sx2,
@@ -94,6 +130,12 @@ def groupRemap(geom, groups, pose, diag):
             "from": [round(nb.x0), round(nb.y0), round(nb.x1), round(nb.y1)],
             "to": [round(bb.x0), round(bb.y0), round(bb.x1), round(bb.y1)],
             "cov": [round(covX, 2), round(covY, 2)]})
+        if tOn:
+            diag.trace.append({
+                "level": "G9", "group": g, "strokes": list(ss),
+                "adopted": True,
+                "evidence": {"cov": [round(covX, 2), round(covY, 2)],
+                             "sx": round(sx2, 2), "sy": round(sy2, 2)}})
 
     diag.groupRemapInfo = groupRemapInfo
 
@@ -116,14 +158,15 @@ def _lineSupportRatio(line, region):
                default=0.0) / max(1.0, line.length)
 
 
-def sectionSnap(kaiRef, groups, pose):
-    """G10 D 断面吸附（组内法向滑动预对位）。"""
+def sectionSnap(kaiRef, groups, pose, diag):
+    """G10 D 断面吸附（组内法向滑动预对位）；决策迹写 diag.trace。"""
     kai = kaiRef.kai
     nGroups = groups.nGroups
     medians = pose.medians
     initMedians = pose.initMedians
     groupStrokes = groups.groupStrokes
     groupBBoxes = groups.groupBBoxes
+    tOn = _traceOn()
 
     # D 断面吸附（组内法向滑动预对位）：bbox 重锚定是线性映射，部件
     # 内部的非线性比例差仍会把封底横放进腔体——楷体口的底横在竖臂
@@ -182,6 +225,8 @@ def sectionSnap(kaiRef, groups, pose):
                 corArea = L * 48.0
                 if sup0 >= corArea * 0.35 and axisSup0 >= 0.65:
                     continue
+                ev0 = {"sup0": round(sup0, 1), "nominal": round(corArea, 1),
+                       "axisSup0": round(axisSup0, 2)} if tOn else None
                 cands2 = []
                 for i2 in range(-12, 13):
                     off = span * 0.5 * i2 / 12.0
@@ -199,10 +244,22 @@ def sectionSnap(kaiRef, groups, pose):
                         continue
                     cands2.append((sv, abs(off), off))
                 if not cands2:
+                    if tOn:
+                        # 决策迹 G10：支撑贫瘠成立但法向细扫无合法落点
+                        diag.trace.append({
+                            "level": "G10", "stroke": k, "group": g,
+                            "action": "noLanding", "adopted": False,
+                            "evidence": ev0})
                     continue
                 thr2 = max(corArea * 0.65, 1.25 * max(sup0, 1.0))
                 good2 = [c for c in cands2 if c[0] >= thr2]
                 if not good2:
+                    if tOn:
+                        ev0["supMax"] = round(max(c[0] for c in cands2), 1)
+                        diag.trace.append({
+                            "level": "G10", "stroke": k, "group": g,
+                            "action": "belowThr", "adopted": False,
+                            "evidence": ev0})
                     continue
                 # 达标位置取位移最小（同救济的吸附准则）：全局最大会
                 # 跨越腔体跳到远端他笔的杆上（肝的左竖曾+334跳上右壁）
@@ -227,6 +284,13 @@ def sectionSnap(kaiRef, groups, pose):
                         occupied = True
                         break
                 if occupied:
+                    if tOn:
+                        ev0["off"] = round(bestT, 1)
+                        ev0["sup"] = round(bestS, 1)
+                        diag.trace.append({
+                            "level": "G10", "stroke": k, "group": g,
+                            "action": "occupied", "adopted": False,
+                            "evidence": ev0})
                     continue
                 import os as _os2
                 if _os2.environ.get("SL_DEBUG_SNAP"):
@@ -251,7 +315,20 @@ def sectionSnap(kaiRef, groups, pose):
                         conflict = True
                         break
                 if conflict:
+                    if tOn:
+                        ev0["off"] = round(bestT, 1)
+                        ev0["sup"] = round(bestS, 1)
+                        diag.trace.append({
+                            "level": "G10", "stroke": k, "group": g,
+                            "action": "orderConflict", "adopted": False,
+                            "evidence": ev0})
                     continue
+                if tOn:
+                    ev0["off"] = round(bestT, 1)
+                    ev0["sup"] = round(bestS, 1)
+                    diag.trace.append({
+                        "level": "G10", "stroke": k, "group": g,
+                        "adopted": True, "evidence": ev0})
                 medians[k] = [(p[0] + nx1 * bestT, p[1] + ny1 * bestT)
                               for p in medians[k]]
                 initMedians[k] = [tuple(p) for p in medians[k]]
@@ -263,4 +340,4 @@ def sectionSnap(kaiRef, groups, pose):
 def run(geom, kaiRef, groups, pose, diag):
     """G9 -> G10 定序执行（G10 依赖 G9 复位后的中轴位）。"""
     groupRemap(geom, groups, pose, diag)
-    sectionSnap(kaiRef, groups, pose)
+    sectionSnap(kaiRef, groups, pose, diag)

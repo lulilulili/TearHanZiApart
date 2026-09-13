@@ -1,0 +1,88 @@
+字集 958 字(sample) × HarmonyOS_Sans_SC.ttf,simsun.ttc, jobs=7 → D:\Personal_Work\TearHanZiApart\verifyOut\traceStats\20260913-203447-sample
+C:\Users\huzimo\AppData\Roaming\Python\Python39\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+  HarmonyOS_Sans_SC.ttf: 100/958 (79s)
+  HarmonyOS_Sans_SC.ttf: 200/958 (183s)
+  HarmonyOS_Sans_SC.ttf: 300/958 (275s)
+  HarmonyOS_Sans_SC.ttf: 400/958 (363s)
+  HarmonyOS_Sans_SC.ttf: 500/958 (479s)
+  HarmonyOS_Sans_SC.ttf: 600/958 (584s)
+  HarmonyOS_Sans_SC.ttf: 700/958 (682s)
+  HarmonyOS_Sans_SC.ttf: 800/958 (821s)
+C:\Users\huzimo\AppData\Roaming\Python\Python39\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+  HarmonyOS_Sans_SC.ttf: 900/958 (926s)
+C:\Users\huzimo\AppData\Roaming\Python\Python39\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+C:\Users\huzimo\AppData\Roaming\Python\Python39\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+  HarmonyOS_Sans_SC.ttf: 完成 958 字, 耗时 1011s
+C:\Users\huzimo\AppData\Roaming\Python\Python39\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+  simsun.ttc: 100/958 (138s)
+  simsun.ttc: 200/958 (280s)
+C:\Users\huzimo\AppData\Roaming\Python\Python39\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+  simsun.ttc: 300/958 (389s)
+C:\Users\huzimo\AppData\Roaming\Python\Python39\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+  simsun.ttc: 400/958 (488s)
+C:\Users\huzimo\AppData\Roaming\Python\Python39\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+  simsun.ttc: 500/958 (646s)
+  simsun.ttc: 600/958 (768s)
+C:\Users\huzimo\AppData\Roaming\Python\Python39\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+C:\Users\huzimo\AppData\Roaming\Python\Python39\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+  simsun.ttc: 700/958 (928s)
+  simsun.ttc: 800/958 (1103s)
+C:\Users\huzimo\AppData\Roaming\Python\Python39\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+  simsun.ttc: 900/958 (1382s)
+C:\Users\huzimo\AppData\Roaming\Python\Python39\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+  simsun.ttc: 完成 958 字, 耗时 1509s
+# 仲裁 Tracer 胜率表
+
+生成 2026-09-13 20:34 · rev 0177652 · 字集 sample(958 字) · jobs 7
+
+口径：触发=该级病征门控成立并形成改判提议（含被拒绝的，adopted=False）；笔次=提议涉及笔数；采纳率=采纳条目/触发条目；通过率=verifyChar 零失败码。trace 为首遍（名义指派）口径。
+
+## HarmonyOS_Sans_SC.ttf（测 957 字，总通过率 96.2%；有迹字 868）
+
+| 级 | 触发字数 | 触发笔次 | 采纳笔次 | 采纳率 | 采纳字通过率 | 触发字通过率 | 未触发字通过率 | 采纳失败字失败码 | 采纳失败字 |
+|---|---|---|---|---|---|---|---|---|---|
+| G1 | 544 | 1006 | 1006 | 100.0% | 94.9% | 94.9% | 98.1% | AREA×17 TYPE×13 ORDER×5 OVERLAP×1 | 啟喹垠孵廄憑憲戆揸攮甕痺緣繪缪衢鑒閾關雙颞鱄鱠鸚鹔…(28) |
+| S1b | 0 | 0 | 0 | — | — | — | 96.2% | — | — |
+| G2 | 290 | 399 | 59 | 14.8% | 87.9% | 90.0% | 99.0% | TYPE×5 AREA×4 OVERLAP×1 ORDER×1 | 勸啟戆攮鑒閾鼴 |
+| G3 | 103 | 124 | 37 | 29.8% | 83.3% | 91.3% | 96.8% | AREA×3 TYPE×2 ORDER×2 | 兇攮牒痺缪鹭 |
+| G4 | 57 | 78 | 40 | 67.8% | 87.2% | 78.9% | 97.3% | TYPE×3 AREA×3 OVERLAP×1 | 勸孵鄖鱄麝 |
+| G4v | 13 | 13 | 13 | 100.0% | 100.0% | 100.0% | 96.2% | — | — |
+| G5 | 386 | 499 | 28 | 2.9% | 78.6% | 93.8% | 97.9% | AREA×3 TYPE×3 | 戆繪鼴 |
+| G6 | 22 | 52 | 10 | 22.7% | 100.0% | 95.5% | 96.3% | — | — |
+| G7 | 5 | 42 | 2 | 4.8% | 100.0% | 40.0% | 96.5% | — | — |
+| G8 | 23 | 54 | 2 | 3.7% | 0.0% | 78.3% | 96.7% | AREA×1 ORDER×1 | 攮 |
+| G8.5 | 21 | 42 | 38 | 85.7% | 94.4% | 90.5% | 96.4% | AREA×1 TYPE×1 | 戆 |
+| G9 | 667 | 2422 | 2367 | 97.3% | 95.0% | 94.9% | 99.3% | AREA×17 TYPE×16 ORDER×6 OVERLAP×2 | 兇勸啟喧喹嘯垠孵廄憑憲戆揸攮橥牒痺禼繪缪衢鄖鑒閾關…(33) |
+| G10 | 550 | 825 | 588 | 71.3% | 93.8% | 94.2% | 99.0% | AREA×16 TYPE×13 ORDER×4 OVERLAP×2 | 勸啟喧喹嘯垠廄憲戆揸攮橥牒甕禼衢鄖鑒閾關雙鱄鱠鸚鹔…(28) |
+
+## simsun.ttc（测 957 字，总通过率 87.9%；有迹字 938）
+
+| 级 | 触发字数 | 触发笔次 | 采纳笔次 | 采纳率 | 采纳字通过率 | 触发字通过率 | 未触发字通过率 | 采纳失败字失败码 | 采纳失败字 |
+|---|---|---|---|---|---|---|---|---|---|
+| G1 | 149 | 201 | 201 | 100.0% | 77.9% | 77.9% | 89.7% | AREA×22 OVERLAP×10 TYPE×7 ORDER×1 | 喧戆斃濮瀰痦瘭碱磯糟緣繪缪臉蔟蘇谰輕輸辯醺銲鍁钪镢…(33) |
+| S1b | 0 | 0 | 0 | — | — | — | 87.9% | — | — |
+| G2 | 387 | 575 | 73 | 12.7% | 74.6% | 80.4% | 93.0% | AREA×10 OVERLAP×9 TYPE×3 ORDER×1 | 勸喧床徴攮疡痦磯籑繪蠃褶諢蹩蹿醣镢饿 |
+| G3 | 209 | 294 | 65 | 22.1% | 60.3% | 76.6% | 91.0% | OVERLAP×12 AREA×12 TYPE×7 | 噼囀嬋戆晒疡瘭癖睥臉艷蠃裨諄輸辯醌鍁镁關魁鱠鲨麝鼴 |
+| G4 | 48 | 78 | 20 | 40.8% | 80.0% | 83.3% | 88.1% | OVERLAP×2 AREA×2 | 咿籑葉蘇 |
+| G4v | 0 | 0 | 0 | — | — | — | 87.9% | — | — |
+| G5 | 62 | 77 | 14 | 10.0% | 85.7% | 74.2% | 88.8% | AREA×1 TYPE×1 | 銲 |
+| G6 | 3 | 6 | 6 | 100.0% | 66.7% | 66.7% | 87.9% | AREA×1 OVERLAP×1 | 鱠 |
+| G7 | 1 | 16 | 0 | 0.0% | — | 100.0% | 87.9% | — | — |
+| G8 | 93 | 256 | 2 | 0.8% | 0.0% | 74.2% | 89.4% | AREA×1 TYPE×1 | 銲 |
+| G8.5 | 9 | 20 | 18 | 90.0% | 88.9% | 88.9% | 87.9% | TYPE×1 | 睥 |
+| G9 | 694 | 4102 | 4078 | 99.3% | 86.1% | 86.2% | 92.4% | AREA×53 OVERLAP×38 TYPE×19 ORDER×4 | 借價勸咿喧喹嘯噙噼囀四娱嫌嬋家強徊徴戆擬攮斃斛晒毽…(96) |
+| G10 | 909 | 3785 | 1263 | 33.4% | 85.0% | 87.3% | 97.9% | AREA×54 OVERLAP×40 TYPE×17 ORDER×3 | 借價勸咿喧喹嘯噙噼囀四垠婕嫌嬋家床強徊徴戆揠攮斛晒…(96) |
+
+胜率表: D:\Personal_Work\TearHanZiApart\verifyOut\traceStats\20260913-203447-sample\traceStats.md

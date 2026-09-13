@@ -47,6 +47,13 @@ LADDER_ACT = True
 # 进程读不到主进程的包属性赋值，环境变量可随子进程继承
 # （tools/eval_clib.py / verify_batch 开C评估依赖此语义）。
 CLIB_ENABLE = _os.environ.get("STROKELAB_CLIB", "") == "1"
+# 仲裁 Tracer 统一决策迹开关（架构评审#1）：开启时各仲裁级把改判提议
+# （含被拒绝的，adopted=False——胜率表分子分母都要）组装进
+# diag.trace，result 挂 "trace" 键；关闭时 result["trace"]=[]。
+# 埋点只读不回写，任何判定/顺序/浮点与关闭时逐位一致（parity 硬门）。
+# 默认开——trace 本身轻量（只在病征触发处记录，健康字近零条目）。
+# 环境变量 STROKELAB_TRACE=0 可关（spawn worker 继承语义同 CLIB）。
+TRACE_ON = _os.environ.get("STROKELAB_TRACE", "1") != "0"
 
 from .helpers import (_medianDeviation, _hungarian, _switchbackCount,
                       _axisFails, _reMedianFromStroke, _selfSeeds,
@@ -98,16 +105,19 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         dbuild.run(dataHub, fontEntry, geom, kaiRef, pose)  # 全局对齐 + D 构建
         diag.tick("解析对齐/D构建")
     grouping.buildTables(geom, groups)          # 连通组组表
-    # G0/G1 指派 + S1b 语义认领
-    diag.semanticClaims = assign.run(geom, kaiRef, groups, pose, cost)
+    # G0/G1 指派 + S1b 语义认领（G1/S1b 决策迹随返回值并入 diag.trace）
+    diag.semanticClaims, _tr = assign.run(geom, kaiRef, groups, pose, cost)
+    diag.trace += _tr
     # G2..G8 仲裁链 + G8.5 梯队——层序即证据强度递增序，不可重排
-    arbitrate.corridorFit(geom, groups, pose, cost)
-    arbitrate.componentMate(kaiRef, groups, pose, cost)
-    arbitrate.barOverload(geom, kaiRef, groups, pose, cost)
-    arbitrate.barTheftSwap(geom, kaiRef, groups, pose, cost)
-    arbitrate.axisMisplace(geom, kaiRef, groups)
-    diag.slotSwaps = arbitrate.slotSwap(kaiRef, groups, pose, cost)
-    arbitrate.orderPreserve(kaiRef, groups, pose, cost)
+    # （各级决策迹随返回值并入 diag.trace；G8.5/G9/G10 直接写 diag）
+    diag.trace += arbitrate.corridorFit(geom, groups, pose, cost)
+    diag.trace += arbitrate.componentMate(kaiRef, groups, pose, cost)
+    diag.trace += arbitrate.barOverload(geom, kaiRef, groups, pose, cost)
+    diag.trace += arbitrate.barTheftSwap(geom, kaiRef, groups, pose, cost)
+    diag.trace += arbitrate.axisMisplace(geom, kaiRef, groups)
+    diag.slotSwaps, _tr = arbitrate.slotSwap(kaiRef, groups, pose, cost)
+    diag.trace += _tr
+    diag.trace += arbitrate.orderPreserve(kaiRef, groups, pose, cost)
     diag.ladderProbe = arbitrate.ladderProbeStage(kaiRef, groups, pose)
     arbitrate.ladderActStage(kaiRef, groups, pose, cost, diag)
     # G9 组重锚定 + G10 断面吸附
@@ -135,4 +145,12 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     if CLIB_ENABLE and isinstance(ctx.result, dict) and \
             "error" not in ctx.result:
         ctx.result["clibHits"] = ctx.pose.clibHits
+    # 统一决策迹（架构评审#1）：仲裁全谱埋点挂 result["trace"]。口径
+    # 与 clibHits 同——自洽二遍/轴向守卫采纳复跑结果后仍以**外层首遍**
+    # 的迹覆盖（重跑遍走种子路径，其仲裁面对的不是名义位，不代表本级
+    # 病征真实触发；胜率表评估"首遍名义指派的仲裁决策"）。关闭时恒 []
+    # （键仍在，消费端免判存在性；parity 只比 paths/ladder/holes，不受影响）。
+    if isinstance(ctx.result, dict) and "error" not in ctx.result:
+        ctx.result["trace"] = ctx.diag.trace \
+            if (TRACE_ON or LADDER_PROBE) else []
     return ctx.result

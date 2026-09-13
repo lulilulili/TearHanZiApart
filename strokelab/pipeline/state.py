@@ -99,6 +99,12 @@ class Diagnostics:
     ladderRealign: list = None        # G8.5 执行器施行步骤
     ladderTouched: set = None         # G8.5 动过的组（G9 豁免名单）
     cutPoints: list = None            # 切割点记录
+    # 统一决策迹（架构评审#1 仲裁 Tracer）：全谱仲裁级的改判提议逐条
+    # 记录，含被拒绝者（adopted=False——胜率表分母需要）。每条
+    # {level, stroke|strokes, from, to|action, evidence, adopted}。
+    # 只读埋点：组装受 TRACE_ON/LADDER_PROBE 门控，绝不回写任何判定。
+    # 既有诊断键（slotSwaps/groupRemapInfo/…）保持不动，本迹为并集新增。
+    trace: list = field(default_factory=list)
 
     def startTimer(self):
         self.twLast = time.perf_counter()

@@ -10,11 +10,18 @@ G8.5 执行器复用（重置后代价评估）。
 
 import functools
 import math
+import sys
 
 from ..classify import semanticSegments
 from ..geometry import (bboxOfPoints, contourToPath, dist, pointInPolygon,
                         nearestOnPolyline, resamplePolyline, shapeDescriptor)
 from .helpers import _hungarian
+
+
+def _traceOn():
+    """统一决策迹开关（运行期读包属性，赋值即生效——LADDER_* 同语义）。"""
+    _pl = sys.modules["strokelab.pipeline"]
+    return bool(getattr(_pl, "TRACE_ON", False) or _pl.LADDER_PROBE)
 
 
 def strokeGroupCostRow(groups, pose, k):
@@ -150,13 +157,16 @@ def _semanticClaim(kai, groups, pose, costRows, g):
 
 def run(geom, kaiRef, groups, pose, cost):
     """产出 cost.strokeGroupCost/costRows/penMatrix +
-    groups.strokeGroup/groupStrokes；返回 semanticClaims（诊断面）。"""
+    groups.strokeGroup/groupStrokes；返回 (semanticClaims, trace)
+    （诊断面：S1b 认领记录 + G1/S1b 决策迹）。"""
     kai = kaiRef.kai
     contours = geom.contours
     nStrokes = pose.nStrokes
     nGroups = groups.nGroups
     groupBBoxes = groups.groupBBoxes
     initMedians = pose.initMedians
+    trace = []
+    tOn = _traceOn()
 
     # 全局最优指派：每组先由匈牙利算法配一个"锚定笔"（保证无空组——逐笔
     # 独立 argmin 曾让㡭的点挤进邻笔的组、正主组空置沦为全开竞争），
@@ -243,6 +253,17 @@ def run(geom, kaiRef, groups, pose, cost):
         match = _hungarian(cost2)
         for k in range(nStrokes):
             if match[k] < nGroups:
+                # 决策迹：匈牙利锚定与逐笔 argmin 不同 = G1 强制改判
+                # （锚定恒施行——匈牙利解就是终判，无拒绝分支）
+                if tOn and match[k] != strokeGroup[k]:
+                    trace.append({
+                        "level": "G1", "stroke": k,
+                        "from": strokeGroup[k], "to": match[k],
+                        "adopted": True,
+                        "evidence": {
+                            "cArgmin": round(costRows[k][strokeGroup[k]], 1),
+                            "cTo": round(costRows[k][match[k]], 1),
+                            "pen": penMatrix.get(k, {}).get(match[k], 0.0)}})
                 strokeGroup[k] = match[k]
     groupStrokes = {g: [k for k in range(nStrokes) if strokeGroup[k] == g]
                     for g in range(nGroups)}
@@ -261,11 +282,23 @@ def run(geom, kaiRef, groups, pose, cost):
             if claimed is not None:
                 groupStrokes[g] = [claimed]
                 semanticClaims.append({"group": g, "stroke": claimed})
+                if tOn:
+                    trace.append({
+                        "level": "S1b", "stroke": claimed, "to": g,
+                        "action": "claim", "adopted": True,
+                        "evidence": {"cost": round(costRows[claimed][g], 1)}})
             else:
                 groupStrokes[g] = list(range(nStrokes))  # 兜底：放开限制
+                if tOn:
+                    # 空组无人认领退全开竞争 = S1b 触发但改判被拒
+                    trace.append({
+                        "level": "S1b", "group": g,
+                        "action": "fallbackOpen", "adopted": False,
+                        "evidence": {"nGroups": nGroups,
+                                     "nStrokes": nStrokes}})
     cost.strokeGroupCost = functools.partial(strokeGroupCostRow, groups, pose)
     cost.costRows = costRows
     cost.penMatrix = penMatrix
     groups.strokeGroup = strokeGroup
     groups.groupStrokes = groupStrokes
-    return semanticClaims
+    return semanticClaims, trace

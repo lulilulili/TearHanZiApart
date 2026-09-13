@@ -11,6 +11,10 @@ tools/ladder_calib3.py 等以 pl.LADDER_PROBE=2 方式运行期改写。
 运行期桥本体（groupRegionOf/corridorSupport/barAxisOfGroup）为模块级
 函数，functools.partial 绑定子结构视图后挂 groups.regionOf/support/
 barAxisOf，供 G4/G5/G8.5 与 anchor.G10 复用。
+
+仲裁 Tracer（架构评审#1）：各级在病征门控触发处组装决策迹（含被拒绝
+的改判，adopted=False），G2..G8 随返回值交 __init__ 并入 diag.trace，
+G8.5 直接写 diag.trace。埋点只读不回写——TRACE_ON 开/关逐位同判。
 """
 
 import functools
@@ -27,6 +31,13 @@ from ..geometry import (contourToPath, dist, flattenSegs, parseContours,
 def _pkg():
     """包模块本体：运行期读 LADDER_* 开关的当前值（import 时不固化）。"""
     return sys.modules["strokelab.pipeline"]
+
+
+def _traceOn():
+    """统一决策迹开关（架构评审#1）：TRACE_ON 或 LADDER_PROBE 开启时各级
+    组装改判提议明细（含被拒绝者）。埋点只读——关闭/开启逐位同判。"""
+    _pl = _pkg()
+    return bool(getattr(_pl, "TRACE_ON", False) or _pl.LADDER_PROBE)
 
 
 # ============================================================ 运行期桥本体
@@ -138,7 +149,8 @@ def _fold90(a, b):
 # ============================================================ G2 走廊可容纳度
 
 def corridorFit(geom, groups, pose, cost):
-    """G2 走廊可容纳度仲裁（并挂 groups.regionOf/support、pose.wEst）。"""
+    """G2 走廊可容纳度仲裁（并挂 groups.regionOf/support、pose.wEst）；
+    返回 G2 决策迹。"""
     contours = geom.contours
     medians = pose.medians
     nGroups = groups.nGroups
@@ -146,6 +158,8 @@ def corridorFit(geom, groups, pose, cost):
     costRows = cost.costRows
     strokeGroup = groups.strokeGroup
     groupStrokes = groups.groupStrokes
+    trace = []
+    tOn = _traceOn()
 
     # 走廊可容纳度仲裁：墨距离对"名义位置不落在任何组墨内"的笔会就近
     # 错分——好的提名义位置横穿撇点宽腰（墨距离 59 胜出），真身在撇的
@@ -184,10 +198,23 @@ def corridorFit(geom, groups, pose, cost):
                     continue
                 s1 = _support(k, g1)
                 bestG, bestS = -1, s1 * 1.3
+                candEv = []
                 for g in cands:
                     sg = _support(k, g)
+                    if tOn:
+                        candEv.append([g, round(sg, 1)])
                     if sg > bestS and sg > 400.0:
                         bestS, bestG = sg, g
+                if tOn:
+                    # 决策迹：门控已触发（代价≥15+窗口有他组+原组不空）
+                    # ——无论是否改判都记，evidence 含全部候选支撑
+                    trace.append({
+                        "level": "G2", "stroke": k, "from": g1,
+                        "to": bestG if bestG >= 0 else None,
+                        "adopted": bestG >= 0,
+                        "evidence": {"cost0": round(row[g1], 1),
+                                     "sup0": round(s1, 1),
+                                     "cands": candEv}})
                 if bestG >= 0:
                     strokeGroup[k] = bestG
                     groupStrokes[g1].remove(k)
@@ -196,6 +223,7 @@ def corridorFit(geom, groups, pose, cost):
                         groupStrokes[bestG].sort()
     except Exception:
         pass
+    return trace
 
 
 # ============================================================ G3 部件同组
@@ -217,13 +245,15 @@ def _componentMate(a, b):
 
 
 def componentMate(kaiRef, groups, pose, cost):
-    """G3 部件同组仲裁（matches 部件路径为结构证据）。"""
+    """G3 部件同组仲裁（matches 部件路径为结构证据）；返回 G3 决策迹。"""
     kai = kaiRef.kai
     nGroups = groups.nGroups
     nStrokes = pose.nStrokes
     strokeGroup = groups.strokeGroup
     costRows = cost.costRows
     groupStrokes = groups.groupStrokes
+    trace = []
+    tOn = _traceOn()
 
     # 部件同组仲裁：墨距离对"名义位置穿过他部件长笔"的短笔会错分——
     # 爱的冖左竖名义下半段穿过友的长横（墨内代价≈0）错入长横组，真身
@@ -249,19 +279,31 @@ def componentMate(kaiRef, groups, pose, cost):
             if len(groupStrokes[g1]) <= 1:
                 continue
             bestH = None
+            mateEv = []
             for j in mates:
                 h = strokeGroup[j]
                 if h == g1:
                     continue
+                if tOn:
+                    mateEv.append([j, h, round(row[h], 1)])
                 if row[h] - row[g1] <= max(35.0, row[g1] * 0.6):
                     if bestH is None or row[h] < row[bestH]:
                         bestH = h
+            if tOn:
+                # 决策迹：门控已触发（组内无 mate、原组不空）——
+                # bestH=None 即全部 mate 组超代价窗被拒
+                trace.append({
+                    "level": "G3", "stroke": k, "from": g1, "to": bestH,
+                    "adopted": bestH is not None,
+                    "evidence": {"cost0": round(row[g1], 1),
+                                 "mates": mateEv}})
             if bestH is not None:
                 groupStrokes[g1].remove(k)
                 strokeGroup[k] = bestH
                 if k not in groupStrokes[bestH]:
                     groupStrokes[bestH].append(k)
                     groupStrokes[bestH].sort()
+    return trace
 
 
 # ============================================================ G4 单杆组超载
@@ -327,7 +369,7 @@ def _supportOffset(regionOf, pose, nrm, k, h):
 
 
 def barOverload(geom, kaiRef, groups, pose, cost):
-    """G4 单杆组超载重指派 + 垂直蹲杆放逐。"""
+    """G4 单杆组超载重指派 + 垂直蹲杆放逐；返回 G4/G4v 决策迹。"""
     contours = geom.contours
     kai = kaiRef.kai
     nGroups = groups.nGroups
@@ -339,6 +381,8 @@ def barOverload(geom, kaiRef, groups, pose, cost):
     groupCentroids = groups.groupCentroids
     _groupRegion = groups.regionOf
     _support = groups.support
+    trace = []
+    tOn = _traceOn()
 
     # 单杆组超载重指派：楷体的封底横在现代设计中常并入外框轮廓（貝/酉
     # 的目底、日底），其名义位置又恰压在腔内悬浮横杆上（代价0）——墨
@@ -406,6 +450,14 @@ def barOverload(geom, kaiRef, groups, pose, cost):
                             groupStrokes[bestH2].append(kP)
                             groupStrokes[bestH2].sort()
                         ss = groupStrokes.get(g, [])
+                    if tOn:
+                        # 决策迹 G4v：垂直蹲杆病征已触发，bestH2<0=
+                        # 无合格放逐目标（支撑全≤400）被拒
+                        trace.append({
+                            "level": "G4v", "stroke": kP, "from": g,
+                            "to": bestH2 if bestH2 >= 0 else None,
+                            "adopted": bestH2 >= 0,
+                            "evidence": {"sup": round(bestS2, 1)}})
             if len(par) < 2:
                 continue
             gc = groupCentroids.get(g)
@@ -446,6 +498,12 @@ def barOverload(geom, kaiRef, groups, pose, cost):
                 if sup > bestS:
                     bestS, bestH = sup, h
             if bestH < 0:
+                if tOn:
+                    # 决策迹 G4：超载病征成立但无合格放逐目标
+                    trace.append({
+                        "level": "G4", "strokes": list(par), "from": g,
+                        "to": None, "action": "noTarget", "adopted": False,
+                        "evidence": {"bestSup": round(bestS, 1)}})
                 continue
 
             # 落点序一致性：只在上下两个极端里挑放逐者——放逐后其实际
@@ -479,8 +537,23 @@ def barOverload(geom, kaiRef, groups, pose, cost):
                 if chosen is None or sup > chosen[1]:
                     chosen = (exile, sup)
             if chosen is None:
+                if tOn:
+                    # 决策迹 G4：目标已定但两极端候选均不过落点序/支撑门
+                    trace.append({
+                        "level": "G4", "strokes": list(par), "from": g,
+                        "to": bestH, "action": "noExile", "adopted": False,
+                        "evidence": {"cLo": round(cLo, 1),
+                                     "cHi": round(cHi, 1),
+                                     "forced": forced is not None}})
                 continue
             exile = chosen[0]
+            if tOn:
+                trace.append({
+                    "level": "G4", "stroke": exile, "from": g, "to": bestH,
+                    "adopted": True,
+                    "evidence": {"sup": round(chosen[1], 1),
+                                 "cLo": round(cLo, 1), "cHi": round(cHi, 1),
+                                 "forced": forced is not None}})
             groupStrokes[g].remove(exile)
             strokeGroup[exile] = bestH
             if exile not in groupStrokes[bestH]:
@@ -488,6 +561,7 @@ def barOverload(geom, kaiRef, groups, pose, cost):
                 groupStrokes[bestH].sort()
     except Exception:
         pass
+    return trace
 
 
 # ============================================================ G5 疑抢杆认领
@@ -530,7 +604,7 @@ def _supportLanding(regionOf, pose, k, h):
 
 
 def barTheftSwap(geom, kaiRef, groups, pose, cost):
-    """G5 疑抢杆认领互换（笔比杆长=抢占铁证，成链处置）。"""
+    """G5 疑抢杆认领互换（笔比杆长=抢占铁证，成链处置）；返回 G5 决策迹。"""
     contours = geom.contours
     kai = kaiRef.kai
     nGroups = groups.nGroups
@@ -541,6 +615,8 @@ def barTheftSwap(geom, kaiRef, groups, pose, cost):
     groupStrokes = groups.groupStrokes
     groupBBoxes = groups.groupBBoxes
     _groupRegion = groups.regionOf
+    trace = []
+    tOn = _traceOn()
 
     # 疑抢杆认领互换：全局仿射会把楷体某横的名义位置恰好压到目标内部
     # 悬浮横杆上（威：楷体顶横名义 y 落在戌内短横杆上，代价0抢走该杆
@@ -580,7 +656,8 @@ def barTheftSwap(geom, kaiRef, groups, pose, cost):
             rad = math.radians(a1)
             ux, uy = math.cos(rad), math.sin(rad)
             barLen = abs(bb0.w * ux) + abs(bb0.h * uy)
-            if _axisChordLen(initMedians, k1) <= barLen * 1.08:
+            chord1 = _axisChordLen(initMedians, k1)
+            if chord1 <= barLen * 1.08:
                 continue
             # 认领目标：孤儿墨显著的组（墨面积-组内楷体预期 ≥ 0.5×本笔预期）
             bestU = None
@@ -600,8 +677,15 @@ def barTheftSwap(geom, kaiRef, groups, pose, cost):
                 if bestU is None or sup > bestU[0]:
                     bestU = (sup, gU, offv)
             if bestU is None:
+                if tOn:
+                    # 决策迹 G5：笔比杆长病征已触发但无孤儿墨组可认领
+                    trace.append({
+                        "level": "G5", "stroke": k1, "from": g0,
+                        "action": "noOrphan", "adopted": False,
+                        "evidence": {"lenRatio": round(
+                            chord1 / max(1.0, barLen), 2)}})
                 continue
-            _, gU, off1 = bestU
+            supU, gU, off1 = bestU
             c1 = _medianCenter(initMedians, k1)
             land1 = (c1[0] + off1[0], c1[1] + off1[1])
             # 回填者 k2：同向、代价窗口内、原组不空置、楷序=落点序
@@ -632,9 +716,25 @@ def barTheftSwap(geom, kaiRef, groups, pose, cost):
                 if bestK2 is None or sup2 > bestK2[0]:
                     bestK2 = (sup2, k2)
             if bestK2 is None:
+                if tOn:
+                    # 决策迹 G5：孤儿组已定但无合格回填者（链断被拒）
+                    trace.append({
+                        "level": "G5", "stroke": k1, "from": g0, "to": gU,
+                        "action": "noRefill", "adopted": False,
+                        "evidence": {"lenRatio": round(
+                            chord1 / max(1.0, barLen), 2),
+                            "sup": round(supU, 1)}})
                 continue
             k2 = bestK2[1]
             g2 = strokeGroup[k2]
+            if tOn:
+                trace.append({
+                    "level": "G5", "strokes": [k1, k2],
+                    "moves": [[k1, g0, gU], [k2, g2, g0]], "adopted": True,
+                    "evidence": {"lenRatio": round(
+                        chord1 / max(1.0, barLen), 2),
+                        "sup": round(supU, 1),
+                        "sup2": round(bestK2[0], 1)}})
             groupStrokes[g0].remove(k1)
             strokeGroup[k1] = gU
             groupStrokes[gU].append(k1)
@@ -646,6 +746,7 @@ def barTheftSwap(geom, kaiRef, groups, pose, cost):
             done = True
     except Exception:
         pass
+    return trace
 
 
 # ============================================================ G6 轴向错家
@@ -672,11 +773,14 @@ def _permAxisCost(axK, misG, perm):
 
 
 def axisMisplace(geom, kaiRef, groups):
-    """G6 轴向错家重排（并挂 groups.barAxisOf 供 G8.5 复用）。"""
+    """G6 轴向错家重排（并挂 groups.barAxisOf 供 G8.5 复用）；
+    返回 G6 决策迹。"""
     kai = kaiRef.kai
     nGroups = groups.nGroups
     strokeGroup = groups.strokeGroup
     groupStrokes = groups.groupStrokes
+    trace = []
+    tOn = _traceOn()
 
     # 轴向错家重排：横竖笔直出一根与其楷体轴向**垂直**的杆=铁证错家
     # （博6横直出竖杆、11竖撇直出横杆、8竖占斜片——三笔连环错位，
@@ -710,7 +814,21 @@ def axisMisplace(geom, kaiRef, groups):
             c = _permAxisCost(axK, misG, perm)
             if c is not None and (best is None or c < best[0]):
                 best = (c, perm)
-        if best is not None and best[0] < cur - 30.0:
+        adoptedG6 = best is not None and best[0] < cur - 30.0
+        if tOn:
+            # 决策迹 G6：错家名单成立即触发；best=None 为全排列无可行解，
+            # 有解但总偏差降不足 30° 亦被拒
+            movesG6 = []
+            if best is not None:
+                for a, gi2 in enumerate(best[1]):
+                    if misG[gi2][0] != misG[a][0]:
+                        movesG6.append([misK[a], misG[a][0], misG[gi2][0]])
+            trace.append({
+                "level": "G6", "strokes": list(misK), "moves": movesG6,
+                "adopted": adoptedG6,
+                "evidence": {"cur": round(cur, 1),
+                             "best": round(best[0], 1) if best else None}})
+        if adoptedG6:
             for a, gi2 in enumerate(best[1]):
                 k = misK[a]
                 gNew = misG[gi2][0]
@@ -722,6 +840,7 @@ def axisMisplace(geom, kaiRef, groups):
                 groupStrokes[g] = [k for k in misK if strokeGroup[k] == g]
 
     groups.barAxisOf = _barAxisOf
+    return trace
 
 
 # ============================================================ G7 槽位互换
@@ -755,13 +874,15 @@ def _slotCenter(groups, slotMembers, s0, excl):
 
 
 def slotSwap(kaiRef, groups, pose, cost):
-    """G7 槽位互换仲裁（槽位错位是最硬的换家证据）；返回 slotSwaps，
-    并挂 kaiRef.kaiMatches0/slotMembers 供 G8.5 复用。"""
+    """G7 槽位互换仲裁（槽位错位是最硬的换家证据）；返回
+    (slotSwaps, trace)，并挂 kaiRef.kaiMatches0/slotMembers 供 G8.5 复用。"""
     kai = kaiRef.kai
     nStrokes = pose.nStrokes
     strokeGroup = groups.strokeGroup
     groupStrokes = groups.groupStrokes
     costRows = cost.costRows
+    trace = []
+    tOn = _traceOn()
 
     # G7 槽位互换仲裁（种子字统计：92.2% 部件笔数与种子精确一致，
     # 槽位错位是比轴向/次序更硬的换家证据）：各一级槽位中心 = 该槽
@@ -810,7 +931,22 @@ def slotSwap(kaiRef, groups, pose, cost):
                     oldC = costRows[i][gi2] + costRows[j][gj2]
                     newC = costRows[i][gj2] + costRows[j][gi2]
                     if newC > oldC + 60.0:
+                        if tOn:
+                            # 决策迹 G7：互为错位成立但互换代价恶化被拒
+                            trace.append({
+                                "level": "G7", "strokes": [i, j],
+                                "from": [gi2, gj2], "action": "costVeto",
+                                "adopted": False,
+                                "evidence": {"oldC": round(oldC, 1),
+                                             "newC": round(newC, 1)}})
                         continue
+                    if tOn:
+                        trace.append({
+                            "level": "G7", "strokes": [i, j],
+                            "moves": [[i, gi2, gj2], [j, gj2, gi2]],
+                            "adopted": True,
+                            "evidence": {"oldC": round(oldC, 1),
+                                         "newC": round(newC, 1)}})
                     groupStrokes[gi2].remove(i)
                     groupStrokes[gj2].remove(j)
                     strokeGroup[i], strokeGroup[j] = gj2, gi2
@@ -826,19 +962,22 @@ def slotSwap(kaiRef, groups, pose, cost):
 
     kaiRef.kaiMatches0 = kaiMatches0
     kaiRef.slotMembers = slotMembers
-    return slotSwaps
+    return slotSwaps, trace
 
 
 # ============================================================ G8 序保持互换
 
 def orderPreserve(kaiRef, groups, pose, cost):
-    """G8 序保持互换仲裁（楷体次序约束补进组指派）；并挂 kaiRef.kaiCentAll。"""
+    """G8 序保持互换仲裁（楷体次序约束补进组指派）；并挂
+    kaiRef.kaiCentAll，返回 G8 决策迹。"""
     kai = kaiRef.kai
     nStrokes = pose.nStrokes
     strokeGroup = groups.strokeGroup
     groupStrokes = groups.groupStrokes
     groupCentroids = groups.groupCentroids
     costRows = cost.costRows
+    trace = []
+    tOn = _traceOn()
 
     # 序保持互换仲裁（ORDER 主攻）：墨距离对同型笔在代价接近时会把
     # "家"分反——狗的犭撇与勹撇左右互换（偏差500+）、根的木4点上蹿，
@@ -864,18 +1003,41 @@ def orderPreserve(kaiRef, groups, pose, cost):
                 if ci2 is None or cj2 is None:
                     continue
                 bad = False
+                badEv = None
                 for axis in (0, 1):
                     dK = kaiCentAll[j][axis] - kaiCentAll[i][axis]
                     dT = cj2[axis] - ci2[axis]
                     if abs(dK) >= 180.0 and dK * dT < 0 and abs(dT) > 60.0:
                         bad = True
+                        badEv = (axis, dK, dT)
                         break
                 if not bad:
                     continue
                 oldCost = costRows[i][gi] + costRows[j][gj]
                 newCost = costRows[i][gj] + costRows[j][gi]
                 if newCost > oldCost + 30.0:
+                    if tOn:
+                        # 决策迹 G8：楷序反转成立但互换代价恶化被拒
+                        trace.append({
+                            "level": "G8", "strokes": [i, j],
+                            "from": [gi, gj], "action": "costVeto",
+                            "adopted": False,
+                            "evidence": {"axis": "xy"[badEv[0]],
+                                         "dK": round(badEv[1], 1),
+                                         "dT": round(badEv[2], 1),
+                                         "oldC": round(oldCost, 1),
+                                         "newC": round(newCost, 1)}})
                     continue
+                if tOn:
+                    trace.append({
+                        "level": "G8", "strokes": [i, j],
+                        "moves": [[i, gi, gj], [j, gj, gi]],
+                        "adopted": True,
+                        "evidence": {"axis": "xy"[badEv[0]],
+                                     "dK": round(badEv[1], 1),
+                                     "dT": round(badEv[2], 1),
+                                     "oldC": round(oldCost, 1),
+                                     "newC": round(newCost, 1)}})
                 groupStrokes[gi].remove(i)
                 groupStrokes[gj].remove(j)
                 strokeGroup[i], strokeGroup[j] = gj, gi
@@ -888,6 +1050,7 @@ def orderPreserve(kaiRef, groups, pose, cost):
             break
 
     kaiRef.kaiCentAll = kaiCentAll
+    return trace
 
 
 # ============================================================ G8.5 梯队探针
@@ -1260,6 +1423,7 @@ def ladderActStage(kaiRef, groups, pose, cost, diag):
     #    的带位搬走（对抗评审实锤）。
     ladderRealign = []
     ladderTouched = set()
+    tOn = _traceOn()
     if _pl.LADDER_ACT and seedMedians is None and ladderProbe:
         _preEmpty = {g for g in range(nGroups) if not groupStrokes.get(g)}
         _claimed = set()
@@ -1361,11 +1525,38 @@ def ladderActStage(kaiRef, groups, pose, cost, diag):
                     initMedians[k] = im0
                 for g, ss in savGS.items():
                     groupStrokes[g] = ss
+                if tOn:
+                    # 决策迹 G8.5：探针 fired 但执行器整包回滚
+                    diag.trace.append({
+                        "level": "G8.5",
+                        "strokes": [m[0] for m in entry["plan"]],
+                        "moves": [list(m) for m in entry["plan"]],
+                        "action": rej, "adopted": False,
+                        "evidence": {"mode": entry.get("mode"),
+                                     "comp": entry.get("comp")}})
                 continue
             ladderRealign.extend(steps)
+            if tOn:
+                diag.trace.append({
+                    "level": "G8.5", "strokes": [m[0] for m in steps],
+                    "moves": [list(m) for m in steps], "adopted": True,
+                    "evidence": {"mode": entry.get("mode"),
+                                 "comp": entry.get("comp")}})
             for k, gOld, gNew in steps:
                 ladderTouched.add(gOld)
                 ladderTouched.add(gNew)
+    elif tOn and seedMedians is None:
+        # 执行器关闭（LADDER_ACT=False）时 fired 探针也入迹：胜率表要看
+        # "探测到但未施行"的分母（探针零副作用，恒 adopted=False）
+        for entry in (ladderProbe or []):
+            if entry.get("fired") and entry.get("plan"):
+                diag.trace.append({
+                    "level": "G8.5",
+                    "strokes": [m[0] for m in entry["plan"]],
+                    "moves": [list(m) for m in entry["plan"]],
+                    "action": "actOff", "adopted": False,
+                    "evidence": {"mode": entry.get("mode"),
+                                 "comp": entry.get("comp")}})
 
     diag.ladderRealign = ladderRealign
     diag.ladderTouched = ladderTouched
