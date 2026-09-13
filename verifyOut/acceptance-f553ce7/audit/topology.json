@@ -1,0 +1,334 @@
+{
+  "graphConstructionAstEqual": true,
+  "parity": [
+    {
+      "case": "rectangle",
+      "equal": true
+    },
+    {
+      "case": "ring",
+      "equal": true
+    },
+    {
+      "case": "cross",
+      "equal": true
+    },
+    {
+      "case": "short_true_T",
+      "equal": true
+    },
+    {
+      "case": "disconnected",
+      "equal": true
+    },
+    {
+      "case": "empty",
+      "equal": true
+    }
+  ],
+  "boundaries": [
+    {
+      "case": "rectangle",
+      "degrees": []
+    },
+    {
+      "case": "ring",
+      "degrees": []
+    },
+    {
+      "case": "cross",
+      "degrees": [
+        4
+      ]
+    },
+    {
+      "case": "short_true_T",
+      "degrees": []
+    },
+    {
+      "case": "disconnected",
+      "error": "AttributeError(\"'MultiPolygon' object has no attribute 'exterior'\")"
+    },
+    {
+      "case": "empty",
+      "degrees": []
+    },
+    {
+      "case": "short_true_T",
+      "scale": 0.5,
+      "degrees": []
+    },
+    {
+      "case": "short_true_T",
+      "scale": 1,
+      "degrees": []
+    },
+    {
+      "case": "short_true_T",
+      "scale": 2,
+      "degrees": [
+        3
+      ]
+    }
+  ],
+  "fontCalibration": [
+    {
+      "font": "HarmonyOS_Sans_SC.ttf",
+      "ch": "日",
+      "expected": [
+        3,
+        3
+      ],
+      "actual": [
+        3,
+        3
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "HarmonyOS_Sans_SC.ttf",
+      "ch": "口",
+      "expected": [],
+      "actual": [],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "HarmonyOS_Sans_SC.ttf",
+      "ch": "田",
+      "expected": [
+        3,
+        3,
+        3,
+        3,
+        4
+      ],
+      "actual": [
+        3,
+        3,
+        3,
+        3,
+        4
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "HarmonyOS_Sans_SC.ttf",
+      "ch": "中",
+      "expected": [
+        4,
+        4
+      ],
+      "actual": [
+        4,
+        4
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "HarmonyOS_Sans_SC.ttf",
+      "ch": "王",
+      "expected": [
+        3,
+        3,
+        4
+      ],
+      "actual": [
+        3,
+        3,
+        4
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "HarmonyOS_Sans_SC.ttf",
+      "ch": "土",
+      "expected": [
+        3,
+        4
+      ],
+      "actual": [
+        3,
+        4
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "simhei.ttf",
+      "ch": "日",
+      "expected": [
+        3,
+        3
+      ],
+      "actual": [
+        3,
+        3
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "simhei.ttf",
+      "ch": "口",
+      "expected": [],
+      "actual": [],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "simhei.ttf",
+      "ch": "田",
+      "expected": [
+        3,
+        3,
+        3,
+        3,
+        4
+      ],
+      "actual": [
+        3,
+        3,
+        3,
+        3,
+        4
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "simhei.ttf",
+      "ch": "中",
+      "expected": [
+        4,
+        4
+      ],
+      "actual": [
+        4,
+        4
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "simhei.ttf",
+      "ch": "王",
+      "expected": [
+        3,
+        3,
+        4
+      ],
+      "actual": [
+        3,
+        3,
+        4
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "simhei.ttf",
+      "ch": "土",
+      "expected": [
+        3,
+        4
+      ],
+      "actual": [
+        3,
+        4
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "NotoSansSC-VariableFont_wght.ttf",
+      "ch": "日",
+      "expected": [
+        3,
+        3
+      ],
+      "actual": [
+        3,
+        3
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "NotoSansSC-VariableFont_wght.ttf",
+      "ch": "口",
+      "expected": [],
+      "actual": [],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "NotoSansSC-VariableFont_wght.ttf",
+      "ch": "田",
+      "expected": [
+        3,
+        3,
+        3,
+        3,
+        4
+      ],
+      "actual": [
+        3,
+        3,
+        3,
+        3,
+        4
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "NotoSansSC-VariableFont_wght.ttf",
+      "ch": "中",
+      "expected": [
+        4,
+        4
+      ],
+      "actual": [
+        4,
+        4
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "NotoSansSC-VariableFont_wght.ttf",
+      "ch": "王",
+      "expected": [
+        3,
+        3,
+        4
+      ],
+      "actual": [
+        3,
+        3,
+        4
+      ],
+      "match": true,
+      "centerlineEqual": true
+    },
+    {
+      "font": "NotoSansSC-VariableFont_wght.ttf",
+      "ch": "土",
+      "expected": [
+        3,
+        4
+      ],
+      "actual": [
+        3,
+        4
+      ],
+      "match": true,
+      "centerlineEqual": true
+    }
+  ]
+}

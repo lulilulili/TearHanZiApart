@@ -1,0 +1,175 @@
+{
+  "createdAt": "2026-09-13T09:57:55.553697+08:00",
+  "preset": "sample",
+  "root": "D:\\Personal_Work\\TearHanZiApart\\.local\\protocol-f553ce7\\source",
+  "fonts": [
+    {
+      "path": "D:\\Personal_Work\\TearHanZiApart\\.local\\protocol-f553ce7\\source\\Fonts\\HarmonyOS_Sans_SC.ttf",
+      "size": 20617156,
+      "mtimeNs": 1752820192000000000
+    }
+  ],
+  "charCount": 958,
+  "charSha256": "639ab392bba57e8d202677fd20eb003861378626f010bd1ec509b4045f6f2cda",
+  "stride": 10,
+  "jobs": 6,
+  "source": {
+    "algorithmSha256": "3f78d285439cdc7f3b6001f212a3b0ca91cd7c7ad2d42aaf360915e6026f36d8",
+    "python": "3.9.1",
+    "platform": "Windows-10-10.0.19041-SP0",
+    "machine": "AMD64"
+  },
+  "elapsedSeconds": 455.74,
+  "summary": {
+    "HarmonyOS_Sans_SC": {
+      "total": 958,
+      "skipped": 1,
+      "tested": 957,
+      "passed": 920,
+      "passRate": 96.13,
+      "byCode": {
+        "TYPE": {
+          "count": 18,
+          "chars": "兇勸啟憑戆橥甕痺禼繪衢鄖閾雙颞鱄鱠鼴"
+        },
+        "ORDER": {
+          "count": 7,
+          "chars": "喧喹嘯憑攮緣缪"
+        },
+        "OVERLAP": {
+          "count": 2,
+          "chars": "勸廄"
+        },
+        "AREA": {
+          "count": 19,
+          "chars": "垠孵憲戆揸攮牒甕繪還鑒關雙鱄鸚鹔鹭麝鼴"
+        }
+      },
+      "failChars": {
+        "兇": [
+          "TYPE"
+        ],
+        "勸": [
+          "OVERLAP",
+          "TYPE"
+        ],
+        "啟": [
+          "TYPE"
+        ],
+        "垠": [
+          "AREA"
+        ],
+        "喧": [
+          "ORDER"
+        ],
+        "喹": [
+          "ORDER"
+        ],
+        "嘯": [
+          "ORDER"
+        ],
+        "孵": [
+          "AREA"
+        ],
+        "廄": [
+          "OVERLAP"
+        ],
+        "憑": [
+          "ORDER",
+          "TYPE"
+        ],
+        "憲": [
+          "AREA"
+        ],
+        "戆": [
+          "AREA",
+          "TYPE"
+        ],
+        "揸": [
+          "AREA"
+        ],
+        "攮": [
+          "AREA",
+          "ORDER"
+        ],
+        "橥": [
+          "TYPE"
+        ],
+        "牒": [
+          "AREA"
+        ],
+        "甕": [
+          "AREA",
+          "TYPE"
+        ],
+        "痺": [
+          "TYPE"
+        ],
+        "禼": [
+          "TYPE"
+        ],
+        "缪": [
+          "ORDER"
+        ],
+        "緣": [
+          "ORDER"
+        ],
+        "繪": [
+          "AREA",
+          "TYPE"
+        ],
+        "衢": [
+          "TYPE"
+        ],
+        "鑒": [
+          "AREA"
+        ],
+        "鄖": [
+          "TYPE"
+        ],
+        "還": [
+          "AREA"
+        ],
+        "雙": [
+          "AREA",
+          "TYPE"
+        ],
+        "閾": [
+          "TYPE"
+        ],
+        "關": [
+          "AREA"
+        ],
+        "颞": [
+          "TYPE"
+        ],
+        "鱄": [
+          "AREA",
+          "TYPE"
+        ],
+        "鱠": [
+          "TYPE"
+        ],
+        "鸚": [
+          "AREA"
+        ],
+        "鹔": [
+          "AREA"
+        ],
+        "鹭": [
+          "AREA"
+        ],
+        "麝": [
+          "AREA"
+        ],
+        "鼴": [
+          "AREA",
+          "TYPE"
+        ]
+      },
+      "avgRetain": 0.956,
+      "clampedStrokes": 875,
+      "kaiTplStrokes": 257
+    }
+  }
+}

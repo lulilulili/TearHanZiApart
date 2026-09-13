@@ -1,0 +1,38 @@
+{
+  "commit": "f553ce730d4f69d9553c02e32e7c79ac8075cfb0",
+  "preparedAt": "2026-09-13T01:15:12.407766+08:00",
+  "sourceSha256": {
+    "strokelab/__init__.py": "c0799b9f4a9aba58a7483a553b264699aa379027548053d9742908c80a82cb2f",
+    "strokelab/bench.py": "f6a282440417aff29a22ee4acf5ee0f23cabf21e6ba6a17931fd3b3e0bf947f0",
+    "strokelab/boolean.py": "8c95f6a264c091b83dcff002035664bf1be1f754576b7f14fc205d9665258b60",
+    "strokelab/classify.py": "3ac34adef7901b87cde90c5f7cfa68eb1306f31e827c6a8832a4431ebd6c892b",
+    "strokelab/cli.py": "097a62f7ccf35a4e63f8b572818513c775e4430412c7fae62c1062867b24c729",
+    "strokelab/componentAliases.json": "406b2c6a60135ee1c34594e210e74df369ac065feaeeb4c42e4f8e2733600907",
+    "strokelab/datahub.py": "8c1c1c2c343903b58e10474e92b1191f358ffba114bed0444db36f65b1511ff1",
+    "strokelab/fonthub.py": "8f092e632f68c627f1d030cbf85e9aaeaf720f7a4390924c470d5b95d6a28a98",
+    "strokelab/geometry.py": "4ac6e3111a86b6278b4b1ab7bac5068932316893aa63ece74c7492fa1e69a523",
+    "strokelab/kaiTypeFixes.json": "47f3718dfe669b90bbb30e9f66f859ee5f510983a2a8829ca87294e34ceb00ef",
+    "strokelab/pipeline.py": "8459ab6b616e5d8991735773770c57b7c7713fd9523a42d646b886c0ce2bf710",
+    "strokelab/server.py": "66914342a62f695014e058b880d93eb87a0c5c222fc2115c1a0c6330b14a5abb",
+    "strokelab/verify.py": "95f7c58e1ae9b435eae9136f3542465d488957724989885fa9d0bb64791397d6"
+  },
+  "fontSha256": {
+    "HarmonyOS_Sans_SC.ttf": "8978e05044e7089ad6a9de38c505c8148305607983487435a916d2610700a7ca",
+    "NotoSansSC-VariableFont_wght.ttf": "e80613a35583f59b46dbf6cc2eb640f3db0bb0f53fa7f6fbaa7b09faf20e5172",
+    "simhei.ttf": "aa4560dd8fe5645745fed3ffa301c3ca4d6c03cbd738145b613303961ba733b8",
+    "ZCOOLXiaoWei-Regular.ttf": "f5ffee4980db40005b7d7e76f7e8c7a0f959e87d57c33aeb8c9793a5a1077a35",
+    "ZCOOLKuaiLe-Regular.ttf": "bc218a547914684c036e0e141bdc60fd94e5fbe22eb84e1f4d1859875fc2415b"
+  },
+  "dataSha256": {
+    "makemeahanzi-master/graphics.txt": "775d5da25a614d5fbd5557154e5357db2dd5cf8ae01999471658df1ec0acd28a",
+    "makemeahanzi-master/dictionary.txt": "c2aa0666703a2f7e4f7a8811ba2498e5528a0a34bb1f2812f079131a9a1fca1c",
+    "hanzi_chaizi-master/raw_data/chaizi-jt.txt": "35195c4c7060f7b7f55dcad842050924ebfd51bb5cc5946e854388c15a3922e1",
+    "hanzi_chaizi-master/raw_data/chaizi-ft.txt": "831051c487d5fc92ee2fedf36429d2b2a583170c2518ea57e371f0eb447eca94"
+  },
+  "charSha256": {
+    "sample": "639ab392bba57e8d202677fd20eb003861378626f010bd1ec509b4045f6f2cda",
+    "cross": "b5c1575a235ec4bd8c9d0d8857e57fc6d6e183a59f38f8027d918825bc2a0852"
+  },
+  "python": "3.9.1 (tags/v3.9.1:1e5d33e, Dec  7 2020, 17:08:21) [MSC v.1927 64 bit (AMD64)]",
+  "jobs": 6
+}

@@ -1,0 +1,100 @@
+{
+  "integrityAndCountGatePassed": true,
+  "note": "Individual regressions and code migrations still require adversarial review.",
+  "errors": [],
+  "baseline": {
+    "total": 33,
+    "tested": 33,
+    "skipped": 0,
+    "passed": 15,
+    "passRate": 45.4545,
+    "byCode": {
+      "AREA": 8,
+      "ORDER": 1,
+      "TYPE": 12
+    },
+    "soft": {
+      "compQuota": 0,
+      "compOut": 2,
+      "orderX": 15,
+      "reclass": 149
+    }
+  },
+  "current": {
+    "total": 33,
+    "tested": 33,
+    "skipped": 0,
+    "passed": 27,
+    "passRate": 81.8182,
+    "byCode": {
+      "AREA": 3,
+      "OVERLAP": 1,
+      "TYPE": 4
+    },
+    "soft": {
+      "compQuota": 0,
+      "compOut": 2,
+      "orderX": 4,
+      "reclass": 139
+    }
+  },
+  "fixed": [
+    "博",
+    "啤",
+    "搏",
+    "睥",
+    "碑",
+    "稗",
+    "縛",
+    "萆",
+    "蜱",
+    "郫",
+    "鎛",
+    "陴"
+  ],
+  "regressions": [],
+  "migrations": [
+    {
+      "ch": "埤",
+      "before": [
+        "AREA",
+        "ORDER",
+        "TYPE"
+      ],
+      "after": [
+        "AREA",
+        "TYPE"
+      ],
+      "added": [],
+      "removed": [
+        "ORDER"
+      ]
+    },
+    {
+      "ch": "髀",
+      "before": [
+        "TYPE"
+      ],
+      "after": [
+        "OVERLAP"
+      ],
+      "added": [
+        "OVERLAP"
+      ],
+      "removed": [
+        "TYPE"
+      ]
+    }
+  ],
+  "skipChanged": [],
+  "newHardFailures": {
+    "ERROR": [],
+    "UNION": []
+  },
+  "missing": [],
+  "extra": [],
+  "requirements": {
+    "minPassed": 0,
+    "maxNetLoss": 0
+  }
+}

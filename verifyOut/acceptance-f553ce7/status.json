@@ -1,0 +1,53 @@
+{
+  "commit": "f553ce730d4f69d9553c02e32e7c79ac8075cfb0",
+  "status": "completed_reduced_scope",
+  "startedAt": "2026-09-13T01:25:15.109162+08:00",
+  "phases": {
+    "sample": {
+      "exitCode": 0,
+      "seconds": 456.48,
+      "command": [
+        "D:\\Personal_Work\\TearHanZiApart\\.venv\\Scripts\\python.exe",
+        "-X",
+        "utf8",
+        "-u",
+        "tools/verify_batch.py",
+        "--root",
+        "D:\\Personal_Work\\TearHanZiApart\\.local\\protocol-f553ce7\\source",
+        "--preset",
+        "sample",
+        "--chars-file",
+        "D:\\Personal_Work\\TearHanZiApart\\verifyOut\\acceptance-f553ce7\\sample-chars.txt",
+        "--jobs",
+        "6",
+        "--out",
+        "D:\\Personal_Work\\TearHanZiApart\\verifyOut\\acceptance-f553ce7\\sample"
+      ]
+    },
+    "bench": {
+      "exitCode": 0,
+      "seconds": 450.81,
+      "command": [
+        "D:\\Personal_Work\\TearHanZiApart\\.venv\\Scripts\\python.exe",
+        "-X",
+        "utf8",
+        "-u",
+        "-m",
+        "strokelab.bench",
+        "--root",
+        "D:\\Personal_Work\\TearHanZiApart\\.local\\protocol-f553ce7\\source",
+        "--check"
+      ]
+    }
+  },
+  "phase": null,
+  "resumedAt": [
+    "2026-09-13T09:50:19.225501+08:00"
+  ],
+  "crossDeferredByUser": true,
+  "finishedAt": "2026-09-13T10:21:54.798279+08:00",
+  "crossDeferralReason": "用户要求跨字验收暂且不管，停止本任务跨字体批次；部分结果不用于验收",
+  "crossPartialRecords": {
+    "simhei.jsonl": 137
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "integrityAndCountGatePassed": true,
+  "note": "Individual regressions and code migrations still require adversarial review.",
+  "errors": [],
+  "baseline": {
+    "total": 958,
+    "tested": 957,
+    "skipped": 1,
+    "passed": 920,
+    "passRate": 96.1338,
+    "byCode": {
+      "AREA": 19,
+      "ORDER": 7,
+      "OVERLAP": 2,
+      "TYPE": 18
+    },
+    "soft": {
+      "compQuota": 0,
+      "compOut": 33,
+      "orderX": 95,
+      "reclass": 4064
+    }
+  },
+  "current": {
+    "total": 958,
+    "tested": 957,
+    "skipped": 1,
+    "passed": 920,
+    "passRate": 96.1338,
+    "byCode": {
+      "AREA": 19,
+      "ORDER": 7,
+      "OVERLAP": 2,
+      "TYPE": 18
+    },
+    "soft": {
+      "compQuota": 0,
+      "compOut": 33,
+      "orderX": 95,
+      "reclass": 4064
+    }
+  },
+  "fixed": [],
+  "regressions": [],
+  "migrations": [],
+  "skipChanged": [],
+  "newHardFailures": {
+    "ERROR": [],
+    "UNION": []
+  },
+  "missing": [],
+  "extra": [],
+  "requirements": {
+    "minPassed": 920,
+    "maxNetLoss": 0
+  }
+}

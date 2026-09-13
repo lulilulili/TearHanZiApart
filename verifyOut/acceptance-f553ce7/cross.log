@@ -1,0 +1,8 @@
+root=D:\Personal_Work\TearHanZiApart\.local\protocol-f553ce7\source
+preset=cross chars=320 mode=file fonts=simhei.ttf,NotoSansSC-VariableFont_wght.ttf jobs=6
+D:\Personal_Work\TearHanZiApart\.venv\lib\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+D:\Personal_Work\TearHanZiApart\.venv\lib\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+D:\Personal_Work\TearHanZiApart\.venv\lib\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)

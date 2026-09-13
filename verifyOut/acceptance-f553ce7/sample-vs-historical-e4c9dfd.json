@@ -1,0 +1,81 @@
+{
+  "integrityAndCountGatePassed": true,
+  "note": "Individual regressions and code migrations still require adversarial review.",
+  "errors": [],
+  "baseline": {
+    "total": 958,
+    "tested": 957,
+    "skipped": 1,
+    "passed": 918,
+    "passRate": 95.9248,
+    "byCode": {
+      "AREA": 20,
+      "ORDER": 7,
+      "OVERLAP": 3,
+      "TYPE": 19
+    },
+    "soft": {
+      "compQuota": 0,
+      "compOut": 32,
+      "orderX": 99,
+      "reclass": 4055
+    }
+  },
+  "current": {
+    "total": 958,
+    "tested": 957,
+    "skipped": 1,
+    "passed": 920,
+    "passRate": 96.1338,
+    "byCode": {
+      "AREA": 19,
+      "ORDER": 7,
+      "OVERLAP": 2,
+      "TYPE": 18
+    },
+    "soft": {
+      "compQuota": 0,
+      "compOut": 33,
+      "orderX": 95,
+      "reclass": 4064
+    }
+  },
+  "fixed": [
+    "搏",
+    "睥",
+    "缴",
+    "贾"
+  ],
+  "regressions": [
+    {
+      "ch": "還",
+      "fails": [
+        {
+          "code": "AREA",
+          "detail": "4:4%→0% 11:3%→12%"
+        }
+      ]
+    },
+    {
+      "ch": "鄖",
+      "fails": [
+        {
+          "code": "TYPE",
+          "detail": "3:竖轴偏35°"
+        }
+      ]
+    }
+  ],
+  "migrations": [],
+  "skipChanged": [],
+  "newHardFailures": {
+    "ERROR": [],
+    "UNION": []
+  },
+  "missing": [],
+  "extra": [],
+  "requirements": {
+    "minPassed": 0,
+    "maxNetLoss": 0
+  }
+}

@@ -1,0 +1,15 @@
+root=D:\Personal_Work\TearHanZiApart\.local\protocol-f553ce7\source
+preset=sample chars=958 mode=file fonts=HarmonyOS_Sans_SC.ttf jobs=6
+D:\Personal_Work\TearHanZiApart\.venv\lib\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+  HarmonyOS_Sans_SC.ttf: 500/958 (1028s)
+root=D:\Personal_Work\TearHanZiApart\.local\protocol-f553ce7\source
+preset=sample chars=958 mode=file fonts=HarmonyOS_Sans_SC.ttf jobs=6
+D:\Personal_Work\TearHanZiApart\.venv\lib\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+D:\Personal_Work\TearHanZiApart\.venv\lib\site-packages\shapely\measurement.py:72: RuntimeWarning: invalid value encountered in distance
+  return lib.distance(a, b, **kwargs)
+  HarmonyOS_Sans_SC.ttf: 完成 272 字, 耗时 455s
+报告: D:\Personal_Work\TearHanZiApart\verifyOut\acceptance-f553ce7\sample\report.html
+结果: D:\Personal_Work\TearHanZiApart\verifyOut\acceptance-f553ce7\sample
+HarmonyOS_Sans_SC: 测957 过920 (96.13%)
