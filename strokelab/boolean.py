@@ -55,7 +55,7 @@ def _evenOddRegion(polys):
     return region
 
 
-@lru_cache(maxsize=2048)
+@lru_cache(maxsize=256)
 def _pathRegion(pathStr):
     """路径串 → 奇偶合成区域，模块级 LRU 只读共享。同一笔的区域在
     rescueStarved/clampStrokes/enforceConnectivity/reUnionCheck 之间

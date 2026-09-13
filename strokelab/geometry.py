@@ -102,11 +102,12 @@ def parseContours(pathStr):
     return [{"segs": list(segs)} for segs in _parseContoursCached(pathStr)]
 
 
-@lru_cache(maxsize=4096)
+@lru_cache(maxsize=1024)
 def _parseContoursCached(pathStr):
     """parseContours 的不可变中间层：→ tuple(tuple(seg, ...), ...)。
-    容量 4096：单字一次拆解触达的不同路径串至多数百（笔画×多轮收口
-    重写），批量校验按 LRU 自然淘汰，内存上界几十 MB 量级。"""
+    容量 1024：单字一次拆解触达的不同路径串至多数百（笔画×多轮收口
+    重写），跨字命中≈0 不值得囤积；初版 4096 在 7 进程批量校验下
+    内存耗尽（鑒/醺 MemoryError），收缩为纯单字工作集量级。"""
     tk = pathStr.replace(",", " ").split()
     contours = []
     cur = None
@@ -188,7 +189,7 @@ def flattenSegs(segs, step=12.0):
         return _flattenSegsRaw(segs, step)
 
 
-@lru_cache(maxsize=4096)
+@lru_cache(maxsize=1024)
 def _flattenSegsCached(segsKey, step):
     return tuple(_flattenSegsRaw(segsKey, step))
 
@@ -956,7 +957,7 @@ def shapeDescriptor(paths):
             "mainAngle": d["mainAngle"], "fill": d["fill"]}
 
 
-@lru_cache(maxsize=4096)
+@lru_cache(maxsize=1024)
 def _shapeDescriptorCached(paths):
     hist = [0.0] * 9
     cx = cy = totalLen = areaSum = 0.0
