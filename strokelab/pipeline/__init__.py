@@ -69,7 +69,9 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     ctx.diag.startTimer()         # 计时基点与原单文件版一致（并组后起表）
     dbuild.run(ctx)               # 全局对齐 + D 构建
     grouping.buildTables(ctx)     # 连通组组表
-    assign.run(ctx)               # G0/G1 指派 + S1b 语义认领
+    # G0/G1 指派 + S1b 语义认领
+    ctx.diag.semanticClaims = assign.run(ctx.geom, ctx.kaiRef, ctx.groups,
+                                         ctx.pose, ctx.cost)
     arbitrate.run(ctx)            # G2..G8 仲裁链 + G8.5 梯队
     anchor.run(ctx)               # G9 组重锚定 + G10 断面吸附
     iterate.run(ctx)              # 归属迭代精调 + 终态吸直
