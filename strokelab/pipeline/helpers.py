@@ -11,6 +11,31 @@ from ..geometry import (dist, parseContours, flattenSegs, bboxOfPoints,
                         nearestOnPolyline, polylineLength, recenterMedian,
                         shapeDescriptor)
 
+def _resampleByArcN(poly, n):
+    """按弧长等距重采样为恰 n 点（首点保留；退化折线按首点填充）。"""
+    L = polylineLength(poly)
+    if L < 1e-6:
+        return [tuple(poly[0])] * n
+    step = L / (n - 1)
+    out = [tuple(poly[0])]
+    carry = 0.0
+    for i in range(len(poly) - 1):
+        x1, y1 = poly[i]
+        x2, y2 = poly[i + 1]
+        seg = math.hypot(x2 - x1, y2 - y1)
+        if seg < 1e-9:
+            continue
+        t = step - carry
+        while t <= seg and len(out) < n:
+            u = t / seg
+            out.append((x1 + (x2 - x1) * u, y1 + (y2 - y1) * u))
+            t += step
+        carry = seg - (t - step)
+    while len(out) < n:
+        out.append(tuple(poly[-1]))
+    return out
+
+
 def _medianDeviation(placed, kaiPlaced):
     """模板骨架放置后与楷体中轴线的形态偏差：按弧长重采样 24 点对齐的
     平均点距 / 楷体中轴线包围盒对角线。None=无法比较。"""
@@ -21,32 +46,8 @@ def _medianDeviation(placed, kaiPlaced):
     if diag < 1e-6:
         return None
     n = 24
-
-    def resampleN(poly):
-        L = polylineLength(poly)
-        if L < 1e-6:
-            return [tuple(poly[0])] * n
-        step = L / (n - 1)
-        out = [tuple(poly[0])]
-        carry = 0.0
-        for i in range(len(poly) - 1):
-            x1, y1 = poly[i]
-            x2, y2 = poly[i + 1]
-            seg = math.hypot(x2 - x1, y2 - y1)
-            if seg < 1e-9:
-                continue
-            t = step - carry
-            while t <= seg and len(out) < n:
-                u = t / seg
-                out.append((x1 + (x2 - x1) * u, y1 + (y2 - y1) * u))
-                t += step
-            carry = seg - (t - step)
-        while len(out) < n:
-            out.append(tuple(poly[-1]))
-        return out
-
-    a = resampleN(placed)
-    b2 = resampleN(kaiPlaced)
+    a = _resampleByArcN(placed, n)
+    b2 = _resampleByArcN(kaiPlaced, n)
     avg = sum(dist(p, q) for p, q in zip(a, b2)) / n
     return avg / diag
 
