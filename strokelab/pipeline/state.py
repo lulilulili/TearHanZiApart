@@ -83,7 +83,10 @@ class KaiRef:
 class CostModel:
     """指派代价面：墨距离矩阵 + 相容性罚（assign 产出）。"""
     costRows: list = None             # 全笔×全组墨距离矩阵
-    penMatrix: dict = None            # 指派相容性罚（杆⊥笔/点锚大墨）
+    penMatrix: dict = None            # 指派相容性罚（笔→组→罚值标量和；
+                                      # G8.5 否决门读此，读法保持标量）
+    penTags: dict = None              # 罚种分道明细 笔→组→{罚种:罚值}
+                                      # （barPerp 杆⊥/dotAnchor 点锚大墨）
     strokeGroupCost: object = None    # 运行期桥：笔→组墨距离行向量
 
 

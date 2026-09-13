@@ -156,7 +156,7 @@ def _semanticClaim(kai, groups, pose, costRows, g):
 
 
 def run(geom, kaiRef, groups, pose, cost):
-    """产出 cost.strokeGroupCost/costRows/penMatrix +
+    """产出 cost.strokeGroupCost/costRows/penMatrix/penTags +
     groups.strokeGroup/groupStrokes；返回 (semanticClaims, trace)
     （诊断面：S1b 认领记录 + G1/S1b 决策迹）。"""
     kai = kaiRef.kai
@@ -182,6 +182,7 @@ def run(geom, kaiRef, groups, pose, cost):
     #   ≥7%)（邸酞濮蜷——楷体点名义恰压长笔墨上代价≈0，匈牙利便
     #   "点锚大墨、长笔流放点斑"）
     penMatrix = {}
+    penTags = {}
     try:
         _totInk = 0.0
         _gInk = {}
@@ -218,21 +219,28 @@ def run(geom, kaiRef, groups, pose, cost):
                 kAng0 = math.degrees(math.atan2(
                     m0k[-1][1] - m0k[0][1], m0k[-1][0] - m0k[0][0])) % 180.0
             for g in range(nGroups):
-                pen = 0.0
+                pens = {}
                 ax0 = _barAx.get(g)
                 if ax0 is not None and kAng0 is not None:
                     dv0 = abs(ax0 - kAng0) % 180.0
                     if min(dv0, 180.0 - dv0) > 50.0:
-                        pen += 200.0
+                        pens["barPerp"] = 200.0
                 if t0 == "点":
                     bb = groupBBoxes.get(g)
                     if bb is not None and _totInk > 0:
                         diag0 = math.hypot(bb.w, bb.h)
                         if diag0 >= 3.5 * max(20.0, chord0) and \
                                 _gInk.get(g, 0.0) / _totInk >= 0.07:
-                            pen += 250.0
-                if pen:
-                    penMatrix.setdefault(k, {})[g] = pen
+                            pens["dotAnchor"] = 250.0
+                if pens:
+                    # 罚种分道记账（矩阵归并·对抗评审裁定#1）：penTags
+                    # 记 {罚种:罚值} 明细，penMatrix 保持"各罚种之和"的
+                    # 标量——G8.5 执行器否决门在 arbitrate.py 读标量
+                    # (≥200 一票否决)，对外读法零改动；未来罚种豁免
+                    # （裁定#7 barcap 不进否决门）只需该处改读 penTags
+                    # 分量。求和顺序=罚种登记顺序，数值与原累加逐位同。
+                    penTags.setdefault(k, {})[g] = pens
+                    penMatrix.setdefault(k, {})[g] = sum(pens.values())
     except Exception:
         pass
     strokeGroup = [min(range(nGroups), key=lambda g: costRows[k][g])
@@ -299,6 +307,7 @@ def run(geom, kaiRef, groups, pose, cost):
     cost.strokeGroupCost = functools.partial(strokeGroupCostRow, groups, pose)
     cost.costRows = costRows
     cost.penMatrix = penMatrix
+    cost.penTags = penTags
     groups.strokeGroup = strokeGroup
     groups.groupStrokes = groupStrokes
     return semanticClaims, trace
