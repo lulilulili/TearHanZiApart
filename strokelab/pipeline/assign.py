@@ -271,7 +271,13 @@ def run(geom, kaiRef, groups, pose, cost):
                         "evidence": {
                             "cArgmin": round(costRows[k][strokeGroup[k]], 1),
                             "cTo": round(costRows[k][match[k]], 1),
-                            "pen": penMatrix.get(k, {}).get(match[k], 0.0)}})
+                            # 评审实证:旧 pen 字段只记目的组罚,罚成功时
+                            # 目的组必然无罚(1207条0命中)。改为按罚种双
+                            # 记:penFrom=argmin组(被罚离开的家)的罚,
+                            # penTo=匈牙利目的组的罚
+                            "penFrom": penTags.get(k, {}).get(
+                                strokeGroup[k], {}),
+                            "penTo": penTags.get(k, {}).get(match[k], {})}})
                 strokeGroup[k] = match[k]
     groupStrokes = {g: [k for k in range(nStrokes) if strokeGroup[k] == g]
                     for g in range(nGroups)}
