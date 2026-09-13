@@ -37,6 +37,8 @@ LADDER_ACT = True
 from .helpers import (_medianDeviation, _hungarian, _switchbackCount,
                       _axisFails, _reMedianFromStroke, _selfSeeds,
                       _meanOf, _strokeCenter, _secondPassBetter)
+from .state import PipelineCtx
+
 
 def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                 seedMedians=None, selfConsistent=True):
@@ -46,6 +48,11 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     raw = fontEntry.glyphContours(ch)
     if not raw:
         return {"error": "字体 %s 中没有「%s」字形" % (fontEntry.key, ch)}
+
+    ctx = PipelineCtx(dataHub=dataHub, fontEntry=fontEntry, ch=ch,
+                      applyBooleanClamp=applyBooleanClamp,
+                      seedMedians=seedMedians,
+                      selfConsistent=selfConsistent, kai=kai, raw=raw)
 
     contours = [{"segs": c["segs"]} for c in raw]
     analyzeContours(contours)
@@ -108,13 +115,10 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
         except Exception:
             pass
 
-    _timings = []
-    _tw = [time.perf_counter()]
-
-    def _tick(name):
-        now = time.perf_counter()
-        _timings.append([name, round((now - _tw[0]) * 1000)])
-        _tw[0] = now
+    # 计时器入 ctx（PipelineCtx.tick 与原 _tick 闭包逐字节同款：毫秒取整）
+    ctx.startTimer()
+    _timings = ctx.timings
+    _tick = ctx.tick
 
     # ------------------------------------------------------------ 全局对齐
     kaiPts = []
