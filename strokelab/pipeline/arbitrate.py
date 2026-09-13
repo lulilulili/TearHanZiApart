@@ -4,10 +4,16 @@
 G2 走廊可容纳度 → G3 部件同组 → G4 单杆组超载重指派 → G5 疑抢杆认领
 互换 → G6 轴向错家重排 → G7 槽位互换 → G8 序保持互换 → G8.5 梯队
 探针/执行器。每层只在其判据的铁证成立时改判，全部事故史注释随代码
-保留。LADDER_PROBE/LADDER_ACT 经 sys.modules 读包属性当前值——
+保留。层序即证据强度递增序（编排见包 __init__），不可重排。
+LADDER_PROBE/LADDER_ACT 经 sys.modules 读包属性当前值——
 tools/ladder_calib3.py 等以 pl.LADDER_PROBE=2 方式运行期改写。
+
+运行期桥本体（groupRegionOf/corridorSupport/barAxisOfGroup）为模块级
+函数，functools.partial 绑定子结构视图后挂 groups.regionOf/support/
+barAxisOf，供 G4/G5/G8.5 与 anchor.G10 复用。
 """
 
+import functools
 import itertools
 import math
 import sys
@@ -23,18 +29,123 @@ def _pkg():
     return sys.modules["strokelab.pipeline"]
 
 
-def corridorFit(ctx):
-    """G2 走廊可容纳度仲裁（并挂 groupRegion/support/wEst 到 ctx）。"""
-    contours = ctx.geom.contours
-    medians = ctx.pose.medians
-    initMedians = ctx.pose.initMedians
-    nGroups = ctx.groups.nGroups
-    nStrokes = ctx.pose.nStrokes
-    costRows = ctx.cost.costRows
-    strokeGroup = ctx.groups.strokeGroup
-    groupStrokes = ctx.groups.groupStrokes
-    groupOuters = ctx.groups.groupOuters
-    groupHoles = ctx.groups.groupHoles
+# ============================================================ 运行期桥本体
+
+def groupRegionOf(cache, groups, g):
+    """组→shapely 区域（外环并集−孔洞差集，cache 记忆化）。
+    groups.regionOf 以 partial 绑定缓存与组表后即原 _groupRegion 闭包；
+    anchor.G10 以独立缓存复用同一本体。"""
+    if g not in cache:
+        from shapely.geometry import Polygon as _Pg
+        reg = None
+        for poly in groups.groupOuters[g]:
+            pg = _Pg(poly)
+            if not pg.is_valid:
+                pg = pg.buffer(0)
+            reg = pg if reg is None else reg.union(pg)
+        if reg is not None:
+            for poly in groups.groupHoles[g]:
+                pg = _Pg(poly)
+                if not pg.is_valid:
+                    pg = pg.buffer(0)
+                reg = reg.difference(pg)
+            if not reg.is_valid:
+                reg = reg.buffer(0)
+        cache[g] = reg
+    return cache[g]
+
+
+def corridorSupport(regionOf, pose, k, g):
+    """笔×组的走廊滑动支撑最大单片面积（原 _support 闭包本体；
+    groups.support 以 partial 绑定 regionOf/pose 后保持 (k, g) 签名，
+    走廊半径经 pose.wEst 读取）。"""
+    reg = regionOf(g)
+    m = pose.initMedians[k]
+    if reg is None or reg.is_empty or len(m) < 2:
+        return 0.0
+    from shapely.geometry import LineString as _LS
+    from shapely.affinity import translate as _tr
+    cor = _LS([tuple(p) for p in m]).buffer(pose.wEst * 0.6)
+    ddx = m[-1][0] - m[0][0]
+    ddy = m[-1][1] - m[0][1]
+    L = math.hypot(ddx, ddy) or 1.0
+    nx, ny = -ddy / L, ddx / L
+    rb = reg.bounds
+    span = max(rb[2] - rb[0], rb[3] - rb[1])
+    best = 0.0
+    for t in range(-5, 6):
+        off = span * 0.4 * t / 5.0
+        c2 = cor if t == 0 else _tr(cor, xoff=nx * off, yoff=ny * off)
+        try:
+            inter = c2.intersection(reg)
+        except Exception:
+            continue
+        for gm in getattr(inter, "geoms", [inter]):
+            a = getattr(gm, "area", 0.0)
+            if a > best:
+                best = a
+    return best
+
+
+def barAxisOfGroup(geom, groups, g):
+    """单杆组→主轴角（原 _barAxisOf 闭包本体；G6 以 partial 绑定
+    geom/groups 后挂 groups.barAxisOf，G8.5 探针复用）。"""
+    bb = groups.groupBBoxes.get(g)
+    if bb is None:
+        return None
+    if bb.w >= 1.5 * max(1.0, bb.h):
+        return 0.0
+    if bb.h >= 1.5 * max(1.0, bb.w):
+        return 90.0
+    outers = [c for c in geom.contours
+              if c["group"] == g and not c["isHole"]]
+    if len(outers) != 1:
+        return None
+    dsc = shapeDescriptor([contourToPath(outers[0]["segs"])])
+    if dsc and dsc["elong"] >= 2.0:
+        return math.degrees(dsc["mainAngle"]) % 180.0
+    return None
+
+
+# ============================================================ 几何小件
+
+def _medianAngle(initMedians, k):
+    """笔 k 初始中轴的弦向角（0..180°）。"""
+    m = initMedians[k]
+    return math.degrees(math.atan2(m[-1][1] - m[0][1],
+                                   m[-1][0] - m[0][0])) % 180.0
+
+
+def _medianCenter(initMedians, k):
+    """笔 k 初始中轴的点集质心。"""
+    m = initMedians[k]
+    return (sum(p[0] for p in m) / len(m),
+            sum(p[1] for p in m) / len(m))
+
+
+def _parallel(a, b):
+    """两轴向角是否近平行（差 ≤30°，模 180）。"""
+    d = abs(a - b)
+    return min(d, 180.0 - d) <= 30.0
+
+
+def _fold90(a, b):
+    """两轴向角的折叠差（0..90°）。"""
+    d = abs(a - b) % 180.0
+    return min(d, 180.0 - d)
+
+
+# ============================================================ G2 走廊可容纳度
+
+def corridorFit(geom, groups, pose, cost):
+    """G2 走廊可容纳度仲裁（并挂 groups.regionOf/support、pose.wEst）。"""
+    contours = geom.contours
+    medians = pose.medians
+    nGroups = groups.nGroups
+    nStrokes = pose.nStrokes
+    costRows = cost.costRows
+    strokeGroup = groups.strokeGroup
+    groupStrokes = groups.groupStrokes
 
     # 走廊可容纳度仲裁：墨距离对"名义位置不落在任何组墨内"的笔会就近
     # 错分——好的提名义位置横穿撇点宽腰（墨距离 59 胜出），真身在撇的
@@ -43,63 +154,18 @@ def corridorFit(ctx):
     # 吸附的最大单片面积（与救济同思路）比较两组谁能真正容纳整条笔，
     # 明显更能容纳（≥1.3×）才改判；原组不得因此空置。
     try:
-        from shapely.geometry import LineString as _LS, Polygon as _Pg
-        from shapely.affinity import translate as _tr
-        _gReg = {}
-
-        def _groupRegion(g):
-            if g not in _gReg:
-                reg = None
-                for poly in groupOuters[g]:
-                    pg = _Pg(poly)
-                    if not pg.is_valid:
-                        pg = pg.buffer(0)
-                    reg = pg if reg is None else reg.union(pg)
-                if reg is not None:
-                    for poly in groupHoles[g]:
-                        pg = _Pg(poly)
-                        if not pg.is_valid:
-                            pg = pg.buffer(0)
-                        reg = reg.difference(pg)
-                    if not reg.is_valid:
-                        reg = reg.buffer(0)
-                _gReg[g] = reg
-            return _gReg[g]
+        from shapely.geometry import LineString  # noqa: F401 —— 可用性探测
 
         wEst = max(14.0, min(180.0,
                    sum(abs(c["area"]) for c in contours if not c["isHole"]) /
                    (sum(polylineLength(m) for m in medians) or 1.0)))
+        pose.wEst = wEst
 
-        def _support(k, g):
-            reg = _groupRegion(g)
-            m = initMedians[k]
-            if reg is None or reg.is_empty or len(m) < 2:
-                return 0.0
-            cor = _LS([tuple(p) for p in m]).buffer(wEst * 0.6)
-            ddx = m[-1][0] - m[0][0]
-            ddy = m[-1][1] - m[0][1]
-            L = math.hypot(ddx, ddy) or 1.0
-            nx, ny = -ddy / L, ddx / L
-            rb = reg.bounds
-            span = max(rb[2] - rb[0], rb[3] - rb[1])
-            best = 0.0
-            for t in range(-5, 6):
-                off = span * 0.4 * t / 5.0
-                c2 = cor if t == 0 else _tr(cor, xoff=nx * off, yoff=ny * off)
-                try:
-                    inter = c2.intersection(reg)
-                except Exception:
-                    continue
-                for gm in getattr(inter, "geoms", [inter]):
-                    a = getattr(gm, "area", 0.0)
-                    if a > best:
-                        best = a
-            return best
-
-        # 闭包挂 ctx：单杆超载/疑抢杆/G8.5 复用同一 region 缓存与走廊支撑
-        ctx.groups.regionOf = _groupRegion
-        ctx.groups.support = _support
-        ctx.pose.wEst = wEst
+        # 桥挂载：单杆超载/疑抢杆/G8.5 复用同一 region 缓存与走廊支撑
+        _groupRegion = functools.partial(groupRegionOf, {}, groups)
+        _support = functools.partial(corridorSupport, _groupRegion, pose)
+        groups.regionOf = _groupRegion
+        groups.support = _support
 
         if nGroups >= 2:
             for k in range(nStrokes):
@@ -132,14 +198,32 @@ def corridorFit(ctx):
         pass
 
 
-def componentMate(ctx):
+# ============================================================ G3 部件同组
+
+def _componentOf(kaiMatches, k):
+    """笔 k 的楷体部件路径（tuple，无则 None）。"""
+    p = kaiMatches[k] if k < len(kaiMatches) else None
+    return tuple(p) if p else None
+
+
+def _componentMate(a, b):
+    """部件相容=一方为另一方前缀（matches 深化层级不齐：尃s3路径
+    (0,1) 与 s2 的 (0,1,0) 是同部件，exact 全等曾误判非亲——只
+    放宽 mate 认定、收紧迁移条件，不新增移动。"""
+    if a is None or b is None:
+        return False
+    la = min(len(a), len(b))
+    return a[:la] == b[:la]
+
+
+def componentMate(kaiRef, groups, pose, cost):
     """G3 部件同组仲裁（matches 部件路径为结构证据）。"""
-    kai = ctx.kaiRef.kai
-    nGroups = ctx.groups.nGroups
-    nStrokes = ctx.pose.nStrokes
-    strokeGroup = ctx.groups.strokeGroup
-    costRows = ctx.cost.costRows
-    groupStrokes = ctx.groups.groupStrokes
+    kai = kaiRef.kai
+    nGroups = groups.nGroups
+    nStrokes = pose.nStrokes
+    strokeGroup = groups.strokeGroup
+    costRows = cost.costRows
+    groupStrokes = groups.groupStrokes
 
     # 部件同组仲裁：墨距离对"名义位置穿过他部件长笔"的短笔会错分——
     # 爱的冖左竖名义下半段穿过友的长横（墨内代价≈0）错入长横组，真身
@@ -148,30 +232,18 @@ def componentMate(ctx):
     # 且不空置原组时，改判到含同部件笔的最低代价组。
     kaiMatches = kai.get("matches") or []
 
-    def _compOf(k):
-        p = kaiMatches[k] if k < len(kaiMatches) else None
-        return tuple(p) if p else None
-
-    def _compMate(a, b):
-        """部件相容=一方为另一方前缀（matches 深化层级不齐：尃s3路径
-        (0,1) 与 s2 的 (0,1,0) 是同部件，exact 全等曾误判非亲——只
-        放宽 mate 认定、收紧迁移条件，不新增移动。"""
-        if a is None or b is None:
-            return False
-        la = min(len(a), len(b))
-        return a[:la] == b[:la]
-
     if nGroups >= 2 and kaiMatches:
         for k in range(nStrokes):
             g1 = strokeGroup[k]
             row = costRows[k]
             if g1 != min(range(nGroups), key=lambda g: row[g]):
                 continue  # 匈牙利锚定改动过的不碰
-            comp = _compOf(k)
+            comp = _componentOf(kaiMatches, k)
             if comp is None:
                 continue
             mates = [j for j in range(nStrokes)
-                     if j != k and _compMate(_compOf(j), comp)]
+                     if j != k and _componentMate(
+                         _componentOf(kaiMatches, j), comp)]
             if not mates or any(strokeGroup[j] == g1 for j in mates):
                 continue
             if len(groupStrokes[g1]) <= 1:
@@ -192,20 +264,81 @@ def componentMate(ctx):
                     groupStrokes[bestH].sort()
 
 
-def barOverload(ctx):
+# ============================================================ G4 单杆组超载
+
+def _isBarGroup(cache, geom, groups, g):
+    """组 g 是否单杆状（单外环无孔且高伸长），返回 (ok, 主轴角)，
+    cache 记忆化（原 _isBar 闭包本体）。"""
+    if g not in cache:
+        outers = [c for c in geom.contours
+                  if c["group"] == g and not c["isHole"]]
+        ok = False
+        ang = 0.0
+        if len(outers) == 1 and not any(
+                c["group"] == g and c["isHole"] for c in geom.contours):
+            dsc = shapeDescriptor([contourToPath(outers[0]["segs"])])
+            bb = groups.groupBBoxes.get(g)
+            # PCA伸长率对短粗杆偏低（醌酉杆3.4），bbox长宽比兜底
+            aspect = (max(bb.w, bb.h) / max(1.0, min(bb.w, bb.h))
+                      if bb else 0.0)
+            if dsc and (dsc["elong"] >= 4.0 or aspect >= 4.0):
+                ok = True
+                ang = math.degrees(dsc["mainAngle"]) % 180.0
+        cache[g] = (ok, ang)
+    return cache[g]
+
+
+def _perpCoord(gc, nrm, pt):
+    """点 pt 相对 gc 在杆法向 nrm=(nx,ny) 上的垂轴坐标。"""
+    return (pt[0] - gc[0]) * nrm[0] + (pt[1] - gc[1]) * nrm[1]
+
+
+def _supportOffset(regionOf, pose, nrm, k, h):
+    """corridorSupport 的带落点版：返回 (最大单片面积, 最优法向位移)，
+    位移已换算到杆法向 nrm 的垂轴坐标增量（原 _supportOff 闭包本体）。"""
+    reg = regionOf(h)
+    m = pose.initMedians[k]
+    if reg is None or reg.is_empty or len(m) < 2:
+        return 0.0, 0.0
+    from shapely.geometry import LineString as _LS2
+    from shapely.affinity import translate as _tr2
+    cor = _LS2([tuple(p) for p in m]).buffer(pose.wEst * 0.6)
+    ddx = m[-1][0] - m[0][0]
+    ddy = m[-1][1] - m[0][1]
+    L = math.hypot(ddx, ddy) or 1.0
+    cnx, cny = -ddy / L, ddx / L
+    rb = reg.bounds
+    span = max(rb[2] - rb[0], rb[3] - rb[1])
+    best, bestOff = 0.0, 0.0
+    for tt in range(-5, 6):
+        off = span * 0.4 * tt / 5.0
+        c2 = cor if tt == 0 else _tr2(cor, xoff=cnx * off,
+                                      yoff=cny * off)
+        try:
+            inter = c2.intersection(reg)
+        except Exception:
+            continue
+        for gm in getattr(inter, "geoms", [inter]):
+            a = getattr(gm, "area", 0.0)
+            if a > best:
+                best, bestOff = a, off
+    # 位移方向换算到杆法向的垂轴坐标增量
+    return best, bestOff * (cnx * nrm[0] + cny * nrm[1])
+
+
+def barOverload(geom, kaiRef, groups, pose, cost):
     """G4 单杆组超载重指派 + 垂直蹲杆放逐。"""
-    contours = ctx.geom.contours
-    kai = ctx.kaiRef.kai
-    nGroups = ctx.groups.nGroups
-    initMedians = ctx.pose.initMedians
-    costRows = ctx.cost.costRows
-    strokeGroup = ctx.groups.strokeGroup
-    groupStrokes = ctx.groups.groupStrokes
-    groupBBoxes = ctx.groups.groupBBoxes
-    groupCentroids = ctx.groups.groupCentroids
-    _groupRegion = ctx.groups.regionOf
-    _support = ctx.groups.support
-    wEst = ctx.pose.wEst
+    contours = geom.contours
+    kai = kaiRef.kai
+    nGroups = groups.nGroups
+    initMedians = pose.initMedians
+    costRows = cost.costRows
+    strokeGroup = groups.strokeGroup
+    groupStrokes = groups.groupStrokes
+    groupBBoxes = groups.groupBBoxes
+    groupCentroids = groups.groupCentroids
+    _groupRegion = groups.regionOf
+    _support = groups.support
 
     # 单杆组超载重指派：楷体的封底横在现代设计中常并入外框轮廓（貝/酉
     # 的目底、日底），其名义位置又恰压在腔内悬浮横杆上（代价0）——墨
@@ -216,42 +349,14 @@ def barOverload(ctx):
     # 保持**选：目标在杆哪一侧，就放逐名义位置偏那一侧最远的笔（封底
     # 横名义恰压杆上、按邻近选留必错——楷体次序是唯一可靠证据）。
     try:
-        barLike = {}
-
-        def _isBar(g):
-            if g not in barLike:
-                outers = [c for c in contours
-                          if c["group"] == g and not c["isHole"]]
-                ok = False
-                ang = 0.0
-                if len(outers) == 1 and not any(
-                        c["group"] == g and c["isHole"] for c in contours):
-                    dsc = shapeDescriptor([contourToPath(outers[0]["segs"])])
-                    bb = groupBBoxes.get(g)
-                    # PCA伸长率对短粗杆偏低（醌酉杆3.4），bbox长宽比兜底
-                    aspect = (max(bb.w, bb.h) / max(1.0, min(bb.w, bb.h))
-                              if bb else 0.0)
-                    if dsc and (dsc["elong"] >= 4.0 or aspect >= 4.0):
-                        ok = True
-                        ang = math.degrees(dsc["mainAngle"]) % 180.0
-                barLike[g] = (ok, ang)
-            return barLike[g]
-
-        def _medianAngle(k):
-            m = initMedians[k]
-            return math.degrees(math.atan2(m[-1][1] - m[0][1],
-                                           m[-1][0] - m[0][0])) % 180.0
-
-        def _parallel(a, b):
-            d = abs(a - b)
-            return min(d, 180.0 - d) <= 30.0
-
+        barCache = {}
         for g in range(nGroups):
-            ok, barAng = _isBar(g)
+            ok, barAng = _isBarGroup(barCache, geom, groups, g)
             if not ok:
                 continue
             ss = list(groupStrokes.get(g, []))
-            par = [k for k in ss if _parallel(_medianAngle(k), barAng)]
+            par = [k for k in ss
+                   if _parallel(_medianAngle(initMedians, k), barAng)]
             # 垂直蹲杆放逐（钾：杆内1平行主+1⊥竖，落在"超载需≥2平行"
             # 与"轴向错家需单笔组"的夹缝）：杆里有平行主时，⊥向的
             # 横/竖直笔且名义长>2×杆厚=墨装不下，放逐到孔腔包含本杆
@@ -268,7 +373,7 @@ def barOverload(ctx):
                         continue
                     mk = initMedians[k]
                     chordK = dist(mk[0], mk[-1])
-                    aK = _medianAngle(k)
+                    aK = _medianAngle(initMedians, k)
                     dv = abs(aK - barAng) % 180.0
                     if min(dv, 180.0 - dv) > 50.0 and chordK > 2.0 * thickG:
                         perp.append(k)
@@ -282,7 +387,8 @@ def barOverload(ctx):
                         contained2 = False
                         if gcS is not None:
                             for c0 in contours:
-                                if c0["group"] == h and c0["isHole"] and                                         pointInPolygon(gcS, c0["poly"]):
+                                if c0["group"] == h and c0["isHole"] and \
+                                        pointInPolygon(gcS, c0["poly"]):
                                     contained2 = True
                                     break
                         if not contained2 and costRows[kP][h] > max(
@@ -307,15 +413,7 @@ def barOverload(ctx):
                 continue
             # 垂轴坐标：质心在杆法向上的投影（横杆≈y，竖杆≈x）
             rad = math.radians(barAng)
-            nx, ny = -math.sin(rad), math.cos(rad)
-
-            def _perp(pt):
-                return (pt[0] - gc[0]) * nx + (pt[1] - gc[1]) * ny
-
-            def _cen(k):
-                m = initMedians[k]
-                return (sum(p[0] for p in m) / len(m),
-                        sum(p[1] for p in m) / len(m))
+            nrm = (-math.sin(rad), math.cos(rad))
 
             # 放逐目标：全体笔的候选里支撑最强的组
             bestH, bestS = -1, 400.0
@@ -323,8 +421,8 @@ def barOverload(ctx):
             for h in range(nGroups):
                 if h == g:
                     continue
-                hOk, hAng = _isBar(h)
-                if hOk and any(_parallel(_medianAngle(k2), hAng)
+                hOk, hAng = _isBarGroup(barCache, geom, groups, h)
+                if hOk and any(_parallel(_medianAngle(initMedians, k2), hAng)
                                for k2 in groupStrokes.get(h, [])):
                     continue
                 # 包含性豁免：候选组带孔且超载杆质心落在其孔腔内——
@@ -333,7 +431,8 @@ def barOverload(ctx):
                 contained = False
                 if gcSelf is not None:
                     for c0 in contours:
-                        if c0["group"] == h and c0["isHole"] and                                 pointInPolygon(gcSelf, c0["poly"]):
+                        if c0["group"] == h and c0["isHole"] and \
+                                pointInPolygon(gcSelf, c0["poly"]):
                             contained = True
                             break
                 if not contained:
@@ -349,41 +448,11 @@ def barOverload(ctx):
             if bestH < 0:
                 continue
 
-            def _supportOff(k, h):
-                """_support 的带落点版：返回 (最大单片面积, 最优法向位移)。"""
-                reg = _groupRegion(h)
-                m = initMedians[k]
-                if reg is None or reg.is_empty or len(m) < 2:
-                    return 0.0, 0.0
-                from shapely.geometry import LineString as _LS2
-                from shapely.affinity import translate as _tr2
-                cor = _LS2([tuple(p) for p in m]).buffer(wEst * 0.6)
-                ddx = m[-1][0] - m[0][0]
-                ddy = m[-1][1] - m[0][1]
-                L = math.hypot(ddx, ddy) or 1.0
-                cnx, cny = -ddy / L, ddx / L
-                rb = reg.bounds
-                span = max(rb[2] - rb[0], rb[3] - rb[1])
-                best, bestOff = 0.0, 0.0
-                for tt in range(-5, 6):
-                    off = span * 0.4 * tt / 5.0
-                    c2 = cor if tt == 0 else _tr2(cor, xoff=cnx * off,
-                                                  yoff=cny * off)
-                    try:
-                        inter = c2.intersection(reg)
-                    except Exception:
-                        continue
-                    for gm in getattr(inter, "geoms", [inter]):
-                        a = getattr(gm, "area", 0.0)
-                        if a > best:
-                            best, bestOff = a, off
-                # 位移方向换算到杆法向的垂轴坐标增量
-                return best, bestOff * (cnx * nx + cny * ny)
-
             # 落点序一致性：只在上下两个极端里挑放逐者——放逐后其实际
             # 落点（走廊最优滑动位置）必须保持楷体给定的上下次序（酉框
             # 质心在杆上方、可容墨的框底在杆下方，按质心猜方向曾放错笔）
-            ordered = sorted(par, key=lambda k: _perp(_cen(k)))
+            ordered = sorted(par, key=lambda k: _perpCoord(
+                gc, nrm, _medianCenter(initMedians, k)))
             # tie-break：两极端候选对杆的墨距离代价差>25 时直接放逐
             # 代价高者（甲：笔3代价63 vs 笔2代价28→放逐笔3；質/醌类
             # gap≈0 时回退落点序判定）
@@ -395,11 +464,14 @@ def barOverload(ctx):
             chosen = None
             for exile in ({forced} if forced is not None
                           else {ordered[0], ordered[-1]}):
-                sup, dPerp = _supportOff(exile, bestH)
+                sup, dPerp = _supportOffset(_groupRegion, pose, nrm,
+                                            exile, bestH)
                 if sup <= 400.0:
                     continue
-                land = _perp(_cen(exile)) + dPerp
-                others = [_perp(_cen(k)) for k in par if k != exile]
+                land = _perpCoord(gc, nrm,
+                                  _medianCenter(initMedians, exile)) + dPerp
+                others = [_perpCoord(gc, nrm, _medianCenter(initMedians, k))
+                          for k in par if k != exile]
                 if exile == ordered[-1] and land < max(others) - 10.0:
                     continue
                 if exile == ordered[0] and land > min(others) + 10.0:
@@ -418,19 +490,57 @@ def barOverload(ctx):
         pass
 
 
-def barTheftSwap(ctx):
+# ============================================================ G5 疑抢杆认领
+
+def _axisChordLen(initMedians, k):
+    """笔 k 初始中轴的名义轴长（首末点弦长）。"""
+    m = initMedians[k]
+    return dist(m[0], m[-1])
+
+
+def _supportLanding(regionOf, pose, k, h):
+    """走廊滑动支撑 + 最优落点位移向量（原 _supLand 闭包本体）。"""
+    reg = regionOf(h)
+    m = pose.initMedians[k]
+    if reg is None or reg.is_empty or len(m) < 2:
+        return 0.0, (0.0, 0.0)
+    from shapely.geometry import LineString as _L3
+    from shapely.affinity import translate as _t3
+    cor = _L3([tuple(p) for p in m]).buffer(pose.wEst * 0.6)
+    ddx = m[-1][0] - m[0][0]
+    ddy = m[-1][1] - m[0][1]
+    L = math.hypot(ddx, ddy) or 1.0
+    cnx, cny = -ddy / L, ddx / L
+    rb = reg.bounds
+    span = max(rb[2] - rb[0], rb[3] - rb[1])
+    best, bo = 0.0, 0.0
+    for tt in range(-6, 7):
+        off = span * 0.45 * tt / 6.0
+        c2 = cor if tt == 0 else _t3(cor, xoff=cnx * off,
+                                     yoff=cny * off)
+        try:
+            inter = c2.intersection(reg)
+        except Exception:
+            continue
+        for gm in getattr(inter, "geoms", [inter]):
+            a = getattr(gm, "area", 0.0)
+            if a > best:
+                best, bo = a, off
+    return best, (cnx * bo, cny * bo)
+
+
+def barTheftSwap(geom, kaiRef, groups, pose, cost):
     """G5 疑抢杆认领互换（笔比杆长=抢占铁证，成链处置）。"""
-    contours = ctx.geom.contours
-    kai = ctx.kaiRef.kai
-    nGroups = ctx.groups.nGroups
-    nStrokes = ctx.pose.nStrokes
-    initMedians = ctx.pose.initMedians
-    costRows = ctx.cost.costRows
-    strokeGroup = ctx.groups.strokeGroup
-    groupStrokes = ctx.groups.groupStrokes
-    groupBBoxes = ctx.groups.groupBBoxes
-    _groupRegion = ctx.groups.regionOf
-    wEst = ctx.pose.wEst
+    contours = geom.contours
+    kai = kaiRef.kai
+    nGroups = groups.nGroups
+    nStrokes = pose.nStrokes
+    initMedians = pose.initMedians
+    costRows = cost.costRows
+    strokeGroup = groups.strokeGroup
+    groupStrokes = groups.groupStrokes
+    groupBBoxes = groups.groupBBoxes
+    _groupRegion = groups.regionOf
 
     # 疑抢杆认领互换：全局仿射会把楷体某横的名义位置恰好压到目标内部
     # 悬浮横杆上（威：楷体顶横名义 y 落在戌内短横杆上，代价0抢走该杆
@@ -452,45 +562,6 @@ def barTheftSwap(ctx):
         kaiTotA = sum(kaiAreaShares) or 1.0
         expArea = [glyphInk * a / kaiTotA for a in kaiAreaShares]
 
-        def _cenOf(k):
-            m = initMedians[k]
-            return (sum(p[0] for p in m) / len(m),
-                    sum(p[1] for p in m) / len(m))
-
-        def _axisLen(k):
-            m = initMedians[k]
-            return dist(m[0], m[-1])
-
-        def _supLand(k, h):
-            """走廊滑动支撑 + 最优落点位移向量。"""
-            reg = _groupRegion(h)
-            m = initMedians[k]
-            if reg is None or reg.is_empty or len(m) < 2:
-                return 0.0, (0.0, 0.0)
-            from shapely.geometry import LineString as _L3
-            from shapely.affinity import translate as _t3
-            cor = _L3([tuple(p) for p in m]).buffer(wEst * 0.6)
-            ddx = m[-1][0] - m[0][0]
-            ddy = m[-1][1] - m[0][1]
-            L = math.hypot(ddx, ddy) or 1.0
-            cnx, cny = -ddy / L, ddx / L
-            rb = reg.bounds
-            span = max(rb[2] - rb[0], rb[3] - rb[1])
-            best, bo = 0.0, 0.0
-            for tt in range(-6, 7):
-                off = span * 0.45 * tt / 6.0
-                c2 = cor if tt == 0 else _t3(cor, xoff=cnx * off,
-                                             yoff=cny * off)
-                try:
-                    inter = c2.intersection(reg)
-                except Exception:
-                    continue
-                for gm in getattr(inter, "geoms", [inter]):
-                    a = getattr(gm, "area", 0.0)
-                    if a > best:
-                        best, bo = a, off
-            return best, (cnx * bo, cny * bo)
-
         done = False
         for g0 in range(nGroups):
             if done:
@@ -509,7 +580,7 @@ def barTheftSwap(ctx):
             rad = math.radians(a1)
             ux, uy = math.cos(rad), math.sin(rad)
             barLen = abs(bb0.w * ux) + abs(bb0.h * uy)
-            if _axisLen(k1) <= barLen * 1.08:
+            if _axisChordLen(initMedians, k1) <= barLen * 1.08:
                 continue
             # 认领目标：孤儿墨显著的组（墨面积-组内楷体预期 ≥ 0.5×本笔预期）
             bestU = None
@@ -523,7 +594,7 @@ def barTheftSwap(ctx):
                                         for k in groupStrokes.get(gU, []))
                 if orphan < max(0.5 * expArea[k1], 900.0):
                     continue
-                sup, offv = _supLand(k1, gU)
+                sup, offv = _supportLanding(_groupRegion, pose, k1, gU)
                 if sup < max(800.0, 0.35 * expArea[k1]):
                     continue
                 if bestU is None or sup > bestU[0]:
@@ -531,7 +602,7 @@ def barTheftSwap(ctx):
             if bestU is None:
                 continue
             _, gU, off1 = bestU
-            c1 = _cenOf(k1)
+            c1 = _medianCenter(initMedians, k1)
             land1 = (c1[0] + off1[0], c1[1] + off1[1])
             # 回填者 k2：同向、代价窗口内、原组不空置、楷序=落点序
             bestK2 = None
@@ -548,10 +619,10 @@ def barTheftSwap(ctx):
                     continue
                 if costRows[k2][g0] > 140.0:
                     continue
-                sup2, off2 = _supLand(k2, g0)
+                sup2, off2 = _supportLanding(_groupRegion, pose, k2, g0)
                 if sup2 < 400.0:
                     continue
-                c2p = _cenOf(k2)
+                c2p = _medianCenter(initMedians, k2)
                 land2 = (c2p[0] + off2[0], c2p[1] + off2[1])
                 nx1, ny1 = -math.sin(rad), math.cos(rad)
                 sKai = (c1[0] - c2p[0]) * nx1 + (c1[1] - c2p[1]) * ny1
@@ -577,47 +648,42 @@ def barTheftSwap(ctx):
         pass
 
 
-def axisMisplace(ctx):
-    """G6 轴向错家重排（并挂 barAxisOf 到 ctx 供 G8.5 复用）。"""
-    contours = ctx.geom.contours
-    kai = ctx.kaiRef.kai
-    nGroups = ctx.groups.nGroups
-    strokeGroup = ctx.groups.strokeGroup
-    groupStrokes = ctx.groups.groupStrokes
-    groupBBoxes = ctx.groups.groupBBoxes
+# ============================================================ G6 轴向错家
+
+def _kaiChordAxis(kaiMedians, k):
+    """笔 k 楷体中轴的弦向角（弦长<40 视为无向，返回 None）。"""
+    m2 = kaiMedians[k]
+    dx = m2[-1][0] - m2[0][0]
+    dy = m2[-1][1] - m2[0][1]
+    if math.hypot(dx, dy) < 40:
+        return None
+    return math.degrees(math.atan2(dy, dx)) % 180.0
+
+
+def _permAxisCost(axK, misG, perm):
+    """错家名单重排 perm 的总轴向偏差（任一步 >40° 直接判不可行）。"""
+    tot = 0.0
+    for a, gi2 in enumerate(perm):
+        dev = _fold90(axK[a], misG[gi2][1])
+        if dev > 40.0:
+            return None
+        tot += dev
+    return tot
+
+
+def axisMisplace(geom, kaiRef, groups):
+    """G6 轴向错家重排（并挂 groups.barAxisOf 供 G8.5 复用）。"""
+    kai = kaiRef.kai
+    nGroups = groups.nGroups
+    strokeGroup = groups.strokeGroup
+    groupStrokes = groups.groupStrokes
 
     # 轴向错家重排：横竖笔直出一根与其楷体轴向**垂直**的杆=铁证错家
     # （博6横直出竖杆、11竖撇直出横杆、8竖占斜片——三笔连环错位，
     # 同型互换救不了跨型链）。收集"单笔直出组×杆轴向与笔楷体弦向
     # 偏差>50°"的错家名单，名单内全排列重指派（轴向匹配代价最小），
     # 总偏差严格下降才施行。名单内排列=家数守恒，不会造成超载/空组。
-    def _barAxisOf(g):
-        bb = groupBBoxes.get(g)
-        if bb is None:
-            return None
-        if bb.w >= 1.5 * max(1.0, bb.h):
-            return 0.0
-        if bb.h >= 1.5 * max(1.0, bb.w):
-            return 90.0
-        outers = [c for c in contours if c["group"] == g and not c["isHole"]]
-        if len(outers) != 1:
-            return None
-        dsc = shapeDescriptor([contourToPath(outers[0]["segs"])])
-        if dsc and dsc["elong"] >= 2.0:
-            return math.degrees(dsc["mainAngle"]) % 180.0
-        return None
-
-    def _kaiChordAxis(k):
-        m2 = kai["medians"][k]
-        dx = m2[-1][0] - m2[0][0]
-        dy = m2[-1][1] - m2[0][1]
-        if math.hypot(dx, dy) < 40:
-            return None
-        return math.degrees(math.atan2(dy, dx)) % 180.0
-
-    def _fold90(a, b):
-        d = abs(a - b) % 180.0
-        return min(d, 180.0 - d)
+    _barAxisOf = functools.partial(barAxisOfGroup, geom, groups)
 
     misK = []
     misG = []
@@ -629,29 +695,19 @@ def axisMisplace(ctx):
         if kai["strokeTypes"][k] == "点":
             continue
         bAx = _barAxisOf(g)
-        kAx = _kaiChordAxis(k)
+        kAx = _kaiChordAxis(kai["medians"], k)
         if bAx is None or kAx is None:
             continue
         if _fold90(bAx, kAx) > 50.0:
             misK.append(k)
             misG.append((g, bAx))
     if 2 <= len(misK) <= 5:
-        import itertools
-        axK = [_kaiChordAxis(k) for k in misK]
-
-        def _permCost(perm):
-            tot = 0.0
-            for a, gi2 in enumerate(perm):
-                dev = _fold90(axK[a], misG[gi2][1])
-                if dev > 40.0:
-                    return None
-                tot += dev
-            return tot
+        axK = [_kaiChordAxis(kai["medians"], k) for k in misK]
 
         cur = sum(_fold90(axK[a], misG[a][1]) for a in range(len(misK)))
         best = None
         for perm in itertools.permutations(range(len(misG))):
-            c = _permCost(perm)
+            c = _permAxisCost(axK, misG, perm)
             if c is not None and (best is None or c < best[0]):
                 best = (c, perm)
         if best is not None and best[0] < cur - 30.0:
@@ -665,17 +721,47 @@ def axisMisplace(ctx):
             for g, _ in misG:
                 groupStrokes[g] = [k for k in misK if strokeGroup[k] == g]
 
-    ctx.groups.barAxisOf = _barAxisOf
+    groups.barAxisOf = _barAxisOf
 
 
-def slotSwap(ctx):
-    """G7 槽位互换仲裁（槽位错位是最硬的换家证据）。"""
-    kai = ctx.kaiRef.kai
-    nStrokes = ctx.pose.nStrokes
-    strokeGroup = ctx.groups.strokeGroup
-    groupStrokes = ctx.groups.groupStrokes
-    groupCentroids = ctx.groups.groupCentroids
-    costRows = ctx.cost.costRows
+# ============================================================ G7 槽位互换
+
+def _slotOf(kaiMatches, k):
+    """笔 k 的一级槽位（matches 路径首元素，无则 None）。"""
+    p = kaiMatches[k] if k < len(kaiMatches) else None
+    return p[0] if p else None
+
+
+def _slotGroupCent(groups, k):
+    """笔 k 当前指派组的墨质心。"""
+    return groups.groupCentroids.get(groups.strokeGroup[k])
+
+
+def _slotCenter(groups, slotMembers, s0, excl):
+    """槽位 s0 的中心 = 成员所在组墨质心的中位数（排除 excl 防自身污染；
+    有效成员 <2 时不可用，返回 None）。"""
+    pts2 = []
+    for k in slotMembers[s0]:
+        if k == excl:
+            continue
+        c = _slotGroupCent(groups, k)
+        if c is not None:
+            pts2.append(c)
+    if len(pts2) < 2:
+        return None
+    xs = sorted(p[0] for p in pts2)
+    ys = sorted(p[1] for p in pts2)
+    return (xs[len(xs) // 2], ys[len(ys) // 2])
+
+
+def slotSwap(kaiRef, groups, pose, cost):
+    """G7 槽位互换仲裁（槽位错位是最硬的换家证据）；返回 slotSwaps，
+    并挂 kaiRef.kaiMatches0/slotMembers 供 G8.5 复用。"""
+    kai = kaiRef.kai
+    nStrokes = pose.nStrokes
+    strokeGroup = groups.strokeGroup
+    groupStrokes = groups.groupStrokes
+    costRows = cost.costRows
 
     # G7 槽位互换仲裁（种子字统计：92.2% 部件笔数与种子精确一致，
     # 槽位错位是比轴向/次序更硬的换家证据）：各一级槽位中心 = 该槽
@@ -686,54 +772,33 @@ def slotSwap(ctx):
     slotSwaps = []
     kaiMatches0 = kai.get("matches") or []
 
-    def _slotOf0(k):
-        p = kaiMatches0[k] if k < len(kaiMatches0) else None
-        return p[0] if p else None
-
     slotMembers = {}
     for k in range(nStrokes):
-        s0 = _slotOf0(k)
+        s0 = _slotOf(kaiMatches0, k)
         if s0 is not None:
             slotMembers.setdefault(s0, []).append(k)
     if len(slotMembers) >= 2:
-        def _gCent0(k):
-            return groupCentroids.get(strokeGroup[k])
-
-        def _slotCenter0(s0, excl):
-            pts2 = []
-            for k in slotMembers[s0]:
-                if k == excl:
-                    continue
-                c = _gCent0(k)
-                if c is not None:
-                    pts2.append(c)
-            if len(pts2) < 2:
-                return None
-            xs = sorted(p[0] for p in pts2)
-            ys = sorted(p[1] for p in pts2)
-            return (xs[len(xs) // 2], ys[len(ys) // 2])
-
         for _round in range(2):
             movedG7 = False
             for i in range(nStrokes):
-                si = _slotOf0(i)
-                ci = _gCent0(i)
+                si = _slotOf(kaiMatches0, i)
+                ci = _slotGroupCent(groups, i)
                 if si is None or ci is None:
                     continue
-                own = _slotCenter0(si, i)
+                own = _slotCenter(groups, slotMembers, si, i)
                 if own is None:
                     continue
                 dOwn = dist(ci, own)
                 for j in range(nStrokes):
                     if j == i:
                         continue
-                    sj = _slotOf0(j)
+                    sj = _slotOf(kaiMatches0, j)
                     if sj is None or sj == si:
                         continue
-                    cj = _gCent0(j)
+                    cj = _slotGroupCent(groups, j)
                     if cj is None:
                         continue
-                    ownJ = _slotCenter0(sj, j)
+                    ownJ = _slotCenter(groups, slotMembers, sj, j)
                     if ownJ is None:
                         continue
                     if dist(ci, ownJ) * 1.8 >= dOwn or \
@@ -759,19 +824,21 @@ def slotSwap(ctx):
             if not movedG7:
                 break
 
-    ctx.kaiRef.kaiMatches0 = kaiMatches0
-    ctx.kaiRef.slotMembers = slotMembers
-    ctx.diag.slotSwaps = slotSwaps
+    kaiRef.kaiMatches0 = kaiMatches0
+    kaiRef.slotMembers = slotMembers
+    return slotSwaps
 
 
-def orderPreserve(ctx):
-    """G8 序保持互换仲裁（楷体次序约束补进组指派）。"""
-    kai = ctx.kaiRef.kai
-    nStrokes = ctx.pose.nStrokes
-    strokeGroup = ctx.groups.strokeGroup
-    groupStrokes = ctx.groups.groupStrokes
-    groupCentroids = ctx.groups.groupCentroids
-    costRows = ctx.cost.costRows
+# ============================================================ G8 序保持互换
+
+def orderPreserve(kaiRef, groups, pose, cost):
+    """G8 序保持互换仲裁（楷体次序约束补进组指派）；并挂 kaiRef.kaiCentAll。"""
+    kai = kaiRef.kai
+    nStrokes = pose.nStrokes
+    strokeGroup = groups.strokeGroup
+    groupStrokes = groups.groupStrokes
+    groupCentroids = groups.groupCentroids
+    costRows = cost.costRows
 
     # 序保持互换仲裁（ORDER 主攻）：墨距离对同型笔在代价接近时会把
     # "家"分反——狗的犭撇与勹撇左右互换（偏差500+）、根的木4点上蹿，
@@ -820,24 +887,41 @@ def orderPreserve(ctx):
         if not swapped:
             break
 
-    ctx.kaiRef.kaiCentAll = kaiCentAll
+    kaiRef.kaiCentAll = kaiCentAll
 
 
-def ladderProbeStage(ctx):
-    """G8.5 梯队探针（A/B/C/D 型病字签名，零副作用）。"""
+# ============================================================ G8.5 梯队探针
+
+def _nomXRange(cache, affine, kaiMedians, k):
+    """笔 k 的楷体名义 x 走廊（affine 映射后的中轴 x 范围，cache 记忆化）。"""
+    if k not in cache:
+        xs = [affine(p)[0] for p in kaiMedians[k]]
+        cache[k] = (min(xs), max(xs))
+    return cache[k]
+
+
+def _xOverlapRatio(nomXR, k, bar):
+    """笔 k 名义 x 走廊与条组 x 范围的重叠占条宽比例。"""
+    lo, hi = nomXR(k)
+    return ((min(hi, bar[4]) - max(lo, bar[3]))
+            / max(1.0, bar[4] - bar[3]))
+
+
+def ladderProbeStage(kaiRef, groups, pose):
+    """G8.5 梯队探针（A/B/C/D 型病字签名，零副作用）；返回 ladderProbe。"""
     _pl = _pkg()
-    kai = ctx.kaiRef.kai
-    nStrokes = ctx.pose.nStrokes
-    seedMedians = ctx.pose.seedMedians
-    kaiMatches0 = ctx.kaiRef.kaiMatches0
-    slotMembers = ctx.kaiRef.slotMembers
-    strokeGroup = ctx.groups.strokeGroup
-    groupStrokes = ctx.groups.groupStrokes
-    groupBBoxes = ctx.groups.groupBBoxes
-    groupCentroids = ctx.groups.groupCentroids
-    affine = ctx.kaiRef.affine
-    kaiCentAll = ctx.kaiRef.kaiCentAll
-    _barAxisOf = ctx.groups.barAxisOf
+    kai = kaiRef.kai
+    nStrokes = pose.nStrokes
+    seedMedians = pose.seedMedians
+    kaiMatches0 = kaiRef.kaiMatches0
+    slotMembers = kaiRef.slotMembers
+    strokeGroup = groups.strokeGroup
+    groupStrokes = groups.groupStrokes
+    groupBBoxes = groups.groupBBoxes
+    groupCentroids = groups.groupCentroids
+    affine = kaiRef.affine
+    kaiCentAll = kaiRef.kaiCentAll
+    _barAxisOf = groups.barAxisOf
 
     # ------------------------------------------------------------ G8.5 梯队探针
     # 部件梯队秩配对探测层（诊断先行，零副作用，只读组指派与楷体名义
@@ -894,20 +978,7 @@ def ladderProbeStage(ctx):
                 continue
             allBars.append([g, ss[0], c2[1], bbG.x0, bbG.x1])
 
-        _nomXRCache = {}
-
-        def _nomXR(k):
-            """笔 k 的楷体名义 x 走廊（affine 映射后的中轴 x 范围）。"""
-            if k not in _nomXRCache:
-                xs = [affine(p)[0] for p in kai["medians"][k]]
-                _nomXRCache[k] = (min(xs), max(xs))
-            return _nomXRCache[k]
-
-        def _xOvOf(k, bar):
-            """笔 k 名义 x 走廊与条组 x 范围的重叠占条宽比例。"""
-            lo, hi = _nomXR(k)
-            return ((min(hi, bar[4]) - max(lo, bar[3]))
-                    / max(1.0, bar[4] - bar[3]))
+        _nomXR = functools.partial(_nomXRange, {}, affine, kai["medians"])
 
         # 部件横池预扫：pool = 楷体横/提且弦向≤30°的全部笔（不设长度
         # 门——短横合法占条）；rungs = 池中弦长≥100 者，k≥2 才算梯子
@@ -1090,7 +1161,7 @@ def ladderProbeStage(ctx):
         # 距条 ≤1.2×部件档距（标定：睥 0.99 档/埤 ≤1.04 档为真病，鱄
         # 省形候选 1.8~2.6 档——字体少一档，正主不存在，档距门挡住）
         for bar in allBars:
-            tOv = _xOvOf(bar[1], bar)
+            tOv = _xOverlapRatio(_nomXR, bar[1], bar)
             if tOv >= 0.25:
                 continue
             best = None
@@ -1109,10 +1180,10 @@ def ladderProbeStage(ctx):
                     if r == bar[1]:
                         continue
                     # r 失所 = 不独占任何与自己 x 相容的条
-                    if any(b[1] == r and _xOvOf(r, b) >= 0.25
+                    if any(b[1] == r and _xOverlapRatio(_nomXR, r, b) >= 0.25
                            for b in allBars):
                         continue
-                    rOv = _xOvOf(r, bar)
+                    rOv = _xOverlapRatio(_nomXR, r, bar)
                     dY = abs(affine(kaiCentAll[r])[1] - bar[2])
                     if _dbgLP:
                         cands.append([r, ci, round(rOv, 2), round(dY, 1),
@@ -1134,23 +1205,44 @@ def ladderProbeStage(ctx):
                     "fired": best is not None,
                 })
 
-    ctx.diag.ladderProbe = ladderProbe
+    return ladderProbe
 
 
-def ladderActStage(ctx):
-    """G8.5 梯队执行器（all-or-nothing 组重排+中轴带重置）。"""
+# ============================================================ G8.5 执行器
+
+def _snapGroup(savGS, groupStrokes, g):
+    """组成员表快照（首次触及才存，供 all-or-nothing 回滚）。"""
+    if g not in savGS:
+        savGS[g] = list(groupStrokes.get(g, []))
+
+
+def _moveStroke(savGS, groups, k, gTo):
+    """笔 k 迁往组 gTo（迁出/迁入组先快照，成员表保持有序）。"""
+    gFrom = groups.strokeGroup[k]
+    _snapGroup(savGS, groups.groupStrokes, gFrom)
+    _snapGroup(savGS, groups.groupStrokes, gTo)
+    if k in groups.groupStrokes.get(gFrom, []):
+        groups.groupStrokes[gFrom].remove(k)
+    groups.strokeGroup[k] = gTo
+    groups.groupStrokes.setdefault(gTo, []).append(k)
+    groups.groupStrokes[gTo].sort()
+
+
+def ladderActStage(kaiRef, groups, pose, cost, diag):
+    """G8.5 梯队执行器（all-or-nothing 组重排+中轴带重置）；读
+    diag.ladderProbe，写 diag.ladderRealign/ladderTouched。"""
     _pl = _pkg()
-    kai = ctx.kaiRef.kai
-    nGroups = ctx.groups.nGroups
-    seedMedians = ctx.pose.seedMedians
-    ladderProbe = ctx.diag.ladderProbe
-    strokeGroup = ctx.groups.strokeGroup
-    groupStrokes = ctx.groups.groupStrokes
-    medians = ctx.pose.medians
-    initMedians = ctx.pose.initMedians
-    affine = ctx.kaiRef.affine
-    strokeGroupCost = ctx.cost.strokeGroupCost
-    penMatrix = ctx.cost.penMatrix
+    kai = kaiRef.kai
+    nGroups = groups.nGroups
+    seedMedians = pose.seedMedians
+    ladderProbe = diag.ladderProbe
+    strokeGroup = groups.strokeGroup
+    groupStrokes = groups.groupStrokes
+    medians = pose.medians
+    initMedians = pose.initMedians
+    affine = kaiRef.affine
+    strokeGroupCost = cost.strokeGroupCost
+    penMatrix = cost.penMatrix
 
     # ------------------------------------------------------------ G8.5 执行器
     # 对 fired 部件按 plan 施行：组重排 + 中轴重置到目标条带 y。
@@ -1194,20 +1286,6 @@ def ladderActStage(ctx):
             savM = {k: (medians[k], initMedians[k]) for k in touch}
             savGS = {}
 
-            def _snapG(g):
-                if g not in savGS:
-                    savGS[g] = list(groupStrokes.get(g, []))
-
-            def _move(k, gTo):
-                gFrom = strokeGroup[k]
-                _snapG(gFrom)
-                _snapG(gTo)
-                if k in groupStrokes.get(gFrom, []):
-                    groupStrokes[gFrom].remove(k)
-                strokeGroup[k] = gTo
-                groupStrokes.setdefault(gTo, []).append(k)
-                groupStrokes[gTo].sort()
-
             ok = True
             rej = None
             steps = []
@@ -1222,7 +1300,7 @@ def ladderActStage(ctx):
                     km = [(x, y + (barY[gNew] - cy)) for x, y in km]
                 medians[k] = km
                 initMedians[k] = [tuple(p) for p in km]
-                _move(k, gNew)
+                _moveStroke(savGS, groups, k, gNew)
                 steps.append([k, gOld, gNew])
             if ok:
                 _vacated = [gO for _, gO, _ in plan]
@@ -1261,7 +1339,7 @@ def ladderActStage(ctx):
                             rej = "noDest:%d" % o
                             break
                     gO = strokeGroup[o]
-                    _move(o, dest)
+                    _moveStroke(savGS, groups, o, dest)
                     steps.append([o, gO, dest])
             if ok:
                 for k, _, gNew in plan:
@@ -1289,18 +1367,5 @@ def ladderActStage(ctx):
                 ladderTouched.add(gOld)
                 ladderTouched.add(gNew)
 
-    ctx.diag.ladderRealign = ladderRealign
-    ctx.diag.ladderTouched = ladderTouched
-
-
-def run(ctx):
-    """仲裁链定序执行——层序即证据强度递增序，不可重排。"""
-    corridorFit(ctx)
-    componentMate(ctx)
-    barOverload(ctx)
-    barTheftSwap(ctx)
-    axisMisplace(ctx)
-    slotSwap(ctx)
-    orderPreserve(ctx)
-    ladderProbeStage(ctx)
-    ladderActStage(ctx)
+    diag.ladderRealign = ladderRealign
+    diag.ladderTouched = ladderTouched

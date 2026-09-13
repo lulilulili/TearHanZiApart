@@ -69,10 +69,20 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     ctx.diag.startTimer()         # 计时基点与原单文件版一致（并组后起表）
     dbuild.run(ctx)               # 全局对齐 + D 构建
     grouping.buildTables(ctx)     # 连通组组表
+    geom, groups, pose = ctx.geom, ctx.groups, ctx.pose
+    kaiRef, cost, diag = ctx.kaiRef, ctx.cost, ctx.diag
     # G0/G1 指派 + S1b 语义认领
-    ctx.diag.semanticClaims = assign.run(ctx.geom, ctx.kaiRef, ctx.groups,
-                                         ctx.pose, ctx.cost)
-    arbitrate.run(ctx)            # G2..G8 仲裁链 + G8.5 梯队
+    diag.semanticClaims = assign.run(geom, kaiRef, groups, pose, cost)
+    # G2..G8 仲裁链 + G8.5 梯队——层序即证据强度递增序，不可重排
+    arbitrate.corridorFit(geom, groups, pose, cost)
+    arbitrate.componentMate(kaiRef, groups, pose, cost)
+    arbitrate.barOverload(geom, kaiRef, groups, pose, cost)
+    arbitrate.barTheftSwap(geom, kaiRef, groups, pose, cost)
+    arbitrate.axisMisplace(geom, kaiRef, groups)
+    diag.slotSwaps = arbitrate.slotSwap(kaiRef, groups, pose, cost)
+    arbitrate.orderPreserve(kaiRef, groups, pose, cost)
+    diag.ladderProbe = arbitrate.ladderProbeStage(kaiRef, groups, pose)
+    arbitrate.ladderActStage(kaiRef, groups, pose, cost, diag)
     anchor.run(ctx)               # G9 组重锚定 + G10 断面吸附
     iterate.run(ctx)              # 归属迭代精调 + 终态吸直
     cutting.run(ctx)              # 主人判定→矢量切割→划分重构
