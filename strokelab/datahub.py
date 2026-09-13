@@ -67,6 +67,7 @@ class DataHub:
         self._kaiCache = {}
         self._geomCache = {}
         self._dictCache = {}
+        self._famIndex = None  # 同族字反向索引（懒建，见 familyChars）
         self.libraryA = None
         self._load()
 
@@ -135,6 +136,33 @@ class DataHub:
 
         rec(ch, 1)
         return out
+
+    def familyChars(self, comp, kind):
+        """同族字查询：comp 为部件，kind ∈ phonetic|semantic|radical。
+        首次调用扫一遍 graphicsIndex 的 dictEntry 懒建反向索引
+        （phonetic/semantic 取 etymology 字段，radical 取 radical 字段），
+        只收 graphicsIndex 里有字形的字，按字典序返回连写字符串。"""
+        if kind not in ("phonetic", "semantic", "radical"):
+            raise KeyError("未知家族类型: " + kind)
+        if self._famIndex is None:
+            idx = {"phonetic": {}, "semantic": {}, "radical": {}}
+            for ch in self.graphicsIndex:
+                e = self.dictEntry(ch)
+                if not e:
+                    continue
+                ety = e.get("etymology") or {}
+                for k in ("phonetic", "semantic"):
+                    c = ety.get(k)
+                    if c:
+                        idx[k].setdefault(c, []).append(ch)
+                r = e.get("radical")
+                if r:
+                    idx["radical"].setdefault(r, []).append(ch)
+            for byComp in idx.values():
+                for chars in byComp.values():
+                    chars.sort()
+            self._famIndex = idx
+        return "".join(self._famIndex[kind].get(comp, []))
 
     # ------------------------------------------------------------ 结构
     def buildStructureTree(self, ch, depth=0, seen=None):
@@ -244,6 +272,10 @@ class DataHub:
             "chaiziJt": self.chaiziJt.get(ch, []),
             "chaiziFt": self.chaiziFt.get(ch, []),
             "components": self.components(ch),
+            # 字源三字段（dictEntry 直取，容错缺失）
+            "etymology": entry.get("etymology") or None,
+            "pinyin": entry.get("pinyin") or [],
+            "definition": entry.get("definition") or "",
         }
         self._kaiCache[ch] = data
         return data

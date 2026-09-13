@@ -143,8 +143,40 @@
         <button id="fxCollapse">🏚 轰然倒塌</button>
         <button id="fxLights">💡 灯光闪烁</button>
         <button id="fxRadical">🎨 部首识别色</button>
+        <button id="fxEtym">🔊 义音分层</button>
+        <button id="fxWrite">✍ 笔顺书写</button>
+        <button id="fxFace">😀 洞内表情</button>
+        <button id="fxTone">🎵 音调入场</button>
         <button id="fxReset">↺ 复位</button></div>
       <div id="fxInfo" class="statusLine"></div></div></div>
+
+  <div class="panel"><h2>⑧ 多字特效场<span class="tag">跨字交换/变形/景深</span></h2>
+    <div class="panelBody"><svg id="svgFx2" class="svgBox" viewBox="0 0 1024 1024"></svg>
+      <div class="btnRow">
+        <label>字符串</label><input id="fx2Input" type="text" size="8" maxlength="8"
+          placeholder="留空用各效果默认字">
+        <button id="fx2Swap" class="primary">🔁 偏旁交换</button>
+        <button id="fx2Family">🧬 家族接龙</button>
+        <button id="fx2Morph">🔀 跨结构转化</button>
+      </div>
+      <div class="btnRow">
+        <select id="fx2Chain">
+          <option value="木林森">木→林→森</option>
+          <option value="人从众">人→从→众</option>
+          <option value="日昌晶">日→昌→晶</option>
+          <option value="火炎焱">火→炎→焱</option>
+        </select>
+        <button id="fx2Grow">🌱 生长链</button>
+        <button id="fx2Gather">🌌 汇聚景深</button>
+        <button id="fx2Stop">■ 停止</button>
+      </div>
+      <div class="btnRow"><label>展开进度</label>
+        <input id="fx2Scrub" type="range" min="0" max="100" value="0"
+          style="flex:1;min-width:140px">
+        <button id="fx2Play">▶ 自动播放</button></div>
+      <div id="fx2Info" class="statusLine">偏旁交换默认 清晴 · 家族接龙默认 清 ·
+        跨结构默认 峰峯（缺字时自动试 群羣/略畧）· 汇聚景深默认 泽草所生</div>
+    </div></div>
 </div>
 
 <script>
@@ -917,6 +949,970 @@ function renderResult() {
     `溢出 ${uc.excess}%</b>（要求 100%/0%：所有笔画并集与原始路径恒等）。` +
     `“贝塞尔精确”= 该笔全部保留原字形精确切片 + 内部直弦；“布尔裁剪”= 经 shapely 收口修正。</div>`;
 }
+
+/* ================= ⑧ 多字特效场（含⑦追加效果 ①义音分层 ②笔顺书写 ③洞内表情 ④音调入场） ================= */
+/* ---- util：重采样 / 循环对齐 / 插值 / 缓动 / 包围盒 / 槽位 ---- */
+const fxU = (() => {
+  const holder = document.createElementNS(SVG_NS, "svg");
+  holder.setAttribute("width", "0"); holder.setAttribute("height", "0");
+  holder.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden";
+  document.body.appendChild(holder);
+  function samplePath(d, n) {          // 隐藏 path 重采样闭合轮廓到 n 点
+    n = n || 96;
+    const p = el("path", { d }, holder);
+    let pts = [];
+    try {
+      const L = Math.max(1e-6, p.getTotalLength());
+      for (let i = 0; i < n; i++) {
+        const q = p.getPointAtLength(L * i / n);
+        pts.push([q.x, q.y]);
+      }
+    } catch (e) { pts = null; }
+    p.remove();
+    return pts;
+  }
+  function alignClosed(ref, pts) {     // 闭合路径按最近点循环对齐（含反向）
+    const n = pts.length;
+    let best = pts, bestCost = Infinity;
+    for (const v of [pts, pts.slice().reverse()]) {
+      for (let off = 0; off < n; off++) {
+        let c = 0;
+        for (let i = 0; i < n; i += 6) {
+          const q = v[(i + off) % n];
+          c += Math.hypot(ref[i][0] - q[0], ref[i][1] - q[1]);
+          if (c >= bestCost) break;
+        }
+        if (c < bestCost) {
+          bestCost = c;
+          best = v.slice(off).concat(v.slice(0, off));
+        }
+      }
+    }
+    return best;
+  }
+  const lerpPts = (a, b, t) =>
+    a.map((p, i) => [p[0] + (b[i][0] - p[0]) * t, p[1] + (b[i][1] - p[1]) * t]);
+  const ptsPath = pts =>
+    pts.map((p, i) => (i ? "L" : "M") + fmt(p[0]) + " " + fmt(p[1])).join(" ") + " Z";
+  const clamp01 = t => Math.min(1, Math.max(0, t));
+  const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+  const easeInCubic = t => t * t * t;
+  const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const easeOutBack = t => {
+    const c = 1.70158;
+    return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
+  };
+  function unionBox(a, b) {
+    if (!a) return b; if (!b) return a;
+    return { x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0),
+             x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) };
+  }
+  function strokesBox(deco, ks) {
+    let bb = null;
+    for (const k of ks) {
+      const s = deco.strokes[k];
+      if (!s || s.failed || !s.path) continue;
+      bb = unionBox(bb, pathBBox(s.path));
+    }
+    return bb;
+  }
+  function fitBox(src, dst, shrink) {  // src 盒 → dst 盒的等比适配 {tx,ty,s}
+    const sw = Math.max(1, src.x1 - src.x0), sh = Math.max(1, src.y1 - src.y0);
+    const s = Math.min((dst.x1 - dst.x0) / sw, (dst.y1 - dst.y0) / sh) * (shrink || 1);
+    return { s,
+      tx: (dst.x0 + dst.x1) / 2 - s * (src.x0 + src.x1) / 2,
+      ty: (dst.y0 + dst.y1) / 2 - s * (src.y0 + src.y1) / 2 };
+  }
+  const tf = p => `translate(${fmt(p.tx)} ${fmt(p.ty)}) scale(${p.s})`;
+  function toneOf(py) {                // 带调元音 → 1..4 声
+    if (!py) return 1;
+    const T = { "ā":1,"ē":1,"ī":1,"ō":1,"ū":1,"ǖ":1,
+                "á":2,"é":2,"í":2,"ó":2,"ú":2,"ǘ":2,"ń":2,
+                "ǎ":3,"ě":3,"ǐ":3,"ǒ":3,"ǔ":3,"ǚ":3,"ň":3,
+                "à":4,"è":4,"ì":4,"ò":4,"ù":4,"ǜ":4,"ǹ":4 };
+    for (const c of String(py).normalize("NFC")) if (T[c]) return T[c];
+    const m = String(py).match(/[1-4]/);
+    return m ? +m[0] : 1;
+  }
+  const COMP_VARIANTS = [["氵","水","氺"],["亻","人"],["忄","心"],["扌","手"],
+    ["讠","言"],["钅","金"],["饣","食"],["纟","糸","糹"],["艹","艸"],["辶","辵"],
+    ["阝","邑","阜"],["犭","犬"],["礻","示"],["衤","衣"],["月","肉"],["王","玉"],
+    ["灬","火"],["刂","刀"],["罒","网"],["宀","㝉"]];
+  function sameComp(a, b) {
+    if (!a || !b) return false;
+    if (a === b) return true;
+    return COMP_VARIANTS.some(g => g.indexOf(a) >= 0 && g.indexOf(b) >= 0);
+  }
+  const childChar = node => node ? (node.char || labelOfNode(node)) : null;
+  function slotOfComp(deco, comp) {    // 一级槽位里找部件（含变体等价）
+    const ch = (((deco.kai || {}).structure) || {}).children || [];
+    for (let i = 0; i < ch.length; i++)
+      if (sameComp(childChar(ch[i]), comp)) return i;
+    return -1;
+  }
+  function slotStrokes(deco, slot) {
+    const out = [];
+    (deco.slotOf || []).forEach((sl, k) => {
+      const s = deco.strokes[k];
+      if (sl === slot && s && !s.failed && s.path) out.push(k);
+    });
+    return out;
+  }
+  function liveStrokes(deco) {
+    return deco.strokes.map((s, k) => ({ s, k }))
+                       .filter(o => !o.s.failed && o.s.path);
+  }
+  function leafGroups(deco) {          // 按 matches 全路径分组 → 叶级部件组
+    const m = (deco.kai || {}).matches || [];
+    const map = new Map();
+    deco.strokes.forEach((s, k) => {
+      if (s.failed || !s.path) return;
+      const path = m[k] || null;
+      const key = path ? JSON.stringify(path) : "root";
+      if (!map.has(key)) map.set(key, { path, ks: [] });
+      map.get(key).ks.push(k);
+    });
+    const out = [];
+    for (const [, g] of map) {
+      const node = g.path ? componentAtPath((deco.kai || {}).structure, g.path)
+                          : (deco.kai || {}).structure;
+      out.push({ char: childChar(node) || deco.ch, ks: g.ks,
+                 box: strokesBox(deco, g.ks) });
+    }
+    return out.filter(g => g.box);
+  }
+  function medianCum(m) {
+    const cum = [0];
+    for (let i = 1; i < m.length; i++)
+      cum.push(cum[i - 1] + Math.hypot(m[i][0] - m[i-1][0], m[i][1] - m[i-1][1]));
+    return cum;
+  }
+  function medianPointAt(m, cum, d) {  // 沿折线取点（循环）
+    const L = cum[cum.length - 1] || 1;
+    d = ((d % L) + L) % L;
+    for (let i = 1; i < cum.length; i++) {
+      if (d <= cum[i]) {
+        const t = (d - cum[i-1]) / Math.max(1e-6, cum[i] - cum[i-1]);
+        return [m[i-1][0] + (m[i][0] - m[i-1][0]) * t,
+                m[i-1][1] + (m[i][1] - m[i-1][1]) * t];
+      }
+    }
+    return m[m.length - 1].slice();
+  }
+  return { samplePath, alignClosed, lerpPts, ptsPath, clamp01,
+           easeOutCubic, easeInCubic, easeInOut, easeOutBack,
+           unionBox, strokesBox, fitBox, tf, toneOf, sameComp, childChar,
+           slotOfComp, slotStrokes, liveStrokes, leafGroups,
+           medianCum, medianPointAt };
+})();
+
+/* ---- 拆解结果前端缓存 + 串行请求队列（本地拆一字 1~3s，禁止并发轰服务） ---- */
+const decoCache = new Map();           // font|ch -> Promise(result)
+let decoChain = Promise.resolve();
+function fetchDeco(ch) {
+  const key = state.fontKey + "|" + ch;
+  if (decoCache.has(key)) return decoCache.get(key);
+  const p = decoChain.catch(() => {}).then(() =>
+    api("/api/decompose?font=" + encodeURIComponent(state.fontKey) +
+        "&char=" + encodeURIComponent(ch)));
+  decoChain = p.catch(() => {});
+  decoCache.set(key, p);
+  p.catch(() => decoCache.delete(key));
+  return p;
+}
+function strokeSamples(deco, k, N) {   // 重采样缓存（挂在结果对象上）
+  deco._samp = deco._samp || {};
+  const key = k + "_" + N;
+  if (!(key in deco._samp))
+    deco._samp[key] = fxU.samplePath(deco.strokes[k].path, N);
+  return deco._samp[key];
+}
+
+/* ---- ⑦ 场景保护：新效果会整场重建 #svgFx，复位/旧效果前自动还原 ---- */
+fx._origLoad = fx.load.bind(fx);
+fx._origResetPose = fx.resetPose.bind(fx);
+fx.sceneDirty = false; fx._last = null; fx.faceG = null; fx.faceIdx = 0;
+fx.load = function (strokes) {
+  this._last = strokes; this.sceneDirty = false; this.faceG = null;
+  this._origLoad(strokes);
+};
+fx.resetPose = function () {
+  if (this.sceneDirty && this._last) {
+    this.sceneDirty = false; this.faceG = null;
+    this._origLoad(this._last);
+  } else this._origResetPose();
+};
+
+Object.assign(fx, {
+  /* ① 义音分层：义旁粒子沿 median 流动 + 声旁描边脉冲呼吸 */
+  etym() {
+    this.reset(); this.mode = "etym"; this.sceneDirty = true;
+    const r = state.result, kai = r.kai || {};
+    const ety = kai.etymology;
+    if (!ety || (ety.type && ety.type !== "pictophonetic") || !ety.phonetic) {
+      this.setInfo(ety
+        ? `「${state.ch}」非形声字（${ety.type || "?"}${ety.hint ? " · " + ety.hint : ""}）`
+        : "后端未提供字源数据（etymology 缺失：非形声字、旧缓存或后端未更新）");
+      return;
+    }
+    let semSlot = fxU.slotOfComp(r, ety.semantic);
+    let phoSlot = fxU.slotOfComp(r, ety.phonetic);
+    const nCh = (((kai.structure) || {}).children || []).length;
+    if (semSlot < 0 && phoSlot >= 0 && nCh === 2) semSlot = 1 - phoSlot;
+    if (phoSlot < 0 && semSlot >= 0 && nCh === 2) phoSlot = 1 - semSlot;
+    let semColor = "#1e6fd9";
+    for (const rule of RADICAL_RULES)
+      if (rule.comps.some(c => fxU.sameComp(c, ety.semantic))) {
+        semColor = rule.color; break;
+      }
+    const phoColor = "#e08a2e";
+    const svg = document.getElementById("svgFx");
+    const root = glyphGroup(svg);
+    const defs = el("defs", {}, svg);
+    const flt = el("filter", { id: "fxEtymGlow",
+      x: "-60%", y: "-60%", width: "220%", height: "220%" }, defs);
+    el("feGaussianBlur", { stdDeviation: 14, result: "b" }, flt);
+    const mrg = el("feMerge", {}, flt);
+    el("feMergeNode", { in: "b" }, mrg);
+    el("feMergeNode", { in: "SourceGraphic" }, mrg);
+    const particles = [], pulses = [];
+    r.strokes.forEach((s, k) => {
+      if (s.failed || !s.path) return;
+      const sl = (r.slotOf || [])[k];
+      const isSem = semSlot >= 0 && sl === semSlot;
+      const isPho = phoSlot >= 0 && sl === phoSlot;
+      const p = el("path", { d: s.path, "fill-rule": "nonzero",
+        fill: isSem ? semColor : isPho ? phoColor : "#b9bec6" }, root);
+      if (isPho) {
+        p.setAttribute("stroke", phoColor);
+        p.setAttribute("filter", "url(#fxEtymGlow)");
+        pulses.push(p);
+      }
+      if (isSem && s.median && s.median.length > 1) {
+        const cum = fxU.medianCum(s.median);
+        const L = cum[cum.length - 1];
+        const nPar = L > 420 ? 3 : 2;
+        for (let j = 0; j < nPar; j++) {
+          const c = el("circle", { r: 15, fill: "#eaf4ff",
+            stroke: semColor, "stroke-width": 5 }, root);
+          particles.push({ c, m: s.median, cum, off: (L / nPar) * j,
+                           speed: 200 + 90 * ((k * 7 + j * 13) % 5) / 4 });
+        }
+      }
+    });
+    const t0 = performance.now();
+    const step = now => {
+      const t = (now - t0) / 1000;
+      for (const pr of particles) {
+        const q = fxU.medianPointAt(pr.m, pr.cum, pr.off + t * pr.speed);
+        pr.c.setAttribute("cx", fmt(q[0])); pr.c.setAttribute("cy", fmt(q[1]));
+      }
+      const b = 0.5 + 0.5 * Math.sin(t * 4.2);
+      for (const p of pulses) {
+        p.setAttribute("stroke-width", fmt(7 + 9 * b));
+        p.setAttribute("stroke-opacity", fmt(0.35 + 0.45 * b));
+      }
+      this.raf = requestAnimationFrame(step);
+    };
+    this.raf = requestAnimationFrame(step);
+    this.setInfo(`形声字：义旁 <b style="color:${semColor}">${ety.semantic || "?"}</b>（粒子流动）` +
+      ` ＋ 声旁 <b style="color:${phoColor}">${ety.phonetic}</b>（描边脉冲）` +
+      `${(kai.pinyin || [])[0] ? " · " + kai.pinyin[0] : ""}` +
+      `${ety.hint ? " · " + ety.hint : ""}` +
+      (semSlot < 0 && phoSlot < 0 ? "　<span class='warn'>槽位未定位，仅按缺省着色</span>" : ""));
+  },
+
+  /* ② 笔顺书写（卡拉OK）：median 折线 + clipPath 轮廓 + dashoffset 逐笔书写 */
+  write() {
+    this.reset(); this.mode = "write"; this.sceneDirty = true;
+    const r = state.result;
+    const svg = document.getElementById("svgFx");
+    const root = glyphGroup(svg);
+    const defs = el("defs", {}, svg);
+    const py = ((r.kai || {}).pinyin || [])[0] || "";
+    const title = el("text", { x: 512, y: 80, "text-anchor": "middle",
+      "font-size": 64, fill: "#333",
+      "font-family": "'Segoe UI','Microsoft YaHei',sans-serif" }, svg);
+    title.textContent = py || "（无拼音数据）";
+    const seq = [];
+    r.strokes.forEach((s, k) => {
+      if (s.failed || !s.path) return;
+      const base = el("path", { d: s.path, fill: "#ececec", stroke: "#d5d5d5",
+        "stroke-width": 2, "fill-rule": "nonzero" }, root);
+      if (!s.median || s.median.length < 2) {
+        seq.push({ base, color: colorOf(s.index), instant: true });
+        return;
+      }
+      const cid = "fxw_clip" + k;
+      const cp = el("clipPath", { id: cid }, defs);
+      el("path", { d: s.path, "clip-rule": "nonzero" }, cp);
+      const mp = s.median.map((p, j) =>
+        (j ? "L" : "M") + fmt(p[0]) + " " + fmt(p[1])).join(" ");
+      const wpx = Math.max(60, (s.width || 110) * 1.3);
+      const track = el("path", { d: mp, fill: "none", stroke: colorOf(s.index),
+        "stroke-width": wpx, "stroke-linecap": "round",
+        "stroke-linejoin": "round", "clip-path": `url(#${cid})` }, root);
+      const len = polylineLen(s.median) + wpx;
+      track.setAttribute("stroke-dasharray", len + " " + len);
+      track.setAttribute("stroke-dashoffset", len);
+      seq.push({ base, track, len, color: colorOf(s.index), type: s.type });
+    });
+    const n = seq.length;
+    let idx = 0, prog = 0, last = performance.now();
+    const hl = (it, on) => {
+      it.base.setAttribute("stroke", on ? "#4c8dff" : "#d5d5d5");
+      it.base.setAttribute("stroke-width", on ? 10 : 2);
+    };
+    const step = now => {
+      const dt = (now - last) / 1000; last = now;
+      const it = seq[idx];
+      if (!it) { this.raf = 0; this.setInfo(`书写完成：${n} 笔${py ? " · " + py : ""}`); return; }
+      if (it.instant) {
+        it.base.setAttribute("fill", it.color);
+        idx++; this.raf = requestAnimationFrame(step); return;
+      }
+      if (prog === 0) {
+        hl(it, true);
+        this.setInfo(`笔顺书写 ${idx + 1} / ${n} · 当前 ${it.type || ""}${py ? " · " + py : ""}`);
+      }
+      const dur = Math.max(0.32, it.len / 1000);
+      prog += dt / dur;
+      if (prog >= 1) {
+        it.track.setAttribute("stroke-dashoffset", 0);
+        it.base.setAttribute("fill", it.color);
+        hl(it, false);
+        idx++; prog = 0;
+      } else it.track.setAttribute("stroke-dashoffset", fmt(it.len * (1 - prog)));
+      this.raf = requestAnimationFrame(step);
+    };
+    this.raf = requestAnimationFrame(step);
+  },
+
+  /* ③ 洞内表情：holes[i] bbox 内矢量脸，眨眼 + 瞳孔游移；多洞循环切换 */
+  face() {
+    const r = state.result;
+    const holes = r.holes || [];
+    if (!holes.length) {
+      this.stop(); this.mode = null;
+      this.setInfo(`「${state.ch}」无围合空腔（holeCount=${r.holeCount || 0}）。试试 吞 / 回 / 国 / 目。`);
+      return;
+    }
+    if (this.mode === "face" && this.faceG) {
+      this.faceIdx = (this.faceIdx + 1) % holes.length;
+      this.faceG.remove(); this.faceG = null;
+      cancelAnimationFrame(this.raf); this.raf = 0;
+    } else {
+      this.reset(); this.mode = "face"; this.faceIdx = 0;
+    }
+    this.sceneDirty = true;
+    const hb = holes[this.faceIdx];
+    const x0 = hb[0], y0 = hb[1], x1 = hb[2], y1 = hb[3];
+    const svg = document.getElementById("svgFx");
+    const g = el("g", {}, svg);        // 屏幕坐标（不翻转），叠在字形之上
+    this.faceG = g;
+    const cx = (x0 + x1) / 2, cy = 900 - (y0 + y1) / 2;   // 数据 y → 屏幕 y
+    const w = (x1 - x0) * 0.6, h = (y1 - y0) * 0.6;
+    const eyeRx = Math.max(8, w * 0.16);
+    const eyeRy = Math.max(8, Math.min(h * 0.22, eyeRx * 1.4));
+    const ey = cy - h * 0.16;
+    const lw = Math.max(3, w * 0.025);
+    const eyes = [];
+    for (const ex of [cx - w * 0.22, cx + w * 0.22]) {
+      const eg = el("g", {}, g);
+      el("ellipse", { cx: ex, cy: ey, rx: eyeRx, ry: eyeRy,
+        fill: "#fff", stroke: "#222", "stroke-width": lw }, eg);
+      const pu = el("circle", { cx: ex, cy: ey,
+        r: Math.max(3, eyeRx * 0.42), fill: "#222" }, eg);
+      eyes.push({ eg, pu, ex, ey });
+    }
+    const mw = w * 0.3, my = cy + h * 0.22;
+    el("path", { d: `M ${fmt(cx - mw)} ${fmt(my)} Q ${fmt(cx)} ${fmt(my + Math.max(8, h * 0.18))} ${fmt(cx + mw)} ${fmt(my)}`,
+      fill: "none", stroke: "#222", "stroke-width": Math.max(4, w * 0.03),
+      "stroke-linecap": "round" }, g);
+    const t0 = performance.now();
+    const step = now => {
+      const t = (now - t0) / 1000;
+      const cyc = t % 3.2;
+      let sy = 1;
+      if (cyc > 2.9)                    // 眨眼：0.3s 内合上再睁开
+        sy = Math.max(0.08, Math.abs(Math.cos((cyc - 2.9) / 0.3 * Math.PI)));
+      const px = Math.cos(t * 0.9) * eyeRx * 0.35;
+      const pyy = Math.sin(t * 1.3) * eyeRy * 0.3;
+      for (const e2 of eyes) {
+        e2.eg.setAttribute("transform",
+          `translate(${fmt(e2.ex)} ${fmt(e2.ey)}) scale(1 ${fmt(sy)}) translate(${fmt(-e2.ex)} ${fmt(-e2.ey)})`);
+        e2.pu.setAttribute("cx", fmt(e2.ex + px));
+        e2.pu.setAttribute("cy", fmt(e2.ey + pyy));
+      }
+      this.raf = requestAnimationFrame(step);
+    };
+    this.raf = requestAnimationFrame(step);
+    this.setInfo(`洞内表情：空腔 ${this.faceIdx + 1}/${holes.length}` +
+      (holes.length > 1 ? "（再点切换下一个洞）" : "") +
+      ` · bbox [${x0},${y0}]–[${x1},${y1}]`);
+  },
+
+  /* ④ 音调入场：kai.pinyin[0] 声调 → 四种入场缓动 */
+  tone() {
+    this.reset(); this.mode = "tone";
+    if (!this.items.length) return;
+    const py = ((state.result.kai || {}).pinyin || [])[0] || "";
+    const tn = fxU.toneOf(py);
+    const names = { 1: "一声·平：匀速平移入场", 2: "二声·扬：自下弹升(easeOutBack)",
+                    3: "三声·拐：先降后升折线入场", 4: "四声·降：自上急坠+落地微震" };
+    this.setInfo(`${py || "（无拼音，按一声处理）"} → ${names[tn]}`);
+    this.items.forEach(it => it.g.setAttribute("opacity", 0));
+    this.run(tn === 4 ? 1000 : 900, 55, (it, i, t) => {
+      it.g.setAttribute("opacity", t <= 0 ? 0 : 1);
+      let dx = 0, dy = 0, rot = 0;      // 数据坐标：+y 向上
+      if (tn === 1) {
+        dx = -750 * (1 - t);
+      } else if (tn === 2) {
+        dy = -650 * (1 - fxU.easeOutBack(t));
+      } else if (tn === 3) {
+        dx = -560 * (1 - t);
+        if (t < 0.5) dy = 420 - 590 * fxU.easeInCubic(t / 0.5);
+        else dy = -170 * (1 - fxU.easeOutCubic((t - 0.5) / 0.5));
+      } else {
+        if (t < 0.72) dy = 820 * (1 - fxU.easeInCubic(t / 0.72));
+        else {
+          const u = (t - 0.72) / 0.28;
+          dy = Math.sin(u * Math.PI * 3) * 26 * (1 - u);
+          rot = Math.sin(u * Math.PI * 3) * 1.6 * (1 - u);
+        }
+      }
+      it.g.setAttribute("transform", `translate(${fmt(dx)} ${fmt(dy)})` +
+        (rot ? ` rotate(${fmt(rot)} ${fmt(it.cx)} ${fmt(it.cy)})` : ""));
+    }, () => this.setInfo(`${py || ""} 第 ${tn} 声 · 入场完成`));
+  },
+});
+
+/* ---- ⑧ 场共用小工具 ---- */
+function centerPlace(scale) {
+  scale = scale || 0.8;
+  return { s: scale, tx: 512 - 512 * scale, ty: 400 - 450 * scale };
+}
+function rowPlace(i, n, scale) {
+  const w = 1024 * scale, gap = 20;
+  const total = n * w + (n - 1) * gap;
+  return { s: scale, tx: 512 - total / 2 + i * (w + gap), ty: 400 - 450 * scale };
+}
+function mkStrokeGroup(deco, ks, parent) {
+  const g = el("g", {}, parent);
+  for (const k of ks) {
+    const s = deco.strokes[k];
+    if (s && !s.failed && s.path)
+      el("path", { d: s.path, "fill-rule": "nonzero", fill: colorOf(k) }, g);
+  }
+  return g;
+}
+function mkFlyRec(g, box, sign) {      // 沿远离字心方向飞出/由此飞入
+  const ang = Math.atan2((box.y0 + box.y1) / 2 - 450,
+                         (box.x0 + box.x1) / 2 - 512) + sign * 0.3;
+  return { g, dx: Math.cos(ang) * 1500, dy: Math.sin(ang) * 1500 };
+}
+function flyFrame(outs, ins, t) {
+  const eo = fxU.easeInCubic(Math.min(1, t / 0.7));
+  for (const o of outs) {
+    o.g.setAttribute("transform", `translate(${fmt(o.dx * eo)} ${fmt(o.dy * eo)})`);
+    o.g.setAttribute("opacity", fmt(Math.max(0, 1 - eo * 1.25)));
+  }
+  const ei = 1 - fxU.easeOutCubic(fxU.clamp01((t - 0.2) / 0.8));
+  for (const o of ins) {
+    o.g.setAttribute("transform", `translate(${fmt(o.dx * ei)} ${fmt(o.dy * ei)})`);
+    o.g.setAttribute("opacity", fmt(Math.min(1, (1 - ei) * 1.4)));
+  }
+}
+function swapFrame(ctx, dir, t) {      // dir=1 交换 / 0 还原；弧线互飞
+  const e = fxU.easeInOut(t), lift = Math.sin(Math.PI * t);
+  for (const mv of ctx.movers) {
+    const from = dir ? mv.home : mv.away, to = dir ? mv.away : mv.home;
+    mv.g.setAttribute("transform", fxU.tf({
+      s: from.s + (to.s - from.s) * e,
+      tx: from.tx + (to.tx - from.tx) * e,
+      ty: from.ty + (to.ty - from.ty) * e + mv.lift * 160 * lift }));
+  }
+}
+function greedyMatch(ga, gb) {         // 叶级部件贪心配对（同字符→就近）
+  const used = new Set(), pairs = [], outs = [], ins = [];
+  for (const s of ga) {
+    let bj = -1, bd = Infinity;
+    gb.forEach((t2, j) => {
+      if (used.has(j) || t2.char !== s.char) return;
+      const d = Math.hypot((t2.box.x0 + t2.box.x1) - (s.box.x0 + s.box.x1),
+                           (t2.box.y0 + t2.box.y1) - (s.box.y0 + s.box.y1));
+      if (d < bd) { bd = d; bj = j; }
+    });
+    if (bj >= 0) { used.add(bj); pairs.push({ src: s, dst: gb[bj] }); }
+    else outs.push(s);
+  }
+  gb.forEach((t2, j) => { if (!used.has(j)) ins.push(t2); });
+  return { pairs, outs, ins };
+}
+
+/* ---- ⑧ 多字特效场主体 ---- */
+const fx2 = {
+  svg: null, raf: 0, token: 0, mode: null,
+  swapCtx: null, morphCtx: null, gatherCtx: null,
+  init() { this.svg = document.getElementById("svgFx2"); },
+  setInfo(html) { document.getElementById("fx2Info").innerHTML = html; },
+  bump() { this.token++; cancelAnimationFrame(this.raf); this.raf = 0; return this.token; },
+  alive(tk) { return tk === this.token; },
+  stopAll() { this.bump(); this.mode = null; },
+  chars(defStr, nMin, nMax) {
+    const v = [...document.getElementById("fx2Input").value.replace(/\s+/g, "")];
+    const arr = v.length >= nMin && v.length > 0 ? v : [...defStr];
+    return arr.slice(0, nMax);
+  },
+  sleep(ms, tk) {
+    return new Promise(res => setTimeout(() => res(this.alive(tk)), ms));
+  },
+  anim(dur, tk, frame) {               // 帧驱动，token 失效即中止(false)
+    return new Promise(res => {
+      const t0 = performance.now();
+      const step = now => {
+        if (!this.alive(tk)) return res(false);
+        const t = Math.min(1, (now - t0) / dur);
+        frame(t);
+        if (t < 1) this.raf = requestAnimationFrame(step);
+        else res(true);
+      };
+      this.raf = requestAnimationFrame(step);
+    });
+  },
+  async fetchAll(chs, tk, label) {     // 逐字串行拆解 + 加载态；失败置 null
+    const out = [];
+    for (let i = 0; i < chs.length; i++) {
+      if (!this.alive(tk)) return null;
+      this.setInfo(`${label || "加载"}：拆解「${chs[i]}」 (${i + 1}/${chs.length}) …`);
+      try { out.push(await fetchDeco(chs[i])); }
+      catch (e) { out.push(null); }
+    }
+    return this.alive(tk) ? out : null;
+  },
+  root() { return glyphGroup(this.svg); },
+  renderSingle(deco, place) {
+    const root = this.root();
+    const cg = el("g", { transform: fxU.tf(place) }, root);
+    deco.strokes.forEach((s, k) => {
+      if (!s.failed && s.path)
+        el("path", { d: s.path, "fill-rule": "nonzero", fill: colorOf(k) }, cg);
+    });
+  },
+
+  /* ⑤ 偏旁交换：双字并排，差异槽位笔画组弧线互飞 + 仿射适配，可来回切换 */
+  async swap() {
+    const tk = this.bump();
+    const pair = this.chars("清晴", 2, 2);
+    if (pair.length < 2) { this.setInfo("请输入两个字（如 清晴）"); return; }
+    if (this.mode === "swap" && this.swapCtx && this.swapCtx.key === pair.join("")) {
+      const c = this.swapCtx, dir = c.swapped ? 0 : 1;
+      if (await this.anim(900, tk, t => swapFrame(c, dir, t))) {
+        c.swapped = !c.swapped;
+        this.setInfo(`偏旁交换：${c.label} — ${c.swapped ? "已交换（再按一次换回）" : "已还原"}`);
+      }
+      return;
+    }
+    this.mode = "swap"; this.swapCtx = null;
+    const decos = await this.fetchAll(pair, tk, "偏旁交换");
+    if (!decos) return;
+    if (!decos[0] || !decos[1]) {
+      this.setInfo("拆解失败：" + pair.filter((c, i) => !decos[i]).join("、"));
+      return;
+    }
+    const A = decos[0], B = decos[1];
+    const chA = (((A.kai || {}).structure) || {}).children || [];
+    const chB = (((B.kai || {}).structure) || {}).children || [];
+    let slot = -1;
+    for (let i = 0; i < Math.min(chA.length, chB.length); i++) {
+      const a = fxU.childChar(chA[i]), b = fxU.childChar(chB[i]);
+      if (a && b && a !== b) { slot = i; break; }
+    }
+    if (slot < 0) {
+      this.setInfo(`未找到差异槽位（${pair.join("/")}：` +
+        `${chA.map(fxU.childChar).join("+") || "独体"} vs ` +
+        `${chB.map(fxU.childChar).join("+") || "独体"}）`);
+      return;
+    }
+    const ksA = fxU.slotStrokes(A, slot), ksB = fxU.slotStrokes(B, slot);
+    if (!ksA.length || !ksB.length) {
+      this.setInfo("差异槽位没有对应笔画（slotOf 缺失或全部失败笔）"); return;
+    }
+    const root = this.root();
+    const pA = rowPlace(0, 2, 0.45), pB = rowPlace(1, 2, 0.45);
+    const mkSide = (deco, place, ks, tint) => {
+      const stat = el("g", { transform: fxU.tf(place) }, root);
+      deco.strokes.forEach((s, k) => {
+        if (s.failed || !s.path || ks.indexOf(k) >= 0) return;
+        el("path", { d: s.path, "fill-rule": "nonzero", fill: "#565b63" }, stat);
+      });
+      const mov = el("g", { transform: fxU.tf(place) }, root);
+      for (const k of ks) {
+        const s = deco.strokes[k];
+        el("path", { d: s.path, "fill-rule": "nonzero", fill: tint }, mov);
+      }
+      return mov;
+    };
+    const movA = mkSide(A, pA, ksA, "#e6194b");
+    const movB = mkSide(B, pB, ksB, "#2b6fb3");
+    const boxA = fxU.strokesBox(A, ksA), boxB = fxU.strokesBox(B, ksB);
+    if (!boxA || !boxB) { this.setInfo("槽位包围盒计算失败"); return; }
+    const outBox = (box, pl) => ({
+      x0: pl.tx + pl.s * box.x0, y0: pl.ty + pl.s * box.y0,
+      x1: pl.tx + pl.s * box.x1, y1: pl.ty + pl.s * box.y1 });
+    this.swapCtx = {
+      key: pair.join(""), swapped: false,
+      label: `「${fxU.childChar(chA[slot])}」⇄「${fxU.childChar(chB[slot])}」（槽位${slot + 1}）`,
+      movers: [
+        { g: movA, home: pA, away: fxU.fitBox(boxA, outBox(boxB, pB)), lift: 1 },
+        { g: movB, home: pB, away: fxU.fitBox(boxB, outBox(boxA, pA)), lift: -1 },
+      ],
+    };
+    this.setInfo(`偏旁交换 ${pair.join(" / ")}：${this.swapCtx.label} 交换中…`);
+    if (await this.anim(950, tk, t => swapFrame(this.swapCtx, 1, t))) {
+      this.swapCtx.swapped = true;
+      this.setInfo(`偏旁交换：${this.swapCtx.label} — 已交换（再按一次换回）`);
+    }
+  },
+
+  /* ⑥ 家族变形接龙：声旁家族逐字变形，声旁逐笔插值、义旁飞出/飞入 */
+  async family() {
+    const tk = this.bump(); this.mode = "family";
+    const ch0 = this.chars("清", 1, 1)[0];
+    const first = await this.fetchAll([ch0], tk, "家族接龙");
+    if (!first) return;
+    const d0 = first[0];
+    if (!d0) { this.setInfo(`「${ch0}」拆解失败`); return; }
+    const pho = ((d0.kai || {}).etymology || {}).phonetic;
+    if (!pho) {
+      this.setInfo(`「${ch0}」无声旁数据（etymology 缺失/非形声字，接龙需要后端字源支持）`);
+      return;
+    }
+    let famStr = "";
+    try {
+      const fam = await api("/api/family?comp=" + encodeURIComponent(pho) + "&kind=phonetic");
+      famStr = fam.chars || "";
+    } catch (e) { this.setInfo("family 接口不可用：" + e.message); return; }
+    if (!this.alive(tk)) return;
+    let chs = [...famStr].filter(c => c !== ch0);
+    chs = [ch0].concat(chs).slice(0, 5);
+    if (chs.length < 2) {
+      this.setInfo(`声旁「${pho}」家族只有 ${chs.join("")}，无法接龙`); return;
+    }
+    const decos = (await this.fetchAll(chs, tk, "家族接龙") || []).filter(Boolean);
+    if (!this.alive(tk)) return;
+    if (decos.length < 2) { this.setInfo("家族字拆解成功数不足 2"); return; }
+    const place = centerPlace(0.8);
+    const cap = d => `<b style="font-size:16px">${d.ch}</b> ` +
+      `${(((d.kai || {}).pinyin) || [])[0] || ""} — ${(d.kai || {}).definition || "（无释义）"}` +
+      `　· 声旁「${pho}」家族：${decos.map(x => x.ch).join(" ")}`;
+    let cur = 0;
+    this.renderSingle(decos[0], place);
+    this.setInfo(cap(decos[0]));
+    while (this.alive(tk)) {
+      if (!await this.sleep(1500, tk)) return;
+      const a = decos[cur], b = decos[(cur + 1) % decos.length];
+      if (!await this.morphChar(a, b, place, tk, pho)) return;
+      cur = (cur + 1) % decos.length;
+      this.setInfo(cap(decos[cur]));
+    }
+  },
+  async morphChar(a, b, place, tk, pho) {   // 声旁槽内逐笔插值；其余飞出/飞入
+    const slA = pho ? fxU.slotOfComp(a, pho) : -1;
+    const slB = pho ? fxU.slotOfComp(b, pho) : -1;
+    const liveA = fxU.liveStrokes(a), liveB = fxU.liveStrokes(b);
+    let pa = [], pb = [];
+    if (slA >= 0 && slB >= 0) {
+      pa = liveA.filter(o => (a.slotOf || [])[o.k] === slA);
+      pb = liveB.filter(o => (b.slotOf || [])[o.k] === slB);
+    }
+    const nPair = Math.min(pa.length, pb.length);
+    const pairSetA = new Set(pa.slice(0, nPair).map(o => o.k));
+    const pairSetB = new Set(pb.slice(0, nPair).map(o => o.k));
+    const root = this.root();
+    const cg = el("g", { transform: fxU.tf(place) }, root);
+    const N = 96;
+    const morphs = [];
+    for (let i = 0; i < nPair; i++) {
+      const P = strokeSamples(a, pa[i].k, N), Q0 = strokeSamples(b, pb[i].k, N);
+      if (!P || !Q0) continue;
+      const Q = fxU.alignClosed(P, Q0);
+      const node = el("path", { "fill-rule": "nonzero",
+        fill: colorOf(pb[i].k), d: fxU.ptsPath(P) }, cg);
+      morphs.push({ node, P, Q });
+    }
+    const outs = liveA.filter(o => !pairSetA.has(o.k)).map(o =>
+      mkFlyRec(mkStrokeGroup(a, [o.k], cg),
+               pathBBox(a.strokes[o.k].path) || { x0: 400, y0: 400, x1: 600, y1: 600 }, 1));
+    const ins = liveB.filter(o => !pairSetB.has(o.k)).map(o => {
+      const rec = mkFlyRec(mkStrokeGroup(b, [o.k], cg),
+        pathBBox(b.strokes[o.k].path) || { x0: 400, y0: 400, x1: 600, y1: 600 }, -1);
+      rec.g.setAttribute("opacity", 0);
+      rec.g.setAttribute("transform", `translate(${fmt(rec.dx)} ${fmt(rec.dy)})`);
+      return rec;
+    });
+    const ok = await this.anim(950, tk, t => {
+      const e = fxU.easeInOut(t);
+      for (const m of morphs)
+        m.node.setAttribute("d", fxU.ptsPath(fxU.lerpPts(m.P, m.Q, e)));
+      flyFrame(outs, ins, t);
+    });
+    if (ok) this.renderSingle(b, place);
+    return ok;
+  },
+
+  /* ⑦ 生长链：部件仿射滑移到新槽位、新增部件飞入，链尾反向收缩，循环 */
+  async grow() {
+    const tk = this.bump(); this.mode = "grow";
+    const chain = [...document.getElementById("fx2Chain").value];
+    const decos = await this.fetchAll(chain, tk, "生长链");
+    if (!decos) return;
+    if (decos.some(d => !d)) {
+      this.setInfo("链中有字拆解失败：" + chain.filter((c, i) => !decos[i]).join("、"));
+      return;
+    }
+    const place = centerPlace(0.78);
+    const cap = d => `<b style="font-size:16px">${d.ch}</b> ` +
+      `${(((d.kai || {}).pinyin) || [])[0] || ""} — ${(d.kai || {}).definition || "（无释义）"}`;
+    let i = 0, dir = 1;
+    this.renderSingle(decos[0], place);
+    this.setInfo(cap(decos[0]) + " · 生长链 " + chain.join("→"));
+    while (this.alive(tk)) {
+      if (!await this.sleep(1400, tk)) return;
+      const j = i + dir;
+      if (!await this.growStep(decos[i], decos[j], place, tk)) return;
+      i = j;
+      this.setInfo(cap(decos[i]) +
+        (dir > 0 ? " · 生长 " : " · 收缩 ") + chain.join(dir > 0 ? "→" : "←"));
+      if (i === decos.length - 1) dir = -1;
+      else if (i === 0) dir = 1;
+    }
+  },
+  async growStep(a, b, place, tk) {
+    const { pairs, outs: srcOuts, ins: dstIns } =
+      greedyMatch(fxU.leafGroups(a), fxU.leafGroups(b));
+    const root = this.root();
+    const cg = el("g", { transform: fxU.tf(place) }, root);
+    const mv = pairs.map(m => ({ g: mkStrokeGroup(a, m.src.ks, cg),
+                                 fit: fxU.fitBox(m.src.box, m.dst.box) }));
+    const outs = srcOuts.map(s => mkFlyRec(mkStrokeGroup(a, s.ks, cg), s.box, 1));
+    const ins = dstIns.map(s => {
+      const rec = mkFlyRec(mkStrokeGroup(b, s.ks, cg), s.box, -1);
+      rec.g.setAttribute("opacity", 0);
+      rec.g.setAttribute("transform", `translate(${fmt(rec.dx)} ${fmt(rec.dy)})`);
+      return rec;
+    });
+    const ok = await this.anim(950, tk, t => {
+      const e = fxU.easeInOut(t);
+      for (const m of mv) {
+        const s = 1 + (m.fit.s - 1) * e;
+        m.g.setAttribute("transform",
+          `translate(${fmt(m.fit.tx * e)} ${fmt(m.fit.ty * e)}) scale(${fmt(s)})`);
+      }
+      flyFrame(outs, ins, t);
+    });
+    if (ok) this.renderSingle(b, place);
+    return ok;
+  },
+
+  /* ⑧ 跨结构转化：一段=部件整体仿射对位，二段=残差逐笔插值；再按反向 */
+  async morphStruct() {
+    const tk = this.bump();
+    if (this.mode === "xstruct" && this.morphCtx) {
+      const ctx = this.morphCtx; this.morphCtx = null;
+      await this.structTransition(ctx.A, ctx.B, tk);
+      return;
+    }
+    this.mode = "xstruct";
+    const inp = this.chars("", 0, 2);
+    const cand = inp.length >= 2 ? [[inp[0], inp[1]]]
+                                 : [["峰", "峯"], ["群", "羣"], ["略", "畧"]];
+    let A = null, B = null;
+    for (const [c1, c2] of cand) {
+      const ds = await this.fetchAll([c1, c2], tk, "跨结构转化");
+      if (!ds) return;
+      if (ds[0] && ds[1]) { A = ds[0]; B = ds[1]; break; }
+      this.setInfo(`「${c1}/${c2}」字库缺字或拆解失败，尝试下一组…`);
+    }
+    if (!A) {
+      this.setInfo("候选字对（峰峯 / 群羣 / 略畧）都不可用；请手动输入两个部件相同、结构不同的字");
+      this.mode = null;
+      return;
+    }
+    await this.structTransition(A, B, tk);
+  },
+  async structTransition(A, B, tk) {
+    const place = centerPlace(0.78);
+    const pairName = A.ch + "→" + B.ch;
+    const ga = fxU.leafGroups(A), gb = fxU.leafGroups(B);
+    let { pairs, outs: po, ins: pi } = greedyMatch(ga, gb);
+    if (po.length && pi.length) {      // 字符标注不一致时按笔画数兜底配对
+      for (const s of po) {
+        let bj = -1, bd = Infinity;
+        pi.forEach((t2, j) => {
+          const d = Math.abs(t2.ks.length - s.ks.length);
+          if (d < bd) { bd = d; bj = j; }
+        });
+        if (bj >= 0) { pairs.push({ src: s, dst: pi[bj] }); pi.splice(bj, 1); }
+      }
+    }
+    if (!pairs.length) { this.setInfo("未能建立部件配对"); return; }
+    /* 第一段：部件整体仿射对位 */
+    this.setInfo(`跨结构转化 ${pairName}：第一段 部件整体仿射对位…`);
+    const root = this.root();
+    const cg = el("g", { transform: fxU.tf(place) }, root);
+    const items = pairs.map(p => ({ g: mkStrokeGroup(A, p.src.ks, cg),
+                                    fit: fxU.fitBox(p.src.box, p.dst.box) }));
+    if (!await this.anim(850, tk, t => {
+      const e = fxU.easeInOut(t);
+      for (const it of items) {
+        const s = 1 + (it.fit.s - 1) * e;
+        it.g.setAttribute("transform",
+          `translate(${fmt(it.fit.tx * e)} ${fmt(it.fit.ty * e)}) scale(${fmt(s)})`);
+      }
+    })) return;
+    /* 第二段：残差逐笔插值（A 笔先施加一段仿射，再 lerp 到 B 对应笔） */
+    this.setInfo(`跨结构转化 ${pairName}：第二段 残差逐笔插值…`);
+    const root2 = this.root();
+    const cg2 = el("g", { transform: fxU.tf(place) }, root2);
+    const N = 96, morphs = [];
+    for (const pr of pairs) {
+      const f = fxU.fitBox(pr.src.box, pr.dst.box);
+      const n = Math.min(pr.src.ks.length, pr.dst.ks.length);
+      for (let i = 0; i < n; i++) {
+        const P0 = strokeSamples(A, pr.src.ks[i], N);
+        const Q0 = strokeSamples(B, pr.dst.ks[i], N);
+        if (!P0 || !Q0) continue;
+        const P = P0.map(q => [f.tx + f.s * q[0], f.ty + f.s * q[1]]);
+        const Q = fxU.alignClosed(P, Q0);
+        morphs.push({ P, Q, node: el("path", { "fill-rule": "nonzero",
+          fill: colorOf(pr.dst.ks[i]), d: fxU.ptsPath(P) }, cg2) });
+      }
+      for (let i = n; i < pr.dst.ks.length; i++) {   // 笔画数不等的兜底淡入
+        const sb = B.strokes[pr.dst.ks[i]];
+        if (sb && !sb.failed && sb.path)
+          morphs.push({ fadeIn: true, node: el("path", { d: sb.path,
+            "fill-rule": "nonzero", fill: colorOf(pr.dst.ks[i]), opacity: 0 }, cg2) });
+      }
+    }
+    if (!await this.anim(900, tk, t => {
+      const e = fxU.easeInOut(t);
+      for (const m of morphs) {
+        if (m.fadeIn) { m.node.setAttribute("opacity", fmt(e)); continue; }
+        m.node.setAttribute("d", fxU.ptsPath(fxU.lerpPts(m.P, m.Q, e)));
+      }
+    })) return;
+    this.renderSingle(B, place);
+    this.morphCtx = { A: B, B: A };
+    this.setInfo(`跨结构转化完成：${pairName}（再按一次反向 ${B.ch}→${A.ch}）`);
+  },
+
+  /* ⑨ 汇聚景深：笔画自四边外带深度散布 → 错峰汇聚，3 档共享模糊 filter */
+  async gatherBuild(auto) {
+    const tk = this.bump(); this.mode = "gather"; this.gatherCtx = null;
+    const chs = this.chars("泽草所生", 1, 6);
+    const decos = await this.fetchAll(chs, tk, "汇聚景深");
+    if (!decos) return;
+    const oks = decos.map((d, i) => ({ d, ch: chs[i] })).filter(o => o.d);
+    if (!oks.length) { this.setInfo("全部拆解失败"); return; }
+    const n = oks.length;
+    const s = Math.min(0.23, (984 - (n - 1) * 24) / (n * 1024));
+    const root = this.root();
+    const defs = el("defs", {}, this.svg);
+    const tiers = [["fx2BlurFar", 60], ["fx2BlurMid", 26], ["fx2BlurNear", 9]];
+    for (const [id, sd] of tiers) {
+      const f = el("filter", { id,
+        x: "-80%", y: "-80%", width: "260%", height: "260%" }, defs);
+      el("feGaussianBlur", { stdDeviation: sd }, f);
+    }
+    const recs = [];
+    oks.forEach((o, i) => {
+      const place = { s, ty: 400 - 450 * s,
+        tx: 512 - (n * 1024 * s + (n - 1) * 24) / 2 + i * (1024 * s + 24) };
+      const cg = el("g", { transform: fxU.tf(place) }, root);
+      o.d.strokes.forEach((st, k) => {
+        if (st.failed || !st.path) return;
+        const g = el("g", {}, cg);
+        el("path", { d: st.path, "fill-rule": "nonzero", fill: colorOf(k) }, g);
+        const bb = pathBBox(st.path) || { x0: 400, y0: 400, x1: 600, y1: 600 };
+        const side = Math.floor(Math.random() * 4);
+        let ox, oy;                     // 视口四边外（外层数据坐标）
+        if (side === 0) { ox = -260 - Math.random() * 260; oy = -150 + Math.random() * 1150; }
+        else if (side === 1) { ox = 1284 + Math.random() * 260; oy = -150 + Math.random() * 1150; }
+        else if (side === 2) { ox = -150 + Math.random() * 1320; oy = 1060 + Math.random() * 260; }
+        else { ox = -150 + Math.random() * 1320; oy = -300 - Math.random() * 260; }
+        const cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
+        const z = 0.4 + Math.random() * 1.8;   // 随机深度 scale 0.4~2.2
+        recs.push({ g, cx, cy, z,
+          ix: (ox - place.tx) / place.s - cx, iy: (oy - place.ty) / place.s - cy,
+          tier: (z < 0.7 || z > 1.9) ? 0 : (z < 0.9 || z > 1.5) ? 1 : 2,
+          st0: Math.random() * 0.55, w: 0.45 });
+      });
+    });
+    this.gatherCtx = { recs, tiers };
+    this.setGather(0);
+    document.getElementById("fx2Scrub").value = 0;
+    this.setInfo(`汇聚景深：${oks.map(o => o.ch).join("")} · ${recs.length} 笔 · ` +
+      "拖动滑杆 scrub（模拟折叠屏展开）或点自动播放");
+    if (auto) this.gatherPlay();
+  },
+  setGather(P) {
+    const ctx = this.gatherCtx;
+    if (!ctx) return;
+    for (const r of ctx.recs) {
+      const t = fxU.clamp01((P - r.st0) / r.w);
+      const e = fxU.easeOutCubic(t);
+      const k = r.z + (1 - r.z) * e;    // 深度收敛到 1
+      const dx = r.ix * (1 - e), dy = r.iy * (1 - e);
+      r.g.setAttribute("transform",
+        `translate(${fmt(dx + r.cx * (1 - k))} ${fmt(dy + r.cy * (1 - k))}) scale(${fmt(k)})`);
+      r.g.setAttribute("opacity", fmt(0.22 + 0.78 * e));
+      let f = "";
+      if (t < 0.6) f = ctx.tiers[r.tier][0];
+      else if (t < 0.88) f = ctx.tiers[Math.min(2, r.tier + 1)][0];
+      if (f) r.g.setAttribute("filter", `url(#${f})`);
+      else r.g.removeAttribute("filter");
+    }
+  },
+  gatherPlay() {
+    if (!this.gatherCtx) return;
+    const tk = ++this.token;
+    cancelAnimationFrame(this.raf);
+    const slider = document.getElementById("fx2Scrub");
+    const t0 = performance.now(), dur = 3200;
+    const step = now => {
+      if (!this.alive(tk)) return;
+      const P = Math.min(1, (now - t0) / dur);
+      slider.value = Math.round(P * 100);
+      this.setGather(P);
+      if (P < 1) this.raf = requestAnimationFrame(step);
+    };
+    this.raf = requestAnimationFrame(step);
+  },
+};
+
+/* ---- 事件绑定（⑦追加 + ⑧场） ---- */
+fx2.init();
+document.getElementById("fxEtym").onclick = () => fx.etym();
+document.getElementById("fxWrite").onclick = () => fx.write();
+document.getElementById("fxFace").onclick = () => fx.face();
+document.getElementById("fxTone").onclick = () => fx.tone();
+document.getElementById("fx2Swap").onclick = () => fx2.swap();
+document.getElementById("fx2Family").onclick = () => fx2.family();
+document.getElementById("fx2Grow").onclick = () => fx2.grow();
+document.getElementById("fx2Morph").onclick = () => fx2.morphStruct();
+document.getElementById("fx2Gather").onclick = () => fx2.gatherBuild(true);
+document.getElementById("fx2Stop").onclick = () => { fx2.stopAll(); fx2.setInfo("已停止"); };
+document.getElementById("fx2Play").onclick = () => {
+  if (fx2.mode === "gather" && fx2.gatherCtx) fx2.gatherPlay();
+  else fx2.gatherBuild(true);
+};
+document.getElementById("fx2Scrub").addEventListener("input", e => {
+  if (fx2.mode === "gather" && fx2.gatherCtx) {
+    ++fx2.token; cancelAnimationFrame(fx2.raf);   // 手动 scrub 时停自动播放
+    fx2.setGather((+e.target.value) / 100);
+  }
+});
 
 /* ---------------- 启动 ---------------- */
 async function boot() {

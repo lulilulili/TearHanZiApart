@@ -7,6 +7,7 @@ API：
     GET /api/fonts                     → 字体清单
     GET /api/library?font=<file>       → A库 + B库（含来源/骨架）
     GET /api/decompose?font=<f>&char=<c> → 完整拆解结果（含楷体数据/结构/校验）
+    GET /api/family?comp=<c>&kind=<k>  → 同族字（kind ∈ phonetic|semantic|radical）
 前端：/ → viewer/charStrokeLab.html
 """
 
@@ -113,6 +114,11 @@ class Handler(BaseHTTPRequestHandler):
                         "拆解": round((time.perf_counter() - tP) * 1000)}
                     _state["results"][key] = r
                 self._json(_state["results"][key])
+            elif route == "/api/family":
+                comp = qs["comp"][0]
+                kind = qs.get("kind", ["phonetic"])[0]
+                self._json({"comp": comp, "kind": kind,
+                            "chars": _state["hub"].familyChars(comp, kind)})
             elif route == "/" or route == "/index.html":
                 self.send_response(302)
                 self.send_header("Location", "/viewer/charStrokeLab.html")
