@@ -64,7 +64,12 @@ from . import finalize
 
 
 def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
-                seedMedians=None, selfConsistent=True):
+                seedMedians=None, selfConsistent=True, frontReuse=None):
+    """frontReuse（仅重试遍，finalize 内部传递）：首遍前段产物快照
+    （finalize.FrontReuse）。种子重跑时前段（轮廓解析并组/全局对齐/
+    D 构建）与首遍完全相同且 dbuild 的 B 候选扫描结果会被种子整体
+    顶替——复用快照直接跳过这两个阶段（值等价，parity 34 例硬门），
+    重试字省下前段复算。外部调用方不传此参，行为不变。"""
     kai = dataHub.kai(ch)
     if not kai:
         return {"error": "MakeMeAHanzi 中没有「%s」的笔画数据" % ch}
@@ -80,10 +85,18 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     geom, groups, pose = ctx.geom, ctx.groups, ctx.pose
     kaiRef, cost, diag, samples = ctx.kaiRef, ctx.cost, ctx.diag, ctx.samples
 
-    grouping.parseAndMerge(geom, kaiRef, raw)   # 轮廓解析 + 交叠件并组
-    diag.startTimer()             # 计时基点与原单文件版一致（并组后起表）
-    dbuild.run(dataHub, fontEntry, geom, kaiRef, pose)  # 全局对齐 + D 构建
-    diag.tick("解析对齐/D构建")
+    if frontReuse is not None and seedMedians is not None:
+        # 重试遍前段复用：快照回填 contours/tb/affine 等 + 种子顶替 D
+        # （applyTo 逐字段复刻 parseAndMerge+dbuild 种子路径产物）。
+        # timings 阶段名保持与首遍一致，值近零。
+        diag.startTimer()
+        frontReuse.applyTo(geom, kaiRef, pose, seedMedians)
+        diag.tick("解析对齐/D构建")
+    else:
+        grouping.parseAndMerge(geom, kaiRef, raw)   # 轮廓解析 + 交叠件并组
+        diag.startTimer()         # 计时基点与原单文件版一致（并组后起表）
+        dbuild.run(dataHub, fontEntry, geom, kaiRef, pose)  # 全局对齐 + D 构建
+        diag.tick("解析对齐/D构建")
     grouping.buildTables(geom, groups)          # 连通组组表
     # G0/G1 指派 + S1b 语义认领
     diag.semanticClaims = assign.run(geom, kaiRef, groups, pose, cost)
@@ -114,7 +127,7 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     diag.tick("矢量切割")
     ctx.strokes = cutting.reconstruct(kaiRef, groups, pose, ctx.strokeArcs)
     diag.tick("重构")
-    finalize.run(ctx)             # 收口→result→自洽二遍→轴向守卫
+    finalize.run(ctx, frontReuse)  # 收口→result→自洽二遍→轴向守卫
     # C库诊断：clibHits = 本次调用第一遍 D 构建被 C 骨架顶替的笔数
     # （自洽二遍/轴向守卫复跑走种子路径恒为 0，采纳复跑结果后仍以
     # 外层首遍计数覆盖——评估口径是"D构建命中"而非"终态出处"）。

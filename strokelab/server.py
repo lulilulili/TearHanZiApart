@@ -21,7 +21,8 @@ API：
        此前每次命中都重新 json.dumps），键含 字体文件签名+算法签名，LRU 限
        RESP_CACHE_MAX 条防内存膨胀；
     3. 字体建库为字体级锁 + double-check，不同字体互不阻塞；B库骨架 dirty
-       回写走 临时文件+os.replace 原子替换（见 _flushSkeletons）。
+       回写的 临时文件+os.replace 原子替换已下沉 fonthub._saveLibCache
+       （_atomicWriteJson），本层只保单写者与缓存失效（见 _flushSkeletons）。
 """
 
 import argparse
@@ -30,7 +31,6 @@ import os
 import sys
 import threading
 import time
-import types
 import urllib.parse
 import webbrowser
 from collections import OrderedDict
@@ -149,35 +149,24 @@ def _respCachePut(key, body):
 
 
 def _flushSkeletons(font, fe):
-    """B库骨架 dirty 批量回写：单写者 + 原子替换。
+    """B库骨架 dirty 批量回写：单写者 + 库缓存失效。
 
-    现状核查：fonthub.saveSkeletonsIfDirty 的**批量**语义已具备——_skelDirty
-    仅在拆解懒算出新骨架时置位，整字拆完只全量回写一次，并非逐骨架逐次写；
-    但底层 _saveLibCache 直接 open(最终路径,"w") 重写，非原子——进程中断或
-    并发写会留半截 JSON，下次 _loadLibCache 虽容错返回 None，整库缓存却白丢
-    （重建 40s+）。本轮约束只改 server.py，故在调用侧补两件：
-      1) 单写者：持字体锁，同字体并发拆解不会交叠写同一缓存文件；
-      2) 原子性：把写盘目标重定向到 .blibCache/_tmp/ 下（伪 hub 只带 root 字段
-         ——_saveLibCache 对 dataHub 仅用 .root 拼路径），写完 os.replace 原子
-         替换到最终路径（同卷内 Windows/NTFS 亦原子）。
-    有骨架更新时字体库版本号 +1：ensureSkeleton 会就地改 libraryBAll 条目
-    （skeleton/outlineBBox 字段），/api/library 的 bytes 缓存须随之失效。"""
+    批量语义在 fonthub（_skelDirty 仅在拆解懒算出新骨架时置位，整字拆完
+    只全量回写一次）；原子性已下沉 fonthub._saveLibCache（临时文件+
+    os.replace，见 _atomicWriteJson）——上一轮"只改 server.py"约束下的
+    伪 hub 重定向 workaround（写盘目标改到 .blibCache/_tmp/ 再替换）
+    已撤销，直接调用即可。本层职责只剩两件：
+      1) 单写者：持字体锁，同字体并发拆解不交叠触发同一缓存文件回写
+         （dirty 标志 double-check，后到者空转返回）；
+      2) 失效：有骨架更新时字体库版本号 +1——ensureSkeleton 会就地改
+         libraryBAll 条目（skeleton/outlineBBox 字段），/api/library 的
+         bytes 缓存须随之失效。"""
     if not getattr(fe, "_skelDirty", False):
         return
-    hub = _state["hub"]
-    realPath = fe._libCachePath(hub)
-    tmpHub = types.SimpleNamespace(root=os.path.join(hub.root, ".blibCache", "_tmp"))
-    tmpPath = fe._libCachePath(tmpHub)
     with _fontLock(font):
         if not getattr(fe, "_skelDirty", False):    # double-check：他人已回写
             return
-        fe.saveSkeletonsIfDirty(tmpHub)
-        try:
-            if os.path.isfile(tmpPath):
-                os.makedirs(os.path.dirname(realPath), exist_ok=True)
-                os.replace(tmpPath, realPath)
-        except OSError:
-            pass    # 与 fonthub 同纪律：缓存写失败不打断请求
+        fe.saveSkeletonsIfDirty(_state["hub"])
         with _state["lock"]:
             _state["fontLibVer"][font] = _state["fontLibVer"].get(font, 0) + 1
 

@@ -269,6 +269,29 @@ def _clibBuildEntry(dataHub, fontEntry, radical, variants):
     return entry
 
 
+def _atomicWriteJson(path, obj):
+    """JSON 原子落盘：同目录临时文件写全 → os.replace 原子替换（同卷
+    NTFS/POSIX 均原子）。此前直接 open(最终路径,"w") 重写，进程中断/
+    并发写会留半截 JSON——_loadLibCache 虽容错返回 None，整库缓存却
+    白丢（重建 40s+）；server 曾受"只改 server.py"约束在调用侧用伪
+    hub 重定向到 _tmp/ 目录补原子性，本轮下沉到写盘本源、撤销该
+    workaround。临时名带 pid：两进程同时写同一缓存互不踩踏、各自
+    替换，任一最终结果都是完整 JSON。替换失败（Windows 上目标被
+    无 FILE_SHARE_DELETE 句柄持有等）时清掉临时文件，不留 .tmp
+    残留；异常向上抛，由调用方按"缓存写失败不打断请求"纪律吞掉。"""
+    tmp = "%s.%d.tmp" % (path, os.getpid())
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(obj, f, ensure_ascii=False)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+
+
 class FontEntry:
     """一个目标字体：字形轮廓提取 + B库（标准笔画库）。"""
 
@@ -391,10 +414,10 @@ class FontEntry:
             os.makedirs(os.path.dirname(p), exist_ok=True)
             base = [e for e in self.libraryBAll if e.get("kind") != "bootstrap"]
             full = self.libraryBAll if getattr(self, "_libCompleted", False) else None
-            json.dump({"algo": _algoSignature(), "font": self._fontSig(),
-                       "baseAll": base, "fullAll": full,
-                       "fullAdded": getattr(self, "_libAdded", None)},
-                      open(p, "w", encoding="utf-8"), ensure_ascii=False)
+            _atomicWriteJson(p, {"algo": _algoSignature(),
+                                 "font": self._fontSig(),
+                                 "baseAll": base, "fullAll": full,
+                                 "fullAdded": getattr(self, "_libAdded", None)})
         except Exception:
             pass
 
@@ -772,9 +795,9 @@ class FontEntry:
         try:
             p = self._clibCachePath(dataHub)
             os.makedirs(os.path.dirname(p), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as f:
-                json.dump({"algo": _algoSignature(), "font": self._fontSig(),
-                           "entries": entries}, f, ensure_ascii=False)
+            _atomicWriteJson(p, {"algo": _algoSignature(),
+                                 "font": self._fontSig(),
+                                 "entries": entries})
         except Exception:
             pass
 

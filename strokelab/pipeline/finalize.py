@@ -6,11 +6,14 @@
 恒等；终态中轴重提只影响 median 陈述与回灌种子，不回改切割；自洽
 二遍与轴向守卫经 sys.modules 调 runPipeline 当前值（audit 工具的
 monkeypatch 语义与原单文件版一致），LADDER_PROBE/_axisFails 同理
-运行期取包属性。全部事故史注释（流江水、爱冖白缝等）随代码保留。
+运行期取包属性。重试遍经 FrontReuse 复用首遍前段产物（解析并组/
+全局对齐/整字区域），见类注释。全部事故史注释（流江水、爱冖白缝
+等）随代码保留。
 """
 
 import math
 import sys
+from dataclasses import dataclass
 
 from ..geometry import (contourToPath, dist, flattenSegs, midpointRectify,
                         outlineCenterline, parseContours, resamplePolyline,
@@ -25,9 +28,70 @@ def _pkg():
     return sys.modules["strokelab.pipeline"]
 
 
-def sealUnion(geom, kaiRef, strokes, applyBooleanClamp):
+@dataclass
+class FrontReuse:
+    """跨遍复用的前段产物（自洽二遍/轴向守卫重试遍免复算）。
+
+    收录判据 = 与 seedMedians 无关且确定性重算恒同：轮廓解析+交叠并组
+    （只依赖字形 raw）、全局对齐派生量（kb/tb/affine/kaiPerims/
+    kaiStrokeBBoxes，只依赖楷体 C 与字形包围盒）、收口用整字区域
+    glyph 及其空腔（只依赖 contours）。重试遍原本整段重算这些，且
+    dbuild 的 B 候选扫描结果在种子路径会被整批顶替丢弃——复用直接
+    跳过 parseAndMerge+dbuild.run（见 runPipeline 的复用分支）。
+
+    contours 不能共享 dict 本体：下游会原地改写（cutting/几何层挂
+    _edgeArr 缓存字段等）——照 geometry.parseContours 记忆化先例存
+    不可变元组中间层，重试遍浅重构全新 dict（值等价，parity 硬门为
+    证）。tb/kb/affine/kaiPerims/kaiStrokeBBoxes 全程只读直接共享；
+    glyph 为 shapely 2.x 不可变几何，收口各环节只做交并差（boolean
+    _pathRegion 同款审计结论），共享安全。"""
+    contourSnap: tuple      # ((segs元组, poly元组, area, isHole, group), ...)
+    tb: object              # 目标整字包围盒（只读）
+    kb: object              # 楷体整字包围盒（只读）
+    affine: object          # 楷体→目标 仿射桥（纯函数 partial）
+    kaiPerims: list         # 楷体每笔周长（只读）
+    kaiStrokeBBoxes: list   # 楷体每笔包围盒（只读）
+    glyph: object           # 整字 shapely 区域（可为 None，语义同首遍）
+    holeBoxes: list         # 并集内环空腔包围盒（重试遍拷贝后复用）
+
+    @classmethod
+    def fromCtx(cls, ctx, glyph):
+        """首遍收口后抓快照：contours 的协议字段此时与并组刚结束时
+        逐值相同（group 终值在 parseAndMerge 内定稿，下游只读）。"""
+        return cls(
+            contourSnap=tuple((tuple(c["segs"]), tuple(c["poly"]), c["area"],
+                               c["isHole"], c["group"])
+                              for c in ctx.geom.contours),
+            tb=ctx.geom.tb, kb=ctx.kaiRef.kb, affine=ctx.kaiRef.affine,
+            kaiPerims=ctx.kaiRef.kaiPerims,
+            kaiStrokeBBoxes=ctx.kaiRef.kaiStrokeBBoxes,
+            glyph=glyph, holeBoxes=ctx.holeBoxes)
+
+    def applyTo(self, geom, kaiRef, pose, seedMedians):
+        """重试遍前段回填：逐字段复刻 parseAndMerge+dbuild.run 种子
+        路径的产物（种子整体顶替 D、templateSources 恒"自洽回灌"、
+        clibHits 恒 0——与 dbuild 原种子分支逐字节一致）。"""
+        geom.contours = [{"segs": list(segs), "poly": list(poly),
+                          "area": area, "isHole": isHole, "group": group}
+                         for segs, poly, area, isHole, group
+                         in self.contourSnap]
+        geom.tb = self.tb
+        kaiRef.kb = self.kb
+        kaiRef.affine = self.affine
+        kaiRef.kaiPerims = self.kaiPerims
+        kaiRef.kaiStrokeBBoxes = self.kaiStrokeBBoxes
+        pose.medians = [[tuple(p) for p in m] for m in seedMedians]
+        pose.initMedians = [[tuple(p) for p in m] for m in pose.medians]
+        pose.templateSources = ["自洽回灌"] * len(pose.medians)
+        pose.templateEnts = [None] * len(pose.medians)
+        pose.nStrokes = len(pose.medians)
+        pose.clibHits = 0
+
+
+def sealUnion(geom, kaiRef, strokes, applyBooleanClamp, reuse=None):
     """布尔收口 + 并集恒等校验（含空洞识别与饿死救济循环）；
-    返回 (unionCheck, holeBoxes)。"""
+    返回 (unionCheck, holeBoxes, glyph)。reuse 给出时整字区域与空腔
+    直接复用首遍产物（值恒同，见 FrontReuse 注释）。"""
     kai = kaiRef.kai
     contours = geom.contours
 
@@ -36,20 +100,25 @@ def sealUnion(geom, kaiRef, strokes, applyBooleanClamp):
     # 一段边界线），用骨架走廊∩本组区域补一个实体，再进收口。
     # 饿死救济：走廊在 rescueStarved 内用组局部仿射从楷体中轴线构造
     # （全局仿射/精调种子都会歪，见函数注释）
-    _glyph = booleanClamp.glyphRegion(contours)  # 只算一次，收口各环节复用
-    # 空洞识别（并集后内环=真实围合空腔；面积>400 滤掉笔画间缝隙噪声）
-    _holeBoxes = []
-    try:
-        _geoms = list(_glyph.geoms) if hasattr(_glyph, "geoms") else [_glyph]
-        for _pg in _geoms:
-            for _ring in _pg.interiors:
-                _xs = [p[0] for p in _ring.coords]
-                _ys = [p[1] for p in _ring.coords]
-                if (max(_xs) - min(_xs)) * (max(_ys) - min(_ys)) > 400.0:
-                    _holeBoxes.append([round(min(_xs)), round(min(_ys)),
-                                       round(max(_xs)), round(max(_ys))])
-    except Exception:
-        pass
+    if reuse is not None:
+        _glyph = reuse.glyph
+        _holeBoxes = [list(b) for b in reuse.holeBoxes]
+    else:
+        _glyph = booleanClamp.glyphRegion(contours)  # 只算一次，收口各环节复用
+        # 空洞识别（并集后内环=真实围合空腔；面积>400 滤掉笔画间缝隙噪声）
+        _holeBoxes = []
+        try:
+            _geoms = list(_glyph.geoms) if hasattr(_glyph, "geoms") \
+                else [_glyph]
+            for _pg in _geoms:
+                for _ring in _pg.interiors:
+                    _xs = [p[0] for p in _ring.coords]
+                    _ys = [p[1] for p in _ring.coords]
+                    if (max(_xs) - min(_xs)) * (max(_ys) - min(_ys)) > 400.0:
+                        _holeBoxes.append([round(min(_xs)), round(min(_ys)),
+                                           round(max(_xs)), round(max(_ys))])
+        except Exception:
+            pass
     booleanClamp.rescueStarved(contours, strokes, kai["strokes"],
                                kai["medians"], glyph=_glyph)
     unionCheck = None
@@ -93,7 +162,7 @@ def sealUnion(geom, kaiRef, strokes, applyBooleanClamp):
     if unionCheck is None:
         unionCheck = booleanClamp.reUnionCheck(contours, strokes, glyph=_glyph)
 
-    return unionCheck, _holeBoxes
+    return unionCheck, _holeBoxes, _glyph
 
 
 def remedianAndSim(kaiRef, strokes):
@@ -210,8 +279,9 @@ def buildResult(ctx):
     ctx.result = result
 
 
-def selfConsistentPass(ctx):
-    """自洽回灌二遍（干净中轴种子重跑，双指标择优采纳）。"""
+def selfConsistentPass(ctx, reuse):
+    """自洽回灌二遍（干净中轴种子重跑，双指标择优采纳）。
+    reuse：首遍前段产物快照，随种子传入重跑遍免复算（FrontReuse）。"""
     _pl = _pkg()
     dataHub = ctx.dataHub
     fontEntry = ctx.fontEntry
@@ -230,11 +300,13 @@ def selfConsistentPass(ctx):
     # 第一遍拆完后，用每笔自身几何重提干净中轴作种子重跑一遍匹配；
     # 双指标（失败笔数、retain+shapeSim）择优采用，防止吞并式虚高
     _noFail = not any(s["failed"] for s in strokes)
-    if selfConsistent and seedMedians is None and             not (_noFail and _meanOf(result, "retainRatio") >= 0.995):
+    if selfConsistent and seedMedians is None and \
+            not (_noFail and _meanOf(result, "retainRatio") >= 0.995):
         seeds = _selfSeeds(result)
         if seeds:
             r2 = _pl.runPipeline(dataHub, fontEntry, ch, applyBooleanClamp,
-                             seedMedians=seeds, selfConsistent=False)
+                             seedMedians=seeds, selfConsistent=False,
+                             frontReuse=reuse)
             expCenters = [affine(((bb.x0 + bb.x1) / 2, (bb.y0 + bb.y1) / 2))
                           for bb in kaiStrokeBBoxes]
             diag = math.hypot(tb.w, tb.h)
@@ -256,8 +328,9 @@ def selfConsistentPass(ctx):
     ctx.result = result
 
 
-def axisGuard(ctx):
-    """轴向守卫重试（病笔退楷体种子重跑，全指标不倒退才采纳）。"""
+def axisGuard(ctx, reuse):
+    """轴向守卫重试（病笔退楷体种子重跑，全指标不倒退才采纳）。
+    reuse：首遍前段产物快照，随种子传入重跑遍免复算（FrontReuse）。"""
     _pl = _pkg()
     dataHub = ctx.dataHub
     fontEntry = ctx.fontEntry
@@ -289,7 +362,8 @@ def axisGuard(ctx):
                 else:
                     _seeds3.append([tuple(p) for p in s["median"]])
             r3 = _pl.runPipeline(dataHub, fontEntry, ch, applyBooleanClamp,
-                             seedMedians=_seeds3, selfConsistent=False)
+                             seedMedians=_seeds3, selfConsistent=False,
+                             frontReuse=reuse)
             if "error" not in r3:
                 _f3 = _pl._axisFails(r3)
                 _u1 = result["unionCheck"] or {}
@@ -315,18 +389,24 @@ def axisGuard(ctx):
     ctx.result = result
 
 
-def run(ctx):
+def run(ctx, frontReuse=None):
     """收口→中轴重提→组装→自洽二遍→轴向守卫定序执行，产出 ctx.result。
 
     本阶段是唯一收 ctx 整包的阶段（其余阶段只收所需子结构）：result
     组装=全景状态序列化，自洽二遍/轴向守卫要经 runPipeline 复跑、需要
-    dataHub/fontEntry 等全部入参句柄。"""
-    ctx.unionCheck, ctx.holeBoxes = sealUnion(ctx.geom, ctx.kaiRef,
-                                              ctx.strokes,
-                                              ctx.applyBooleanClamp)
+    dataHub/fontEntry 等全部入参句柄。frontReuse：本调用为重试遍时由
+    runPipeline 透传的首遍前段快照（收口区域复用）；首遍为 None，
+    收口后在此抓快照传给两个重试阶段。"""
+    ctx.unionCheck, ctx.holeBoxes, _glyph = sealUnion(ctx.geom, ctx.kaiRef,
+                                                      ctx.strokes,
+                                                      ctx.applyBooleanClamp,
+                                                      reuse=frontReuse)
     ctx.holeCount = len(ctx.holeBoxes)
     ctx.diag.tick("收口")
     remedianAndSim(ctx.kaiRef, ctx.strokes)
     buildResult(ctx)
-    selfConsistentPass(ctx)
-    axisGuard(ctx)
+    # 重试遍（seedMedians 给定）不再嵌套重试，快照无消费者，不抓
+    reuse = FrontReuse.fromCtx(ctx, _glyph) \
+        if ctx.pose.seedMedians is None else None
+    selfConsistentPass(ctx, reuse)
+    axisGuard(ctx, reuse)
