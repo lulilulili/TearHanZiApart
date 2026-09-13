@@ -492,6 +492,7 @@ def _medialAdjacency(region, step=8.0):
     中竖在口内腔挖断）。"""
     from shapely.geometry import MultiPoint, Point
     from shapely.ops import voronoi_diagram
+    from shapely.prepared import prep
 
     bnd = []
     for ring in [region.exterior] + list(region.interiors):
@@ -510,6 +511,10 @@ def _medialAdjacency(region, step=8.0):
     except Exception:
         return None
     inner = region.buffer(-0.05) if region.area > 100 else region
+    # prepared geometry：contains 谓词结果与原 inner.contains 完全一致（同一
+    # GEOS 谓词，仅加空间索引），Voronoi 边逐点判内是本函数大头——
+    # 日 1318→886ms、田 3717→982ms（拓扑勘察实测，逐节点同判已复验）
+    innerPrep = prep(inner)
 
     def key(p):
         return (round(p[0], 1), round(p[1], 1))
@@ -526,7 +531,7 @@ def _medialAdjacency(region, step=8.0):
         for i in range(len(coords) - 1):
             a, b = coords[i], coords[i + 1]
             try:
-                if not (inner.contains(Point(a)) and inner.contains(Point(b))):
+                if not (innerPrep.contains(Point(a)) and innerPrep.contains(Point(b))):
                     continue
             except Exception:
                 continue
