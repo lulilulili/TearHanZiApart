@@ -9,6 +9,14 @@ buildTables：D 构建后按连通组建立分治所需的组表（外环/孔洞
 from ..geometry import analyzeContours, bboxOfPoints, resamplePolyline
 
 
+def _ufFind(parent, x):
+    """并查集查根（路径减半压缩），parent 就地更新。"""
+    while parent[x] != x:
+        parent[x] = parent[parent[x]]
+        x = parent[x]
+    return x
+
+
 def parseAndMerge(ctx):
     """轮廓解析+交叠并组：产出 ctx.contours（含 poly/area/isHole/group）。"""
     kai = ctx.kai
@@ -41,13 +49,6 @@ def parseAndMerge(ctx):
                 groupPoly[g] = pg if g not in groupPoly \
                     else groupPoly[g].union(pg)
             parent = list(range(nG0))
-
-            def _find(x):
-                while parent[x] != x:
-                    parent[x] = parent[parent[x]]
-                    x = parent[x]
-                return x
-
             keys = sorted(groupPoly.keys())
             for ai in range(len(keys)):
                 for bi in range(ai + 1, len(keys)):
@@ -59,18 +60,18 @@ def parseAndMerge(ctx):
                         continue
                     try:
                         if pa.intersection(pb).area > 25.0:
-                            ra, rb = _find(a), _find(b)
+                            ra, rb = _ufFind(parent, a), _ufFind(parent, b)
                             if ra != rb:
                                 parent[rb] = ra
                     except Exception:
                         pass
             remap = {}
             for g in range(nG0):
-                r = _find(g)
+                r = _ufFind(parent, g)
                 if r not in remap:
                     remap[r] = len(remap)
             for c in contours:
-                c["group"] = remap[_find(c["group"])]
+                c["group"] = remap[_ufFind(parent, c["group"])]
         except Exception:
             pass
     ctx.contours = contours
