@@ -18,8 +18,8 @@ def _ufFind(parent, x):
 
 
 def parseAndMerge(ctx):
-    """轮廓解析+交叠并组：产出 ctx.contours（含 poly/area/isHole/group）。"""
-    kai = ctx.kai
+    """轮廓解析+交叠并组：产出 ctx.geom.contours（含 poly/area/isHole/group）。"""
+    kai = ctx.kaiRef.kai
     raw = ctx.raw
     contours = [{"segs": c["segs"]} for c in raw]
     analyzeContours(contours)
@@ -74,13 +74,13 @@ def parseAndMerge(ctx):
                 c["group"] = remap[_ufFind(parent, c["group"])]
         except Exception:
             pass
-    ctx.contours = contours
+    ctx.geom.contours = contours
 
 
 def buildTables(ctx):
-    """连通组组表：产出 ctx.nGroups/groupOuters/groupHoles/groupCentroids/
-    groupBBoxes/groupCoarse。"""
-    contours = ctx.contours
+    """连通组组表：产出 ctx.groups 的 nGroups/groupOuters/groupHoles/
+    groupCentroids/groupBBoxes/groupCoarse。"""
+    contours = ctx.geom.contours
     # ------------------------------------------------------------ 连通组分治
     # 公理（用户校验①②）：正常字体设计中，同一笔画不会断成两个孤立连通组。
     # 按初始设计位置把每笔指定到唯一连通组，归属评分只允许本组笔画竞争本组
@@ -107,9 +107,9 @@ def buildTables(ctx):
         groupBBoxes[g] = bboxOfPoints(pts) if pts else None
         groupCoarse[g] = [resamplePolyline(poly, 30)
                           for poly in groupOuters[g] + groupHoles[g]]
-    ctx.nGroups = nGroups
-    ctx.groupOuters = groupOuters
-    ctx.groupHoles = groupHoles
-    ctx.groupCentroids = groupCentroids
-    ctx.groupBBoxes = groupBBoxes
-    ctx.groupCoarse = groupCoarse
+    ctx.groups.nGroups = nGroups
+    ctx.groups.groupOuters = groupOuters
+    ctx.groups.groupHoles = groupHoles
+    ctx.groups.groupCentroids = groupCentroids
+    ctx.groups.groupBBoxes = groupBBoxes
+    ctx.groups.groupCoarse = groupCoarse

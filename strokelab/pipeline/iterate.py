@@ -23,21 +23,21 @@ def _pkg():
 
 
 def run(ctx):
-    """产出 ctx.contourAllowed/w0/widths/sampleSets/scoreOf/labelOf/
+    """产出 ctx.samples.contourAllowed/w0/widths/sampleSets/scoreOf/labelOf/
     templatePaths；medians 精调至 D' 终态。"""
     _pl = _pkg()
-    kai = ctx.kai
-    contours = ctx.contours
-    nStrokes = ctx.nStrokes
-    medians = ctx.medians
-    initMedians = ctx.initMedians
-    groupStrokes = ctx.groupStrokes
-    templateEnts = ctx.templateEnts
-    affine = ctx.affine
+    kai = ctx.kaiRef.kai
+    contours = ctx.geom.contours
+    nStrokes = ctx.pose.nStrokes
+    medians = ctx.pose.medians
+    initMedians = ctx.pose.initMedians
+    groupStrokes = ctx.groups.groupStrokes
+    templateEnts = ctx.pose.templateEnts
+    affine = ctx.kaiRef.affine
     contourAllowed = [groupStrokes.get(c["group"], list(range(nStrokes)))
                       for c in contours]
 
-    ctx.tick("连通组分治")
+    ctx.diag.tick("连通组分治")
 
     # ------------------------------------------------------------ 迭代归属+精调
     glyphArea = sum((-abs(c["area"]) if c["isHole"] else abs(c["area"]))
@@ -169,7 +169,7 @@ def run(ctx):
         if len(cleaned) >= 2:
             medians[k] = cleaned
 
-    ctx.tick("归属迭代精调")
+    ctx.diag.tick("归属迭代精调")
 
     # S2 模板可视化：把 B 模板画在精调后的 D 位置（精调后中轴线包围盒 + 半笔宽），
     # 与匹配实际使用的几何一致，避免初始放置的视觉重叠误导
@@ -200,10 +200,10 @@ def run(ctx):
                 parts.append(contourToPath(moved))
         templatePaths.append(" ".join(parts))
 
-    ctx.contourAllowed = contourAllowed
-    ctx.w0 = w0
-    ctx.widths = widths
-    ctx.sampleSets = sampleSets
-    ctx.scoreOf = scoreOf
-    ctx.labelOf = labelOf
-    ctx.templatePaths = templatePaths
+    ctx.samples.contourAllowed = contourAllowed
+    ctx.pose.w0 = w0
+    ctx.pose.widths = widths
+    ctx.samples.sampleSets = sampleSets
+    ctx.samples.scoreOf = scoreOf
+    ctx.samples.labelOf = labelOf
+    ctx.pose.templatePaths = templatePaths

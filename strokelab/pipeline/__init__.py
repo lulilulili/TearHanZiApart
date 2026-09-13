@@ -38,7 +38,8 @@ LADDER_ACT = True
 from .helpers import (_medianDeviation, _hungarian, _switchbackCount,
                       _axisFails, _reMedianFromStroke, _selfSeeds,
                       _meanOf, _strokeCenter, _secondPassBetter)
-from .state import PipelineCtx
+from .state import (PipelineCtx, GlyphGeom, GroupTable, StrokePose,
+                    KaiRef, CostModel, Diagnostics, SampleField)
 from . import grouping
 from . import dbuild
 from . import assign
@@ -60,11 +61,12 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
 
     ctx = PipelineCtx(dataHub=dataHub, fontEntry=fontEntry, ch=ch,
                       applyBooleanClamp=applyBooleanClamp,
-                      seedMedians=seedMedians,
-                      selfConsistent=selfConsistent, kai=kai, raw=raw)
+                      selfConsistent=selfConsistent, raw=raw,
+                      kaiRef=KaiRef(kai=kai),
+                      pose=StrokePose(seedMedians=seedMedians))
 
     grouping.parseAndMerge(ctx)   # 轮廓解析 + 交叠件并组
-    ctx.startTimer()              # 计时基点与原单文件版一致（并组后起表）
+    ctx.diag.startTimer()         # 计时基点与原单文件版一致（并组后起表）
     dbuild.run(ctx)               # 全局对齐 + D 构建
     grouping.buildTables(ctx)     # 连通组组表
     assign.run(ctx)               # G0/G1 指派 + S1b 语义认领

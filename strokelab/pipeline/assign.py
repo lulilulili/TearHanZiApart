@@ -16,18 +16,18 @@ from .helpers import _hungarian
 
 
 def run(ctx):
-    """产出 ctx.strokeGroupCost/costRows/penMatrix/strokeGroup/
-    groupStrokes/semanticClaims。"""
-    kai = ctx.kai
-    contours = ctx.contours
-    nStrokes = ctx.nStrokes
-    nGroups = ctx.nGroups
-    groupOuters = ctx.groupOuters
-    groupHoles = ctx.groupHoles
-    groupBBoxes = ctx.groupBBoxes
-    groupCoarse = ctx.groupCoarse
-    medians = ctx.medians
-    initMedians = ctx.initMedians
+    """产出 ctx.cost.strokeGroupCost/costRows/penMatrix +
+    ctx.groups.strokeGroup/groupStrokes + ctx.diag.semanticClaims。"""
+    kai = ctx.kaiRef.kai
+    contours = ctx.geom.contours
+    nStrokes = ctx.pose.nStrokes
+    nGroups = ctx.groups.nGroups
+    groupOuters = ctx.groups.groupOuters
+    groupHoles = ctx.groups.groupHoles
+    groupBBoxes = ctx.groups.groupBBoxes
+    groupCoarse = ctx.groups.groupCoarse
+    medians = ctx.pose.medians
+    initMedians = ctx.pose.initMedians
     def strokeGroupCost(k):
         """笔画→各组的"墨距离"（墨内=0，否则到组边界最近距离）均值向量。
         inside 占比法对 ⊓ 形带状轮廓失效（鸿蒙"日"的竖中轴悬在空腔里），
@@ -254,9 +254,9 @@ def run(ctx):
         if not groupStrokes[g]:  # 无笔画映射到该组
             if not (nGroups > nStrokes and _semanticClaim(g)):
                 groupStrokes[g] = list(range(nStrokes))  # 兜底：放开限制
-    ctx.strokeGroupCost = strokeGroupCost
-    ctx.costRows = costRows
-    ctx.penMatrix = penMatrix
-    ctx.strokeGroup = strokeGroup
-    ctx.groupStrokes = groupStrokes
-    ctx.semanticClaims = semanticClaims
+    ctx.cost.strokeGroupCost = strokeGroupCost
+    ctx.cost.costRows = costRows
+    ctx.cost.penMatrix = penMatrix
+    ctx.groups.strokeGroup = strokeGroup
+    ctx.groups.groupStrokes = groupStrokes
+    ctx.diag.semanticClaims = semanticClaims

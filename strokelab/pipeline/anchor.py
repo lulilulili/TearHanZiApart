@@ -14,13 +14,13 @@ from ..geometry import bboxOfPoints
 
 def groupRemap(ctx):
     """G9 组局部重锚定（失配门控的组内相对布局复位）。"""
-    contours = ctx.contours
-    nGroups = ctx.nGroups
-    medians = ctx.medians
-    initMedians = ctx.initMedians
-    groupStrokes = ctx.groupStrokes
-    groupBBoxes = ctx.groupBBoxes
-    ladderTouched = ctx.ladderTouched
+    contours = ctx.geom.contours
+    nGroups = ctx.groups.nGroups
+    medians = ctx.pose.medians
+    initMedians = ctx.pose.initMedians
+    groupStrokes = ctx.groups.groupStrokes
+    groupBBoxes = ctx.groups.groupBBoxes
+    ladderTouched = ctx.diag.ladderTouched
 
     # 组局部重锚定（失配门控，用户设想：相对位置代替绝对位置）：全局
     # 仿射是绝对定位，部件比例悬殊时组内名义布局整体错位——磷·石口
@@ -90,19 +90,19 @@ def groupRemap(ctx):
             "to": [round(bb.x0), round(bb.y0), round(bb.x1), round(bb.y1)],
             "cov": [round(covX, 2), round(covY, 2)]})
 
-    ctx.groupRemapInfo = groupRemapInfo
+    ctx.diag.groupRemapInfo = groupRemapInfo
 
 
 def sectionSnap(ctx):
     """G10 D 断面吸附（组内法向滑动预对位）。"""
-    kai = ctx.kai
-    nGroups = ctx.nGroups
-    medians = ctx.medians
-    initMedians = ctx.initMedians
-    groupStrokes = ctx.groupStrokes
-    groupBBoxes = ctx.groupBBoxes
-    groupOuters = ctx.groupOuters
-    groupHoles = ctx.groupHoles
+    kai = ctx.kaiRef.kai
+    nGroups = ctx.groups.nGroups
+    medians = ctx.pose.medians
+    initMedians = ctx.pose.initMedians
+    groupStrokes = ctx.groups.groupStrokes
+    groupBBoxes = ctx.groups.groupBBoxes
+    groupOuters = ctx.groups.groupOuters
+    groupHoles = ctx.groups.groupHoles
 
     # D 断面吸附（组内法向滑动预对位）：bbox 重锚定是线性映射，部件
     # 内部的非线性比例差仍会把封底横放进腔体——楷体口的底横在竖臂

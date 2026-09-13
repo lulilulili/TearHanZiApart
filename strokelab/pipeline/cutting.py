@@ -17,12 +17,12 @@ from ..geometry import (bezPoint, bezSlice, bezTangent, contourToPath,
 
 def ownerJudge(ctx):
     """主人判定整体归属（设计位+样本份额双证据，饿死保护）。"""
-    contours = ctx.contours
-    nStrokes = ctx.nStrokes
-    medians = ctx.medians
-    initMedians = ctx.initMedians
-    sampleSets = ctx.sampleSets
-    contourAllowed = ctx.contourAllowed
+    contours = ctx.geom.contours
+    nStrokes = ctx.pose.nStrokes
+    medians = ctx.pose.medians
+    initMedians = ctx.pose.initMedians
+    sampleSets = ctx.samples.sampleSets
+    contourAllowed = ctx.samples.contourAllowed
 
     # ------------------------------------------------------------ 主人判定整体归属
     resampledMedians = [resamplePolyline([tuple(p) for p in m], 15) for m in medians]
@@ -80,13 +80,13 @@ def ownerJudge(ctx):
 
 def consolidateArcs(ctx):
     """边弧整体归属：外轮廓收敛→孔洞径向对应→孔洞整弧。"""
-    contours = ctx.contours
-    nStrokes = ctx.nStrokes
-    widths = ctx.widths
-    w0 = ctx.w0
-    sampleSets = ctx.sampleSets
-    contourAllowed = ctx.contourAllowed
-    scoreOf = ctx.scoreOf
+    contours = ctx.geom.contours
+    nStrokes = ctx.pose.nStrokes
+    widths = ctx.pose.widths
+    w0 = ctx.pose.w0
+    sampleSets = ctx.samples.sampleSets
+    contourAllowed = ctx.samples.contourAllowed
+    scoreOf = ctx.samples.scoreOf
 
     # ------------------------------------------------------------ 边弧整体归属
     # 印刷字形的笔画边界天然落在轮廓角点：按角点把轮廓切成边弧，整条边弧
@@ -223,12 +223,12 @@ def consolidateArcs(ctx):
         if c["isHole"]:
             consolidateContour(ci)
 
-    ctx.cornerSets = cornerSets
+    ctx.samples.cornerSets = cornerSets
 
 
 def labelSmooth(ctx):
     """标签平滑：短游程并入前邻，消除零星误标。"""
-    sampleSets = ctx.sampleSets
+    sampleSets = ctx.samples.sampleSets
 
     # ------------------------------------------------------------ 标签平滑
     for arr in sampleSets:
@@ -259,17 +259,17 @@ def labelSmooth(ctx):
             if not changed:
                 break
 
-    ctx.tick("整体归属与平滑")
+    ctx.diag.tick("整体归属与平滑")
 
 
 def vectorCut(ctx):
     """矢量切割：标签跳变二分定位切点（吸附角点），产出边弧。"""
-    contours = ctx.contours
-    nStrokes = ctx.nStrokes
-    sampleSets = ctx.sampleSets
-    contourAllowed = ctx.contourAllowed
-    cornerSets = ctx.cornerSets
-    labelOf = ctx.labelOf
+    contours = ctx.geom.contours
+    nStrokes = ctx.pose.nStrokes
+    sampleSets = ctx.samples.sampleSets
+    contourAllowed = ctx.samples.contourAllowed
+    cornerSets = ctx.samples.cornerSets
+    labelOf = ctx.samples.labelOf
 
     # ------------------------------------------------------------ 矢量切割
     cutPoints = []
@@ -337,21 +337,21 @@ def vectorCut(ctx):
             if segs:
                 strokeArcs[label].append({"segs": segs, "closed": False, "contour": ci})
 
-    ctx.cutPoints = cutPoints
+    ctx.diag.cutPoints = cutPoints
     ctx.strokeArcs = strokeArcs
-    ctx.tick("矢量切割")
+    ctx.diag.tick("矢量切割")
 
 
 def reconstruct(ctx):
     """划分式重构：环路追踪+桥接+碎片环剪除，产出 strokes。"""
-    kai = ctx.kai
-    nStrokes = ctx.nStrokes
-    widths = ctx.widths
-    medians = ctx.medians
+    kai = ctx.kaiRef.kai
+    nStrokes = ctx.pose.nStrokes
+    widths = ctx.pose.widths
+    medians = ctx.pose.medians
     strokeArcs = ctx.strokeArcs
-    templateSources = ctx.templateSources
-    templatePaths = ctx.templatePaths
-    strokeGroup = ctx.strokeGroup
+    templateSources = ctx.pose.templateSources
+    templatePaths = ctx.pose.templatePaths
+    strokeGroup = ctx.groups.strokeGroup
 
     # ------------------------------------------------------------ 划分式重构
     strokes = []
@@ -467,7 +467,7 @@ def reconstruct(ctx):
         })
 
     ctx.strokes = strokes
-    ctx.tick("重构")
+    ctx.diag.tick("重构")
 
 
 def run(ctx):

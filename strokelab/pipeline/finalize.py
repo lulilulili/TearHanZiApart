@@ -27,8 +27,8 @@ def _pkg():
 
 def sealUnion(ctx):
     """布尔收口 + 并集恒等校验（含空洞识别与饿死救济循环）。"""
-    kai = ctx.kai
-    contours = ctx.contours
+    kai = ctx.kaiRef.kai
+    contours = ctx.geom.contours
     strokes = ctx.strokes
     applyBooleanClamp = ctx.applyBooleanClamp
 
@@ -98,12 +98,12 @@ def sealUnion(ctx):
     ctx.unionCheck = unionCheck
     ctx.holeBoxes = _holeBoxes
     ctx.holeCount = _holeCount
-    ctx.tick("收口")
+    ctx.diag.tick("收口")
 
 
 def remedianAndSim(ctx):
     """终态中轴线重提（折返矫正）+ 形状匹配打分。"""
-    kai = ctx.kai
+    kai = ctx.kaiRef.kai
     strokes = ctx.strokes
 
     # 终态中轴线重提：median 若残留折返（交叉区断面居中的伪影），用
@@ -149,27 +149,27 @@ def remedianAndSim(ctx):
 def buildResult(ctx):
     """result 组装：拆解结果 JSON 协议（viewer/verify 消费端）。"""
     _pl = _pkg()
-    kai = ctx.kai
+    kai = ctx.kaiRef.kai
     ch = ctx.ch
     fontEntry = ctx.fontEntry
-    contours = ctx.contours
-    nStrokes = ctx.nStrokes
-    nGroups = ctx.nGroups
+    contours = ctx.geom.contours
+    nStrokes = ctx.pose.nStrokes
+    nGroups = ctx.groups.nGroups
     strokes = ctx.strokes
-    strokeGroup = ctx.strokeGroup
-    sampleSets = ctx.sampleSets
-    cutPoints = ctx.cutPoints
-    groupRemapInfo = ctx.groupRemapInfo
-    semanticClaims = ctx.semanticClaims
-    slotSwaps = ctx.slotSwaps
-    ladderProbe = ctx.ladderProbe
-    ladderRealign = ctx.ladderRealign
-    kaiMatches0 = ctx.kaiMatches0
+    strokeGroup = ctx.groups.strokeGroup
+    sampleSets = ctx.samples.sampleSets
+    cutPoints = ctx.diag.cutPoints
+    groupRemapInfo = ctx.diag.groupRemapInfo
+    semanticClaims = ctx.diag.semanticClaims
+    slotSwaps = ctx.diag.slotSwaps
+    ladderProbe = ctx.diag.ladderProbe
+    ladderRealign = ctx.diag.ladderRealign
+    kaiMatches0 = ctx.kaiRef.kaiMatches0
     unionCheck = ctx.unionCheck
-    seedMedians = ctx.seedMedians
+    seedMedians = ctx.pose.seedMedians
     _holeCount = ctx.holeCount
     _holeBoxes = ctx.holeBoxes
-    _timings = ctx.timings
+    _timings = ctx.diag.timings
 
     result = {
         "ch": ch, "font": fontEntry.key,
@@ -223,13 +223,13 @@ def selfConsistentPass(ctx):
     fontEntry = ctx.fontEntry
     ch = ctx.ch
     applyBooleanClamp = ctx.applyBooleanClamp
-    seedMedians = ctx.seedMedians
+    seedMedians = ctx.pose.seedMedians
     selfConsistent = ctx.selfConsistent
     strokes = ctx.strokes
-    affine = ctx.affine
-    kaiStrokeBBoxes = ctx.kaiStrokeBBoxes
-    tb = ctx.tb
-    _timings = ctx.timings
+    affine = ctx.kaiRef.affine
+    kaiStrokeBBoxes = ctx.kaiRef.kaiStrokeBBoxes
+    tb = ctx.geom.tb
+    _timings = ctx.diag.timings
     result = ctx.result
 
     # ------------------------------------------------------------ 自洽回灌
@@ -269,9 +269,9 @@ def axisGuard(ctx):
     fontEntry = ctx.fontEntry
     ch = ctx.ch
     applyBooleanClamp = ctx.applyBooleanClamp
-    seedMedians = ctx.seedMedians
-    kai = ctx.kai
-    affine = ctx.affine
+    seedMedians = ctx.pose.seedMedians
+    kai = ctx.kaiRef.kai
+    affine = ctx.kaiRef.affine
     result = ctx.result
 
     # ------------------------------------------------------------ 轴向守卫

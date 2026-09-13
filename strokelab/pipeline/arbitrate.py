@@ -25,16 +25,16 @@ def _pkg():
 
 def corridorFit(ctx):
     """G2 走廊可容纳度仲裁（并挂 groupRegion/support/wEst 到 ctx）。"""
-    contours = ctx.contours
-    medians = ctx.medians
-    initMedians = ctx.initMedians
-    nGroups = ctx.nGroups
-    nStrokes = ctx.nStrokes
-    costRows = ctx.costRows
-    strokeGroup = ctx.strokeGroup
-    groupStrokes = ctx.groupStrokes
-    groupOuters = ctx.groupOuters
-    groupHoles = ctx.groupHoles
+    contours = ctx.geom.contours
+    medians = ctx.pose.medians
+    initMedians = ctx.pose.initMedians
+    nGroups = ctx.groups.nGroups
+    nStrokes = ctx.pose.nStrokes
+    costRows = ctx.cost.costRows
+    strokeGroup = ctx.groups.strokeGroup
+    groupStrokes = ctx.groups.groupStrokes
+    groupOuters = ctx.groups.groupOuters
+    groupHoles = ctx.groups.groupHoles
 
     # 走廊可容纳度仲裁：墨距离对"名义位置不落在任何组墨内"的笔会就近
     # 错分——好的提名义位置横穿撇点宽腰（墨距离 59 胜出），真身在撇的
@@ -97,9 +97,9 @@ def corridorFit(ctx):
             return best
 
         # 闭包挂 ctx：单杆超载/疑抢杆/G8.5 复用同一 region 缓存与走廊支撑
-        ctx.groupRegion = _groupRegion
-        ctx.support = _support
-        ctx.wEst = wEst
+        ctx.groups.regionOf = _groupRegion
+        ctx.groups.support = _support
+        ctx.pose.wEst = wEst
 
         if nGroups >= 2:
             for k in range(nStrokes):
@@ -134,12 +134,12 @@ def corridorFit(ctx):
 
 def componentMate(ctx):
     """G3 部件同组仲裁（matches 部件路径为结构证据）。"""
-    kai = ctx.kai
-    nGroups = ctx.nGroups
-    nStrokes = ctx.nStrokes
-    strokeGroup = ctx.strokeGroup
-    costRows = ctx.costRows
-    groupStrokes = ctx.groupStrokes
+    kai = ctx.kaiRef.kai
+    nGroups = ctx.groups.nGroups
+    nStrokes = ctx.pose.nStrokes
+    strokeGroup = ctx.groups.strokeGroup
+    costRows = ctx.cost.costRows
+    groupStrokes = ctx.groups.groupStrokes
 
     # 部件同组仲裁：墨距离对"名义位置穿过他部件长笔"的短笔会错分——
     # 爱的冖左竖名义下半段穿过友的长横（墨内代价≈0）错入长横组，真身
@@ -194,18 +194,18 @@ def componentMate(ctx):
 
 def barOverload(ctx):
     """G4 单杆组超载重指派 + 垂直蹲杆放逐。"""
-    contours = ctx.contours
-    kai = ctx.kai
-    nGroups = ctx.nGroups
-    initMedians = ctx.initMedians
-    costRows = ctx.costRows
-    strokeGroup = ctx.strokeGroup
-    groupStrokes = ctx.groupStrokes
-    groupBBoxes = ctx.groupBBoxes
-    groupCentroids = ctx.groupCentroids
-    _groupRegion = ctx.groupRegion
-    _support = ctx.support
-    wEst = ctx.wEst
+    contours = ctx.geom.contours
+    kai = ctx.kaiRef.kai
+    nGroups = ctx.groups.nGroups
+    initMedians = ctx.pose.initMedians
+    costRows = ctx.cost.costRows
+    strokeGroup = ctx.groups.strokeGroup
+    groupStrokes = ctx.groups.groupStrokes
+    groupBBoxes = ctx.groups.groupBBoxes
+    groupCentroids = ctx.groups.groupCentroids
+    _groupRegion = ctx.groups.regionOf
+    _support = ctx.groups.support
+    wEst = ctx.pose.wEst
 
     # 单杆组超载重指派：楷体的封底横在现代设计中常并入外框轮廓（貝/酉
     # 的目底、日底），其名义位置又恰压在腔内悬浮横杆上（代价0）——墨
@@ -420,17 +420,17 @@ def barOverload(ctx):
 
 def barTheftSwap(ctx):
     """G5 疑抢杆认领互换（笔比杆长=抢占铁证，成链处置）。"""
-    contours = ctx.contours
-    kai = ctx.kai
-    nGroups = ctx.nGroups
-    nStrokes = ctx.nStrokes
-    initMedians = ctx.initMedians
-    costRows = ctx.costRows
-    strokeGroup = ctx.strokeGroup
-    groupStrokes = ctx.groupStrokes
-    groupBBoxes = ctx.groupBBoxes
-    _groupRegion = ctx.groupRegion
-    wEst = ctx.wEst
+    contours = ctx.geom.contours
+    kai = ctx.kaiRef.kai
+    nGroups = ctx.groups.nGroups
+    nStrokes = ctx.pose.nStrokes
+    initMedians = ctx.pose.initMedians
+    costRows = ctx.cost.costRows
+    strokeGroup = ctx.groups.strokeGroup
+    groupStrokes = ctx.groups.groupStrokes
+    groupBBoxes = ctx.groups.groupBBoxes
+    _groupRegion = ctx.groups.regionOf
+    wEst = ctx.pose.wEst
 
     # 疑抢杆认领互换：全局仿射会把楷体某横的名义位置恰好压到目标内部
     # 悬浮横杆上（威：楷体顶横名义 y 落在戌内短横杆上，代价0抢走该杆
@@ -579,12 +579,12 @@ def barTheftSwap(ctx):
 
 def axisMisplace(ctx):
     """G6 轴向错家重排（并挂 barAxisOf 到 ctx 供 G8.5 复用）。"""
-    contours = ctx.contours
-    kai = ctx.kai
-    nGroups = ctx.nGroups
-    strokeGroup = ctx.strokeGroup
-    groupStrokes = ctx.groupStrokes
-    groupBBoxes = ctx.groupBBoxes
+    contours = ctx.geom.contours
+    kai = ctx.kaiRef.kai
+    nGroups = ctx.groups.nGroups
+    strokeGroup = ctx.groups.strokeGroup
+    groupStrokes = ctx.groups.groupStrokes
+    groupBBoxes = ctx.groups.groupBBoxes
 
     # 轴向错家重排：横竖笔直出一根与其楷体轴向**垂直**的杆=铁证错家
     # （博6横直出竖杆、11竖撇直出横杆、8竖占斜片——三笔连环错位，
@@ -665,17 +665,17 @@ def axisMisplace(ctx):
             for g, _ in misG:
                 groupStrokes[g] = [k for k in misK if strokeGroup[k] == g]
 
-    ctx.barAxisOf = _barAxisOf
+    ctx.groups.barAxisOf = _barAxisOf
 
 
 def slotSwap(ctx):
     """G7 槽位互换仲裁（槽位错位是最硬的换家证据）。"""
-    kai = ctx.kai
-    nStrokes = ctx.nStrokes
-    strokeGroup = ctx.strokeGroup
-    groupStrokes = ctx.groupStrokes
-    groupCentroids = ctx.groupCentroids
-    costRows = ctx.costRows
+    kai = ctx.kaiRef.kai
+    nStrokes = ctx.pose.nStrokes
+    strokeGroup = ctx.groups.strokeGroup
+    groupStrokes = ctx.groups.groupStrokes
+    groupCentroids = ctx.groups.groupCentroids
+    costRows = ctx.cost.costRows
 
     # G7 槽位互换仲裁（种子字统计：92.2% 部件笔数与种子精确一致，
     # 槽位错位是比轴向/次序更硬的换家证据）：各一级槽位中心 = 该槽
@@ -759,19 +759,19 @@ def slotSwap(ctx):
             if not movedG7:
                 break
 
-    ctx.kaiMatches0 = kaiMatches0
-    ctx.slotMembers = slotMembers
-    ctx.slotSwaps = slotSwaps
+    ctx.kaiRef.kaiMatches0 = kaiMatches0
+    ctx.kaiRef.slotMembers = slotMembers
+    ctx.diag.slotSwaps = slotSwaps
 
 
 def orderPreserve(ctx):
     """G8 序保持互换仲裁（楷体次序约束补进组指派）。"""
-    kai = ctx.kai
-    nStrokes = ctx.nStrokes
-    strokeGroup = ctx.strokeGroup
-    groupStrokes = ctx.groupStrokes
-    groupCentroids = ctx.groupCentroids
-    costRows = ctx.costRows
+    kai = ctx.kaiRef.kai
+    nStrokes = ctx.pose.nStrokes
+    strokeGroup = ctx.groups.strokeGroup
+    groupStrokes = ctx.groups.groupStrokes
+    groupCentroids = ctx.groups.groupCentroids
+    costRows = ctx.cost.costRows
 
     # 序保持互换仲裁（ORDER 主攻）：墨距离对同型笔在代价接近时会把
     # "家"分反——狗的犭撇与勹撇左右互换（偏差500+）、根的木4点上蹿，
@@ -820,24 +820,24 @@ def orderPreserve(ctx):
         if not swapped:
             break
 
-    ctx.kaiCentAll = kaiCentAll
+    ctx.kaiRef.kaiCentAll = kaiCentAll
 
 
 def ladderProbeStage(ctx):
     """G8.5 梯队探针（A/B/C/D 型病字签名，零副作用）。"""
     _pl = _pkg()
-    kai = ctx.kai
-    nStrokes = ctx.nStrokes
-    seedMedians = ctx.seedMedians
-    kaiMatches0 = ctx.kaiMatches0
-    slotMembers = ctx.slotMembers
-    strokeGroup = ctx.strokeGroup
-    groupStrokes = ctx.groupStrokes
-    groupBBoxes = ctx.groupBBoxes
-    groupCentroids = ctx.groupCentroids
-    affine = ctx.affine
-    kaiCentAll = ctx.kaiCentAll
-    _barAxisOf = ctx.barAxisOf
+    kai = ctx.kaiRef.kai
+    nStrokes = ctx.pose.nStrokes
+    seedMedians = ctx.pose.seedMedians
+    kaiMatches0 = ctx.kaiRef.kaiMatches0
+    slotMembers = ctx.kaiRef.slotMembers
+    strokeGroup = ctx.groups.strokeGroup
+    groupStrokes = ctx.groups.groupStrokes
+    groupBBoxes = ctx.groups.groupBBoxes
+    groupCentroids = ctx.groups.groupCentroids
+    affine = ctx.kaiRef.affine
+    kaiCentAll = ctx.kaiRef.kaiCentAll
+    _barAxisOf = ctx.groups.barAxisOf
 
     # ------------------------------------------------------------ G8.5 梯队探针
     # 部件梯队秩配对探测层（诊断先行，零副作用，只读组指派与楷体名义
@@ -1134,23 +1134,23 @@ def ladderProbeStage(ctx):
                     "fired": best is not None,
                 })
 
-    ctx.ladderProbe = ladderProbe
+    ctx.diag.ladderProbe = ladderProbe
 
 
 def ladderActStage(ctx):
     """G8.5 梯队执行器（all-or-nothing 组重排+中轴带重置）。"""
     _pl = _pkg()
-    kai = ctx.kai
-    nGroups = ctx.nGroups
-    seedMedians = ctx.seedMedians
-    ladderProbe = ctx.ladderProbe
-    strokeGroup = ctx.strokeGroup
-    groupStrokes = ctx.groupStrokes
-    medians = ctx.medians
-    initMedians = ctx.initMedians
-    affine = ctx.affine
-    strokeGroupCost = ctx.strokeGroupCost
-    penMatrix = ctx.penMatrix
+    kai = ctx.kaiRef.kai
+    nGroups = ctx.groups.nGroups
+    seedMedians = ctx.pose.seedMedians
+    ladderProbe = ctx.diag.ladderProbe
+    strokeGroup = ctx.groups.strokeGroup
+    groupStrokes = ctx.groups.groupStrokes
+    medians = ctx.pose.medians
+    initMedians = ctx.pose.initMedians
+    affine = ctx.kaiRef.affine
+    strokeGroupCost = ctx.cost.strokeGroupCost
+    penMatrix = ctx.cost.penMatrix
 
     # ------------------------------------------------------------ G8.5 执行器
     # 对 fired 部件按 plan 施行：组重排 + 中轴重置到目标条带 y。
@@ -1289,8 +1289,8 @@ def ladderActStage(ctx):
                 ladderTouched.add(gOld)
                 ladderTouched.add(gNew)
 
-    ctx.ladderRealign = ladderRealign
-    ctx.ladderTouched = ladderTouched
+    ctx.diag.ladderRealign = ladderRealign
+    ctx.diag.ladderTouched = ladderTouched
 
 
 def run(ctx):
