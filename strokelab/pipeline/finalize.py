@@ -385,6 +385,12 @@ def axisGuard(ctx, reuse):
                         r3["ladderRealign"] = \
                             result.get("ladderRealign") or []
                     result = r3
+                else:
+                    # 计时对账：未采纳的重试也是一整遍真实开销——不入账
+                    # 曾造成"分段和 < 总耗时"的 5s+ 缺口(用户对账发现)
+                    result["timings"].append(
+                        ["轴向守卫重试(未采纳)",
+                         sum(t[1] for t in (r3.get("timings") or []))])
 
     ctx.result = result
 
@@ -404,6 +410,9 @@ def run(ctx, frontReuse=None):
     ctx.holeCount = len(ctx.holeBoxes)
     ctx.diag.tick("收口")
     remedianAndSim(ctx.kaiRef, ctx.strokes)
+    # 计时对账:终态重提逐笔跑 Voronoi,衬线体(宋体)蛇形多时开销显著,
+    # 无独立 tick 曾让这段时间凭空消失(用户对账发现)
+    ctx.diag.tick("终态中轴重提")
     buildResult(ctx)
     # 重试遍（seedMedians 给定）不再嵌套重试，快照无消费者，不抓
     reuse = FrontReuse.fromCtx(ctx, _glyph) \
