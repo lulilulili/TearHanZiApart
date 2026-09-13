@@ -85,7 +85,13 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     arbitrate.ladderActStage(kaiRef, groups, pose, cost, diag)
     # G9 组重锚定 + G10 断面吸附
     anchor.run(geom, kaiRef, groups, pose, diag)
-    iterate.run(ctx)              # 归属迭代精调 + 终态吸直
+    # 归属迭代精调 + 终态吸直 + S2 模板可视化
+    samples = ctx.samples
+    samples.contourAllowed = iterate.freezeAllowed(geom, groups, pose)
+    diag.tick("连通组分治")
+    iterate.refineLoop(geom, kaiRef, pose, samples)
+    diag.tick("归属迭代精调")
+    iterate.buildTemplatePaths(pose)
     cutting.run(ctx)              # 主人判定→矢量切割→划分重构
     finalize.run(ctx)             # 收口→result→自洽二遍→轴向守卫
     return ctx.result

@@ -4,10 +4,13 @@
 
 按冻结的组指派做 ITERS 轮"边界采样点归属 → 笔宽估计 → refine/断面
 居中"迭代（numpy 批量化，与标量版逐位一致）；饿死自救退回楷体中轴；
-终态统一吸直。scoreOf/labelOf 闭包挂 ctx 供 cutting 的边弧归属/矢量
-切割复用。ITERS 经 sys.modules 读包属性当前值。事故史注释随代码保留。
+终态统一吸直。scoreSample/labelSample 为模块级函数，samples.scoreOf/
+labelOf 以 functools.partial 绑定 pose 视图后供 cutting 的边弧归属/
+矢量切割复用（读 pose.scoreMedians/scoreWidths 终态）。ITERS 经
+sys.modules 读包属性当前值。事故史注释随代码保留。
 """
 
+import functools
 import math
 import sys
 
@@ -22,22 +25,57 @@ def _pkg():
     return sys.modules["strokelab.pipeline"]
 
 
-def run(ctx):
-    """产出 ctx.samples.contourAllowed/w0/widths/sampleSets/scoreOf/labelOf/
-    templatePaths；medians 精调至 D' 终态。"""
-    _pl = _pkg()
-    kai = ctx.kaiRef.kai
-    contours = ctx.geom.contours
-    nStrokes = ctx.pose.nStrokes
-    medians = ctx.pose.medians
-    initMedians = ctx.pose.initMedians
-    groupStrokes = ctx.groups.groupStrokes
-    templateEnts = ctx.pose.templateEnts
-    affine = ctx.kaiRef.affine
-    contourAllowed = [groupStrokes.get(c["group"], list(range(nStrokes)))
-                      for c in contours]
+def extendMedian(m, ext):
+    """中轴两端沿端点切向各延长 ext（评分走廊覆盖笔锋出头）。"""
+    if len(m) < 2 or ext <= 0:
+        return m
+    t0x, t0y = m[0][0] - m[1][0], m[0][1] - m[1][1]
+    L0 = math.hypot(t0x, t0y) or 1.0
+    tnx, tny = m[-1][0] - m[-2][0], m[-1][1] - m[-2][1]
+    Ln = math.hypot(tnx, tny) or 1.0
+    return [(m[0][0] + t0x / L0 * ext, m[0][1] + t0y / L0 * ext)] + list(m) + \
+           [(m[-1][0] + tnx / Ln * ext, m[-1][1] + tny / Ln * ext)]
 
-    ctx.diag.tick("连通组分治")
+
+def scoreSample(pose, pt, tan, k):
+    """样本×笔归属得分（原 scoreOf 闭包本体；samples.scoreOf 以 partial
+    绑定 pose 后保持 (pt, tan, k) 签名）。"""
+    near = nearestOnPolyline(pt, pose.scoreMedians[k])
+    halfW = pose.scoreWidths[k] * 0.5 + 6
+    dirPen = 1 - abs(tan[0] * near["tan"][0] + tan[1] * near["tan"][1])
+    return near["d"] / halfW + 0.5 * dirPen
+
+
+def labelSample(pose, pt, tan, allowed=None):
+    """样本→最优笔标签（原 labelOf 闭包本体；samples.labelOf 以 partial
+    绑定 pose 后保持 (pt, tan, allowed) 签名）。"""
+    cand = allowed if allowed is not None else range(pose.nStrokes)
+    best, bestScore = next(iter(cand)), 1e18
+    for k in cand:
+        sc = scoreSample(pose, pt, tan, k)
+        if sc < bestScore:
+            bestScore, best = sc, k
+    return best
+
+
+def freezeAllowed(geom, groups, pose):
+    """contourAllowed 冻结：轮廓→允许竞争的笔集合（连通组分治产物）。"""
+    return [groups.groupStrokes.get(c["group"], list(range(pose.nStrokes)))
+            for c in geom.contours]
+
+
+def refineLoop(geom, kaiRef, pose, samples):
+    """ITERS 轮采样归属迭代精调 + 终态吸直：产出 samples.sampleSets/
+    scoreOf/labelOf + pose.w0/widths/scoreMedians/scoreWidths；
+    pose.medians 精调至 D' 终态。"""
+    _pl = _pkg()
+    kai = kaiRef.kai
+    contours = geom.contours
+    nStrokes = pose.nStrokes
+    medians = pose.medians
+    initMedians = pose.initMedians
+    affine = kaiRef.affine
+    contourAllowed = samples.contourAllowed
 
     # ------------------------------------------------------------ 迭代归属+精调
     glyphArea = sum((-abs(c["area"]) if c["isHole"] else abs(c["area"]))
@@ -46,16 +84,6 @@ def run(ctx):
     w0 = max(14.0, min(180.0, abs(glyphArea) / totalMedianLen))
     widths = [w0] * nStrokes
     scoreWidths = list(widths)
-
-    def extendMedian(m, ext):
-        if len(m) < 2 or ext <= 0:
-            return m
-        t0x, t0y = m[0][0] - m[1][0], m[0][1] - m[1][1]
-        L0 = math.hypot(t0x, t0y) or 1.0
-        tnx, tny = m[-1][0] - m[-2][0], m[-1][1] - m[-2][1]
-        Ln = math.hypot(tnx, tny) or 1.0
-        return [(m[0][0] + t0x / L0 * ext, m[0][1] + t0y / L0 * ext)] + list(m) + \
-               [(m[-1][0] + tnx / Ln * ext, m[-1][1] + tny / Ln * ext)]
 
     scoreMedians = [extendMedian(m, min(70.0, widths[k] * 1.1))
                     for k, m in enumerate(medians)]
@@ -71,33 +99,20 @@ def run(ctx):
                             "tan": bezTangent(seg, t), "label": 0})
         sampleSets.append(arr)
 
-    def scoreOf(pt, tan, k):
-        near = nearestOnPolyline(pt, scoreMedians[k])
-        halfW = scoreWidths[k] * 0.5 + 6
-        dirPen = 1 - abs(tan[0] * near["tan"][0] + tan[1] * near["tan"][1])
-        return near["d"] / halfW + 0.5 * dirPen
-
-    def labelOf(pt, tan, allowed=None):
-        cand = allowed if allowed is not None else range(nStrokes)
-        best, bestScore = next(iter(cand)), 1e18
-        for k in cand:
-            sc = scoreOf(pt, tan, k)
-            if sc < bestScore:
-                bestScore, best = sc, k
-        return best
-
     usedKaiFallback = [False] * nStrokes
     # 批量评分预备：样本点/切向在迭代间不变，一次性排成数组
     import numpy as _np
     _flatSamples = [sm for arr in sampleSets for sm in arr]
     _flatCi = [ci for ci, arr in enumerate(sampleSets) for _ in arr]
-    _ptsArr = _np.array([sm["pt"] for sm in _flatSamples], dtype=_np.float64)         if _flatSamples else _np.zeros((0, 2))
-    _tanArr = _np.array([sm["tan"] for sm in _flatSamples], dtype=_np.float64)         if _flatSamples else _np.zeros((0, 2))
+    _ptsArr = _np.array([sm["pt"] for sm in _flatSamples], dtype=_np.float64) \
+        if _flatSamples else _np.zeros((0, 2))
+    _tanArr = _np.array([sm["tan"] for sm in _flatSamples], dtype=_np.float64) \
+        if _flatSamples else _np.zeros((0, 2))
     _ciArr = _np.array(_flatCi, dtype=_np.int64)
     for it in range(_pl.ITERS):
         assigned = [[] for _ in range(nStrokes)]
-        # 逐样本评分批量化（语义与 labelOf 等价：分数矩阵按 allowed 顺序
-        # argmin，并列取先者；nearestBatch 与标量版逐位一致）
+        # 逐样本评分批量化（语义与 labelSample 等价：分数矩阵按 allowed
+        # 顺序 argmin，并列取先者；nearestBatch 与标量版逐位一致）
         _scores = _np.empty((nStrokes, len(_flatSamples)), dtype=_np.float64)
         for k in range(nStrokes):
             d, _, _, tx, ty, _ = nearestBatch(_ptsArr, scoreMedians[k])
@@ -169,41 +184,47 @@ def run(ctx):
         if len(cleaned) >= 2:
             medians[k] = cleaned
 
-    ctx.diag.tick("归属迭代精调")
+    pose.w0 = w0
+    pose.widths = widths
+    pose.scoreMedians = scoreMedians
+    pose.scoreWidths = scoreWidths
+    samples.sampleSets = sampleSets
+    samples.scoreOf = functools.partial(scoreSample, pose)
+    samples.labelOf = functools.partial(labelSample, pose)
 
-    # S2 模板可视化：把 B 模板画在精调后的 D 位置（精调后中轴线包围盒 + 半笔宽），
-    # 与匹配实际使用的几何一致，避免初始放置的视觉重叠误导
+
+def _mapTemplatePoint(dst, src, p):
+    """B 模板轮廓点→精调后 D 位置框的轴对齐仿射（原 mv 闭包本体）。
+    dst=(fx0, fy0, fw, fh)，src=(ebx0, eby0, ew, ehh)。"""
+    return (dst[0] + (p[0] - src[0]) * dst[2] / src[2],
+            dst[1] + (p[1] - src[1]) * dst[3] / src[3])
+
+
+def buildTemplatePaths(pose):
+    """S2 模板可视化：把 B 模板画在精调后的 D 位置（精调后中轴线包围盒
+    + 半笔宽），与匹配实际使用的几何一致，避免初始放置的视觉重叠误导。"""
     templatePaths = []
-    for k in range(nStrokes):
-        ent = templateEnts[k]
+    for k in range(pose.nStrokes):
+        ent = pose.templateEnts[k]
         if not ent:
             templatePaths.append("")
             continue
-        mb = bboxOfPoints(medians[k])
-        half = widths[k] * 0.55
-        fx0, fy0 = mb.x0 - half, mb.y0 - half
-        fw = mb.w + 2 * half
-        fh = mb.h + 2 * half
+        mb = bboxOfPoints(pose.medians[k])
+        half = pose.widths[k] * 0.55
         eb = ent["outlineBBox"]
-        ew = max(1.0, eb[2] - eb[0])
-        ehh = max(1.0, eb[3] - eb[1])
-
-        def mv(p, fx0=fx0, fy0=fy0, fw=fw, fh=fh, eb=eb, ew=ew, ehh=ehh):
-            return (fx0 + (p[0] - eb[0]) * fw / ew,
-                    fy0 + (p[1] - eb[1]) * fh / ehh)
+        dst = (mb.x0 - half, mb.y0 - half, mb.w + 2 * half, mb.h + 2 * half)
+        src = (eb[0], eb[1], max(1.0, eb[2] - eb[0]), max(1.0, eb[3] - eb[1]))
 
         parts = []
         for d in ent["contours"]:
             for c in parseContours(d):
-                moved = [(sg[0], mv(sg[1]), mv(sg[2]), mv(sg[3]), mv(sg[4]))
+                moved = [(sg[0],
+                          _mapTemplatePoint(dst, src, sg[1]),
+                          _mapTemplatePoint(dst, src, sg[2]),
+                          _mapTemplatePoint(dst, src, sg[3]),
+                          _mapTemplatePoint(dst, src, sg[4]))
                          for sg in c["segs"]]
                 parts.append(contourToPath(moved))
         templatePaths.append(" ".join(parts))
 
-    ctx.samples.contourAllowed = contourAllowed
-    ctx.pose.w0 = w0
-    ctx.pose.widths = widths
-    ctx.samples.sampleSets = sampleSets
-    ctx.samples.scoreOf = scoreOf
-    ctx.samples.labelOf = labelOf
-    ctx.pose.templatePaths = templatePaths
+    pose.templatePaths = templatePaths
