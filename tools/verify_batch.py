@@ -29,8 +29,9 @@ DEFAULT_FONTS = {
     "sample": "HarmonyOS_Sans_SC.ttf",
     "cross": "simhei.ttf,NotoSansSC-VariableFont_wght.ttf",
     "full": "HarmonyOS_Sans_SC.ttf",
+    "coverage": "HarmonyOS_Sans_SC.ttf",
 }
-DEFAULT_STRIDE = {"sample": 10, "cross": 30, "full": 1}
+DEFAULT_STRIDE = {"sample": 10, "cross": 30, "full": 1, "coverage": 1}
 
 
 def choose_jobs(cpu_count: int | None = None, requested: int = 0) -> int:
@@ -123,6 +124,15 @@ def make_chars(root: Path, preset: str, chars_file: str | None,
     if chars_text:
         return select_chars(chars_text, "full", stride), "text"
     hub = DataHub(str(root))
+    if preset == "coverage":
+        # 覆盖验收集：①295偏旁代表 + ②除独体外每结构8字（确定性生成，
+        # 见 tools/coverage_set.py 的构成规则）
+        from tools.coverage_set import buildCoverageSet, IDS_NAME
+        radicalPart, structPart = buildCoverageSet(hub)
+        chars = "".join(ch for _r, ch in radicalPart)
+        for sName in IDS_NAME.values():
+            chars += "".join(structPart.get(sName, []))
+        return chars, "coverage"
     all_chars = "".join(sorted(hub.graphicsIndex.keys()))
     mode = "full" if preset == "full" else "sample"
     return select_chars(all_chars, mode, stride), mode
@@ -182,7 +192,7 @@ def write_manifest(output: Path, root: Path, preset: str, fonts: list[str],
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", help="项目根目录，默认是脚本所在仓库")
-    ap.add_argument("--preset", choices=("sample", "cross", "full"),
+    ap.add_argument("--preset", choices=("sample", "cross", "full", "coverage"),
                     default="sample")
     ap.add_argument("--fonts", default=None,
                     help="逗号分隔字体文件名；默认按 preset 选择")

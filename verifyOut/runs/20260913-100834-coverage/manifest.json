@@ -1,0 +1,67 @@
+{
+  "createdAt": "2026-09-13T10:21:09.600807+08:00",
+  "preset": "coverage",
+  "root": "D:\\Personal_Work\\TearHanZiApart",
+  "fonts": [
+    {
+      "path": "D:\\Personal_Work\\TearHanZiApart\\Fonts\\HarmonyOS_Sans_SC.ttf",
+      "size": 20617156,
+      "mtimeNs": 1752820192000000000
+    }
+  ],
+  "charCount": 389,
+  "charSha256": "ba390456505ab57fac6399beb7bbf2ed30c6940378bd86db98a0be5d1cef6c09",
+  "stride": 1,
+  "jobs": 7,
+  "source": {
+    "algorithmSha256": "3f78d285439cdc7f3b6001f212a3b0ca91cd7c7ad2d42aaf360915e6026f36d8",
+    "python": "3.9.1",
+    "platform": "Windows-10-10.0.19041-SP0",
+    "machine": "AMD64"
+  },
+  "elapsedSeconds": 755.142,
+  "summary": {
+    "HarmonyOS_Sans_SC": {
+      "total": 389,
+      "skipped": 4,
+      "tested": 385,
+      "passed": 380,
+      "passRate": 98.7,
+      "byCode": {
+        "TYPE": {
+          "count": 1,
+          "chars": "龠"
+        },
+        "OVERLAP": {
+          "count": 3,
+          "chars": "几戶黽"
+        },
+        "AREA": {
+          "count": 2,
+          "chars": "戶首"
+        }
+      },
+      "failChars": {
+        "几": [
+          "OVERLAP"
+        ],
+        "戶": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "首": [
+          "AREA"
+        ],
+        "龠": [
+          "TYPE"
+        ],
+        "黽": [
+          "OVERLAP"
+        ]
+      },
+      "avgRetain": 0.973,
+      "clampedStrokes": 145,
+      "kaiTplStrokes": 37
+    }
+  }
+}

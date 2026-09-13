@@ -2650,6 +2650,20 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     # 饿死救济：走廊在 rescueStarved 内用组局部仿射从楷体中轴线构造
     # （全局仿射/精调种子都会歪，见函数注释）
     _glyph = booleanClamp.glyphRegion(contours)  # 只算一次，收口各环节复用
+    # 空洞识别（并集后内环=真实围合空腔；面积>400 滤掉笔画间缝隙噪声）
+    _holeBoxes = []
+    try:
+        _geoms = list(_glyph.geoms) if hasattr(_glyph, "geoms") else [_glyph]
+        for _pg in _geoms:
+            for _ring in _pg.interiors:
+                _xs = [p[0] for p in _ring.coords]
+                _ys = [p[1] for p in _ring.coords]
+                if (max(_xs) - min(_xs)) * (max(_ys) - min(_ys)) > 400.0:
+                    _holeBoxes.append([round(min(_xs)), round(min(_ys)),
+                                       round(max(_xs)), round(max(_ys))])
+    except Exception:
+        pass
+    _holeCount = len(_holeBoxes)
     booleanClamp.rescueStarved(contours, strokes, kai["strokes"],
                                kai["medians"], glyph=_glyph)
     unionCheck = None
@@ -2736,6 +2750,11 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
 
     result = {
         "ch": ch, "font": fontEntry.key,
+        # 空洞字标记（拆字时顺带识别，供后期在空洞内叠加独立元素）。
+        # 注意不能用轮廓 isHole：鸿蒙等字体的框是两个 L 形件搭接而成，
+        # 轮廓层面无孔，"孔"是布尔并集后才涌现的——取 _glyph 的内环。
+        "holeCount": _holeCount,
+        "holes": _holeBoxes,
         "contours": [{"path": contourToPath(c["segs"]), "isHole": c["isHole"],
                       "group": c["group"], "segCount": len(c["segs"]),
                       "ccw": c["area"] >= 0} for c in contours],
