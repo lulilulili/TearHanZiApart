@@ -10,6 +10,7 @@ D 构建：每笔初始模板中轴线 = B 库同类型骨架按楷体该笔包�
 
 import functools
 import math
+import sys
 
 from ..classify import PROBE_TABLE, similarTypes
 from ..geometry import (bboxOfPoints, flattenSegs, parseContours,
@@ -21,6 +22,58 @@ def _affinePoint(kb, tb, sx, sy, p):
     """楷体坐标→目标坐标的轴对齐仿射（运行期桥本体；ctx 上以
     functools.partial 绑定 kb/tb/sx/sy 后即原 affine(p) 闭包）。"""
     return (tb.x0 + (p[0] - kb.x0) * sx, tb.y0 + (p[1] - kb.y0) * sy)
+
+
+def _clibSlotMap(fontEntry, kai, kaiStrokeBBoxes, affine):
+    """C 库注入映射：目标字一级结构槽位 → C 条目逐笔骨架（字形空间）。
+    → {楷体笔序: (中轴线, "C库:氵@氾")}；无命中 → {}。
+
+    匹配：structure 一级 children[i].char 与条目偏旁等价（radicals.json
+    同源位形组，亻↔人），且槽位笔数与条目笔数一致——水4笔 vs 氵3笔
+    这类同源异形自然落空，不做残缺注入。
+
+    映射为什么走"载体槽位实测内容 bbox → 目标楷体槽位 bbox"再过全局
+    affine 进字形空间：D 构建时组指派还没做，目标字形里该偏旁实际占
+    哪块墨是未知的，楷体结构 C 是双方唯一共享的布局参照——这与 D
+    构建"B 模板按楷体单笔包围盒定位"的既有公理同源（源=模板自身实测
+    bbox，宿=楷体结构给的目标 bbox），只是定位粒度从单笔升到部件槽
+    （槽内各笔的相对错落由载体实拆形态一次带入，不再逐笔各自拉伸）。
+    源 bbox 必须用实测内容 bbox 而非载体的楷体名义槽位 bbox：教训见
+    fonthub._clibBuildEntry 注释（名义源会把载体字体相对楷体的布局
+    偏移二次记账，载体字对自己注入都过不了守卫）。"""
+    lib = fontEntry.libraryC or {}
+    children = (kai.get("structure") or {}).get("children") or []
+    if not lib or not children:
+        return {}
+    slotStrokes = {}
+    for k, p in enumerate(kai.get("matches") or []):
+        if p:
+            slotStrokes.setdefault(p[0], []).append(k)
+    out = {}
+    for i, node in enumerate(children):
+        childCh = node.get("char")
+        if not childCh:
+            continue        # 匿名嵌套 IDS 子树无 char，无从对旁
+        ks = slotStrokes.get(i) or []
+        for ent in lib.values():
+            if childCh not in ent["variants"] or \
+                    len(ks) != len(ent["strokes"]):
+                continue
+            bbs = [kaiStrokeBBoxes[k] for k in ks]
+            dx0 = min(b.x0 for b in bbs)
+            dy0 = min(b.y0 for b in bbs)
+            dw = max(1.0, max(b.x1 for b in bbs) - dx0)
+            dh = max(1.0, max(b.y1 for b in bbs) - dy0)
+            sb = ent["slotContentBBox"]
+            sw = max(1.0, sb[2] - sb[0])
+            sh = max(1.0, sb[3] - sb[1])
+            label = "C库:%s@%s" % (ent["radical"], ent["carrier"])
+            for k, es in zip(ks, ent["strokes"]):
+                out[k] = ([affine((dx0 + (p0[0] - sb[0]) * dw / sw,
+                                   dy0 + (p0[1] - sb[1]) * dh / sh))
+                           for p0 in es["medianKai"]], label)
+            break
+    return out
 
 
 def run(dataHub, fontEntry, geom, kaiRef, pose):
@@ -51,6 +104,19 @@ def run(dataHub, fontEntry, geom, kaiRef, pose):
     sx, sy = tb.w / kb.w, tb.h / kb.h
     affine = functools.partial(_affinePoint, kb, tb, sx, sy)
 
+    # ------------------------------------------------------------ C 库注入准备
+    # 评估原型（架构评审第6项），CLIB_ENABLE 默认 False：关闭时仅此一次
+    # 布尔判断，clibMap 恒空，下方一切分支与基线逐字节一致（parity 34例
+    # 硬门为证）。开关经 sys.modules 取运行期当前值（与 LADDER_* 同款，
+    # 赋值即生效）；种子路径（自洽回灌/轴向守卫复跑）跳过——种子会整
+    # 体顶替 medians，注入是白费功。
+    _pl = sys.modules["strokelab.pipeline"]
+    clibMap = {}
+    if _pl.CLIB_ENABLE and seedMedians is None and \
+            fontEntry.ensureLibraryC(dataHub):
+        clibMap = _clibSlotMap(fontEntry, kai, kaiStrokeBBoxes, affine)
+    clibHits = 0
+
     # ------------------------------------------------------------ D 构建
     # 每笔初始模板中轴线 = B库同类型骨架按楷体该笔包围盒定位；缺类型退回楷体中轴线
     medians = []
@@ -64,11 +130,26 @@ def run(dataHub, fontEntry, geom, kaiRef, pose):
         t = kai["strokeTypes"][k]
         kaiPlaced = [affine(p) for p in m]
         placed = None
+        cm = clibMap.get(k)
+        if cm is not None:
+            # C 库顶替（逐笔守卫）：映射骨架对楷体名义中轴的形态偏差
+            # ≤0.25 才接受。阈值来历：介于本类型 B 模板闸 0.28（宽）与
+            # 借用闸 0.20（严）之间——C 骨架是同偏旁同笔序的实证形态，
+            # 证据强于跨类型借用；但"载体槽位→目标槽位"的比例差会拉伸
+            # 变形（未/札的全宽木 vs 左旁木），比本类型闸多收 0.03。
+            # 超阈=目标字该槽位与载体形态显著不同（异写/融合/matches
+            # 标注噪声），该笔整笔回退 B 路径，不做混合。
+            devC = _medianDeviation(cm[0], kaiPlaced)
+            if devC is not None and devC <= 0.25:
+                placed = [tuple(p) for p in cm[0]]
+                templateSources.append(cm[1])
+                templateEnts.append(None)
+                clibHits += 1
         # 依次尝试：本类型 → 相似组类型（借用），每个候选都过模板-结构
         # 一致性检查——同名类型分段比例可能迥异（宀的横钩钩段占 13%，
         # 横撇模板撇段占 60%，压进矮扁包围盒后长尾侵入邻笔），而相似
         # 类型的模板反而可能更合身（横折钩↔横折的设计摇摆）
-        if fontEntry.libraryB:
+        if placed is None and fontEntry.libraryB:
             cands = []
             seen = set()
             for tc in [t] + similarTypes(t):
@@ -149,3 +230,4 @@ def run(dataHub, fontEntry, geom, kaiRef, pose):
     pose.templateSources = templateSources
     pose.templateEnts = templateEnts
     pose.nStrokes = nStrokes
+    pose.clibHits = clibHits    # C 库顶替笔数（种子路径恒 0，注入被跳过）

@@ -1,0 +1,21 @@
+{
+ "radical": "亻",
+ "carrier": "亿",
+ "chars": "亿什仁仂仃仅仆仇仉仍㐌仔仕他仗付仙仞仟仡",
+ "n": 20,
+ "slotStrokes": 40,
+ "hitStrokes": 38,
+ "changedChars": 0,
+ "changed": "",
+ "simOff": 88.26578947368421,
+ "simOn": 88.26578947368421,
+ "passOff": 20,
+ "passOn": 20,
+ "fixed": [],
+ "broken": [],
+ "brokenCodes": {},
+ "dbuildMsOff": 5.05,
+ "dbuildMsOn": 3.7,
+ "wallMsOff": 709.2509449999988,
+ "wallMsOn": 667.9279700000009
+}

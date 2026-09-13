@@ -1,0 +1,21 @@
+{
+ "radical": "木",
+ "carrier": "未",
+ "chars": "未末本札朮术朱朴朵机朽朿杀杂权杆杈杉杌李",
+ "n": 20,
+ "slotStrokes": 80,
+ "hitStrokes": 53,
+ "changedChars": 1,
+ "changed": "朵",
+ "simOff": 68.5407894736842,
+ "simOn": 68.5407894736842,
+ "passOff": 19,
+ "passOn": 19,
+ "fixed": [],
+ "broken": [],
+ "brokenCodes": {},
+ "dbuildMsOff": 5.45,
+ "dbuildMsOn": 4.2,
+ "wallMsOff": 953.4493299999979,
+ "wallMsOn": 863.2205699999992
+}

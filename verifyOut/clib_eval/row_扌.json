@@ -1,0 +1,21 @@
+{
+ "radical": "扌",
+ "carrier": "扎",
+ "chars": "扎扑扒打扔払托扛扢扣扦执扩扪扫扬扭扮扯扰",
+ "n": 20,
+ "slotStrokes": 60,
+ "hitStrokes": 54,
+ "changedChars": 0,
+ "changed": "",
+ "simOff": 89.17017543859647,
+ "simOn": 89.17017543859647,
+ "passOff": 20,
+ "passOn": 20,
+ "fixed": [],
+ "broken": [],
+ "brokenCodes": {},
+ "dbuildMsOff": 5.5,
+ "dbuildMsOn": 4.55,
+ "wallMsOff": 842.5359999999998,
+ "wallMsOn": 722.4490250000018
+}

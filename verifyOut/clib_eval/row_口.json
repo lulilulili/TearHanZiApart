@@ -1,0 +1,21 @@
+{
+ "radical": "口",
+ "carrier": "卟",
+ "chars": "卟古句另叨叩只叫召叭叮可台叱史右叵叶号司",
+ "n": 20,
+ "slotStrokes": 60,
+ "hitStrokes": 38,
+ "changedChars": 0,
+ "changed": "",
+ "simOff": 75.72807017543859,
+ "simOn": 75.72807017543859,
+ "passOff": 20,
+ "passOn": 20,
+ "fixed": [],
+ "broken": [],
+ "brokenCodes": {},
+ "dbuildMsOff": 5.5,
+ "dbuildMsOn": 4.25,
+ "wallMsOff": 1505.2693450000004,
+ "wallMsOn": 1427.9247699999985
+}

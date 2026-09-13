@@ -105,6 +105,170 @@ def _quadToCubic(p0, ctrl, p1):
     return c1, c2
 
 
+# ---------------------------------------------------------------- C 库（偏旁部件模板层）
+# 架构评审第6项评估原型：对高频偏旁用"载体字"（含该偏旁的最简成员字）
+# 的**实拆结果**做部件级骨架模板。载体字拆解经过全部仲裁/精调/切割/
+# 收口守卫，其偏旁槽位的逐笔中轴是该字体此偏旁的实证形态——比 B 库
+# 单笔模板多携带槽位内的相对布局（氵三笔的错落、扌钩的收位），注入
+# 时整槽一起定位，理论上可省去逐笔 B 候选扫描并提升同旁跨字一致性。
+# 是否真有收益由 tools/eval_clib.py 用数字裁定，默认不启用。
+CLIB_RADICALS = ["氵", "扌", "亻", "口", "木"]
+
+
+def _clibRegistry(root):
+    """data/radicals.json → {偏旁: 同源位形组}；文件缺失/损坏 → 空表
+    （调用方按 [自身] 兜底）。variants 用于注入端等价匹配（亻↔人），
+    建库端载体槽位只认本形（模板笔数=偏旁本形笔数，见 _clibCarrierOf）。"""
+    reg = {}
+    try:
+        with open(os.path.join(root, "data", "radicals.json"),
+                  encoding="utf-8") as f:
+            d = json.load(f)
+        for e in d.get("radicals", []):
+            reg[e["radical"]] = list(e.get("variants") or [e["radical"]])
+    except Exception:
+        pass
+    return reg
+
+
+def _clibTopSlot(kai, radical):
+    """载体字里偏旁**本形**所在的一级槽位 → (槽位号, [楷体笔序])；
+    找不到 → None。槽位判定 = structure 一级 children 的 char 恰为本形
+    （嵌套匿名 IDS 子树无 char 键，天然跳过）；成员笔 = matches 首元素
+    等于该槽位号的笔（deepenMatches 细化保留首元素的一级槽位语义）。"""
+    children = (kai.get("structure") or {}).get("children") or []
+    slotIdx = None
+    for i, node in enumerate(children):
+        if node.get("char") == radical:
+            slotIdx = i
+            break
+    if slotIdx is None:
+        return None
+    matches = kai.get("matches") or []
+    strokeIdxs = [k for k, p in enumerate(matches) if p and p[0] == slotIdx]
+    return (slotIdx, strokeIdxs) if strokeIdxs else None
+
+
+def _clibCarrierOf(dataHub, fontEntry, radical, expectStrokes):
+    """载体字选择：该偏旁成员字（dictionary radical 字段口径，复用
+    datahub.familyChars 懒建索引，与 tools/build_radicals.py 一致）中，
+    含本形一级槽位、槽位笔数恰为偏旁本形笔数、字体有字形者，取
+    (笔画数, 字典序) 最小。偏旁字符本身跳过（模板要的是"偏旁在字内
+    受挤压后的形态"，孤立偏旁字形不含这一信息）；槽外必须还有别的笔
+    ——才3笔全落扌槽（⿻分解把整字标成扌+丿镶嵌），它是偏旁本形的
+    变体字而非复合字，第三笔还是撇不是复合位的提，同理排除。
+    → (载体字, 槽位号, [楷体笔序]) | None"""
+    members = dataHub.familyChars(radical, "radical")
+    pairs = []
+    for ch in members:
+        if ch == radical:
+            continue
+        g = dataHub.geom(ch)
+        if g and len(g["medians"]) > expectStrokes:
+            pairs.append((len(g["medians"]), ch))
+    for _n, ch in sorted(pairs):
+        if not fontEntry.hasChar(ch):
+            continue
+        kai = dataHub.kai(ch)
+        if not kai:
+            continue
+        slot = _clibTopSlot(kai, radical)
+        if slot and len(slot[1]) == expectStrokes:
+            return ch, slot[0], slot[1]
+    return None
+
+
+def _clibKaiBBox(kai, strokeIdxs):
+    """楷体包围盒：strokeIdxs 指定笔集（None=全字）的轮廓展平点并集。
+    展平粒度 25 与 dbuild 全局对齐同款——建库端槽位 bbox 与注入端
+    kaiStrokeBBoxes 并集必须同口径，否则映射比例带系统偏差。"""
+    if strokeIdxs is None:
+        strokeIdxs = range(len(kai["strokes"]))
+    pts = []
+    for k in strokeIdxs:
+        for c in parseContours(kai["strokes"][k]):
+            pts.extend(flattenSegs(c["segs"], 25))
+    return bboxOfPoints(pts)
+
+
+def _clibToKaiSpace(median, kb, tb):
+    """载体字形空间 → 楷体坐标系（dbuild 全局仿射的逆映射）。
+    C 条目 median 必须存楷体坐标：注入端"载体楷体槽位bbox→目标楷体
+    槽位bbox"的映射要求两端同在楷体坐标系；若存字形坐标，映射比例
+    会混入载体字自己的整字缩放（瘦字/扁字），跨字不可比。
+    tb 展平粒度 10 与 grouping.analyzeContours 的 poly 同款。"""
+    sx = tb.w / max(1e-6, kb.w)
+    sy = tb.h / max(1e-6, kb.h)
+    return [[kb.x0 + (p[0] - tb.x0) / max(1e-6, sx),
+             kb.y0 + (p[1] - tb.y0) / max(1e-6, sy)] for p in median]
+
+
+def _clibGlyphBBox(fontEntry, ch):
+    """载体目标字形整字包围盒——与 dbuild 的 tb 同口径（grouping 的
+    poly=flattenSegs(segs,10)），保证逆仿射恰为管线全局仿射之逆。"""
+    pts = []
+    for c in fontEntry.glyphContours(ch):
+        pts.extend(flattenSegs(c["segs"], 10))
+    return bboxOfPoints(pts)
+
+
+def _clibBuildEntry(dataHub, fontEntry, radical, variants):
+    """单旁 C 条目：载体字全程拆解 → 槽位逐笔档案。载体拆解失败或
+    槽位笔画 failed → usable=False（评估原型不找替补载体：换载体=
+    换模板形态，评估口径会漂移；不可用就如实记录）。"""
+    from .pipeline import runPipeline  # 延迟导入避免循环
+    entry = {"radical": radical, "variants": list(variants),
+             "usable": False, "reason": ""}
+    gRad = dataHub.geom(radical)
+    if not gRad:
+        entry["reason"] = "偏旁本形无楷体数据"
+        return entry
+    sel = _clibCarrierOf(dataHub, fontEntry, radical, len(gRad["medians"]))
+    if not sel:
+        entry["reason"] = "无合格载体字"
+        return entry
+    ch, slotIdx, strokeIdxs = sel
+    entry["carrier"] = ch
+    entry["slot"] = slotIdx
+    try:
+        r = runPipeline(dataHub, fontEntry, ch)
+    except Exception as e:
+        entry["reason"] = "载体拆解异常: " + repr(e)[:120]
+        return entry
+    if not r or "error" in r:
+        entry["reason"] = "载体拆解失败: " + str((r or {}).get("error", ""))[:120]
+        return entry
+    slotStrokes = [r["strokes"][k] for k in strokeIdxs]
+    if any(s["failed"] for s in slotStrokes):
+        entry["reason"] = "载体槽位笔画 failed"
+        return entry
+    kai = dataHub.kai(ch)
+    kb = _clibKaiBBox(kai, None)
+    tb = _clibGlyphBBox(fontEntry, ch)
+    slotBB = _clibKaiBBox(kai, strokeIdxs)
+    entry["kaiSlotBBox"] = [slotBB.x0, slotBB.y0, slotBB.x1, slotBB.y1]
+    entry["strokes"] = [{
+        "carrierIndex": s["index"],
+        "type": s["type"],
+        "path": s["path"],                  # 切割路径（载体字形空间，评估/可视化用）
+        "median": s["median"],              # 精调中轴（载体字形空间）
+        "medianKai": _clibToKaiSpace(s["median"], kb, tb),  # 注入用（楷体坐标系）
+        "width": s["width"],
+    } for s in slotStrokes]
+    # 槽位实测内容 bbox（楷体坐标系）：注入映射的**源** bbox。不能用
+    # 楷体名义槽位 bbox 当源——medianKai 是字体实际布局的整字回拉，
+    # 字体普遍把小部件抬高/收紧（卟的口在鸿蒙里比楷体名义位高 100+
+    # 单位），名义源 bbox 会把这份"载体字体 vs 楷体"的布局偏移二次
+    # 记账，映射结果整体错位（载体字对自己注入都过不了守卫：卟三笔
+    # dev 0.33/0.43/1.42）。与 B 模板同理：源=模板自身实测 bbox
+    # （outlineBBox），宿=楷体结构给的目标 bbox。
+    cPts = [p for s in entry["strokes"] for p in s["medianKai"]]
+    cBB = bboxOfPoints(cPts)
+    entry["slotContentBBox"] = [cBB.x0, cBB.y0, cBB.x1, cBB.y1]
+    entry["usable"] = True
+    return entry
+
+
 class FontEntry:
     """一个目标字体：字形轮廓提取 + B库（标准笔画库）。"""
 
@@ -120,6 +284,7 @@ class FontEntry:
         self._glyphCache = {}
         self.libraryB = None
         self.libraryBAll = None
+        self.libraryC = None    # C库：偏旁部件模板层（评估原型，按需建）
 
     def hasChar(self, ch):
         return ord(ch) in self.cmap
@@ -583,6 +748,83 @@ class FontEntry:
         if getattr(self, "_skelDirty", False):
             self._skelDirty = False
             self._saveLibCache(dataHub)
+
+    # ------------------------------------------------------------ C 库磁盘缓存
+    # 键 = 字体指纹 × 算法签名，与 B 库同一纪律：载体字拆解结果是算法
+    # 的函数，算法一变缓存自动失效。独立文件（<font>.clib.json）而非并
+    # 入 B 缓存——C 库按需建（默认关），不拖累 B 库的加载路径。
+    def _clibCachePath(self, dataHub):
+        return os.path.join(dataHub.root, ".blibCache",
+                            os.path.splitext(self.key)[0] + ".clib.json")
+
+    def _loadClibCache(self, dataHub):
+        try:
+            with open(self._clibCachePath(dataHub), encoding="utf-8") as f:
+                d = json.load(f)
+            if d.get("algo") == _algoSignature() and \
+               d.get("font") == self._fontSig():
+                return d["entries"]
+        except Exception:
+            pass
+        return None
+
+    def _saveClibCache(self, dataHub, entries):
+        try:
+            p = self._clibCachePath(dataHub)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump({"algo": _algoSignature(), "font": self._fontSig(),
+                           "entries": entries}, f, ensure_ascii=False)
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------ C 库建库
+    def buildLibraryC(self, dataHub):
+        """C 库（偏旁部件模板层）建库：每字体一次 + 落盘缓存。
+
+        条目 = CLIB_RADICALS 五个高频旁各一：载体字（(笔画数,字典序)
+        最小的合格成员字）经 runPipeline 全程拆解，按 matches 提取偏旁
+        槽位逐笔的 楷体笔序/类型/切割路径/median/笔宽，连同槽位楷体
+        bbox 存档（median 另存楷体坐标系版本，注入映射用）。
+
+        重入护栏：建库要跑载体字拆解，期间若 CLIB_ENABLE 开着，dbuild
+        会经 ensureLibraryC 再进来——护栏令其拿到 None、按无 C 库走；
+        否则递归自举，且载体模板会依赖建库顺序（非确定）。护栏同时
+        保证有无开关建出的库字节一致（缓存可复用）。"""
+        if getattr(self, "_clibBuilding", False):
+            return None
+        self._clibBuilding = True
+        try:
+            entries = self._loadClibCache(dataHub)
+            if entries is None:
+                # 载体拆解走生产同款库路径（建库+自举补全），与 bench/
+                # verify/server 环境一致，模板形态不随调用方漂移
+                if self.libraryB is None:
+                    self.buildLibraryB(dataHub)
+                if not getattr(self, "_libCompleted", False):
+                    self.completeLibraryB(dataHub)
+                reg = _clibRegistry(dataHub.root)
+                entries = [_clibBuildEntry(dataHub, self, r,
+                                           reg.get(r) or [r])
+                           for r in CLIB_RADICALS]
+                self._saveClibCache(dataHub, entries)
+            self._clibAll = entries
+            self.libraryC = {e["radical"]: e for e in entries
+                             if e.get("usable")}
+        finally:
+            self._clibBuilding = False
+        return entries
+
+    def ensureLibraryC(self, dataHub):
+        """惰性建库入口（dbuild 注入端用）：CLIB_ENABLE 开着跑 bench/
+        verify 时 FontEntry 由各处自行构造，不能指望调用方显式建库；
+        照 B 库"首用即建+缓存命中"语义。建库进行中返回 None（见
+        buildLibraryC 护栏注释）。"""
+        if self.libraryC is not None:
+            return self.libraryC
+        self.buildLibraryC(dataHub)
+        return self.libraryC
+
 
     # ------------------------------------------------------------ A↔B 骨架映射
     def ensureSkeleton(self, entry, dataHub):

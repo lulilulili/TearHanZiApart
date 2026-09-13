@@ -60,6 +60,8 @@ class StrokePose:
     templateEnts: list = None         # 每笔 B 库模板条目（可视化用）
     templatePaths: list = None        # S2 模板可视化路径
     seedMedians: list = None          # 自洽回灌/轴向守卫的种子中轴（入参）
+    clibHits: int = 0                 # C库部件骨架顶替笔数（dbuild 统计；
+                                      # CLIB_ENABLE 开时进 result.clibHits）
     w0: float = 0.0                   # 全字估算笔宽
     wEst: float = 0.0                 # 走廊 buffer 半径基准（G2 估算）
 

@@ -31,12 +31,22 @@ pl.ITERS / pl.LADDER_PROBE / pl.LADDER_ACT / pl._axisFails 等属性
 
 ITERS = 5
 
+import os as _os
+
 # G8.5 梯队探针开关：开启时 result 附带 ladderProbe 信号（标定用），
 # 探测本身无副作用。执行器待探测精度在 25 字族+健康集上标定后接入。
 LADDER_PROBE = False
 # G8.5 梯队执行器开关：探测标定达标（家族14/25、健康0/23、抽样0/200）
 # 后接入。按 fired 部件的 plan 施行组重排+中轴带重置。
 LADDER_ACT = True
+# C库（偏旁部件模板层）注入开关：架构评审第6项的评估性原型，**默认
+# False**（关闭时 dbuild 只多一次布尔判断，结果逐字节与基线一致，
+# parity 硬门为证）。开启时对一级结构槽位命中 C 条目的笔，用载体字
+# 实拆骨架顶替 B 模板放置（逐笔守卫回退，见 dbuild._clibSlotMap）。
+# 支持环境变量 STROKELAB_CLIB=1 开启：verify 批跑的 spawn worker 子
+# 进程读不到主进程的包属性赋值，环境变量可随子进程继承
+# （tools/eval_clib.py / verify_batch 开C评估依赖此语义）。
+CLIB_ENABLE = _os.environ.get("STROKELAB_CLIB", "") == "1"
 
 from .helpers import (_medianDeviation, _hungarian, _switchbackCount,
                       _axisFails, _reMedianFromStroke, _selfSeeds,
@@ -105,4 +115,11 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     ctx.strokes = cutting.reconstruct(kaiRef, groups, pose, ctx.strokeArcs)
     diag.tick("重构")
     finalize.run(ctx)             # 收口→result→自洽二遍→轴向守卫
+    # C库诊断：clibHits = 本次调用第一遍 D 构建被 C 骨架顶替的笔数
+    # （自洽二遍/轴向守卫复跑走种子路径恒为 0，采纳复跑结果后仍以
+    # 外层首遍计数覆盖——评估口径是"D构建命中"而非"终态出处"）。
+    # 开关关闭时不加键：result 与基线逐字节一致（parity 硬门语义）。
+    if CLIB_ENABLE and isinstance(ctx.result, dict) and \
+            "error" not in ctx.result:
+        ctx.result["clibHits"] = ctx.pose.clibHits
     return ctx.result
