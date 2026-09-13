@@ -1634,19 +1634,37 @@ const fx2 = {
       const srcRings = srcKs.map(k => ringOf(deco, k)).filter(Boolean);
       const items = [];
       const nS = srcRings.length, nD = dstKs.length;
+      // 双向并集配对：①每个目标笔配一个比例位源笔（保证 t=1 完整）
+      // ②未被用到的源笔补配最近目标（保证 t=0/变回完整；目标重复
+      // 无害——同色重叠）。此前只按目标建项，日→氵 的 4 源对 3 目标
+      // 会漏掉日的第2笔，起始帧闪缺、变回后蓝日缺笔。
+      const pairs = [];
+      const usedSrc = new Set();
       for (let j = 0; j < nD; j++) {
         const si = nD === 1 ? 0
-          : Math.round(j * (nS - 1) / Math.max(1, nD - 1));
-        const src = srcRings[Math.min(si, nS - 1)];
-        let dst = fxU.samplePath(other.strokes[dstKs[j]].path, N);
-        if (!src || !dst) continue;
-        dst = fxU.alignClosed(src, applyFit(dst, fit));
+          : Math.min(nS - 1, Math.round(j * (nS - 1) / Math.max(1, nD - 1)));
+        pairs.push([si, j]);
+        usedSrc.add(si);
+      }
+      for (let i = 0; i < nS; i++) {
+        if (usedSrc.has(i)) continue;
+        const dj = nS === 1 ? 0
+          : Math.min(nD - 1, Math.round(i * (nD - 1) / Math.max(1, nS - 1)));
+        pairs.push([i, dj]);
+      }
+      const dstRingCache = {};
+      for (const [si, j] of pairs) {
+        const src = srcRings[si];
+        if (!src) continue;
+        if (!(j in dstRingCache)) {
+          const raw = fxU.samplePath(other.strokes[dstKs[j]].path, N);
+          dstRingCache[j] = raw ? applyFit(raw, fit) : null;
+        }
+        if (!dstRingCache[j]) continue;
+        const dst = fxU.alignClosed(src, dstRingCache[j]);
         const pEl = el("path", { "fill-rule": "nonzero", fill: tint }, mg);
         items.push({ p: pEl, src, dst, tint });
       }
-      // 源笔多于目标笔时,多余源笔(未被任何项覆盖首选)淡出即可——
-      // 上面的比例映射已保证每个目标有源;未当源的笔并入最近项无必要,
-      // 用整组重绘覆盖(初始帧画全部源笔,见 smFrame 的 t=0 处理)
       return items;
     };
     const fitBtoA = fxU.fitBox(boxB, boxA), fitAtoB = fxU.fitBox(boxA, boxB);
