@@ -92,6 +92,14 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     iterate.refineLoop(geom, kaiRef, pose, samples)
     diag.tick("归属迭代精调")
     iterate.buildTemplatePaths(pose)
-    cutting.run(ctx)              # 主人判定→矢量切割→划分重构
+    # 主人判定 → 边弧归属 → 标签平滑 → 矢量切割 → 划分重构
+    cutting.ownerJudge(geom, pose, samples)
+    cutting.consolidateArcs(geom, pose, samples)
+    cutting.labelSmooth(samples)
+    diag.tick("整体归属与平滑")
+    ctx.strokeArcs = cutting.vectorCut(geom, pose, samples, diag)
+    diag.tick("矢量切割")
+    ctx.strokes = cutting.reconstruct(kaiRef, groups, pose, ctx.strokeArcs)
+    diag.tick("重构")
     finalize.run(ctx)             # 收口→result→自洽二遍→轴向守卫
     return ctx.result

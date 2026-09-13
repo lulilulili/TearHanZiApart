@@ -6,6 +6,7 @@
 按角点切边弧整体归属（孔洞断面探针/径向对应）、短游程平滑、二分
 精确切点（吸附角点）、开弧桥接成环（笔锋三次贝塞尔修复）与碎片环
 剪除。全部事故史注释（天的捺、口左竖、日孔顶边、TC 中左竖等）保留。
+定序编排（主人判定→边弧归属→平滑→切割→重构）见包 __init__。
 """
 
 import math
@@ -15,14 +16,20 @@ from ..geometry import (bezPoint, bezSlice, bezTangent, contourToPath,
                         pointInPolygon, resamplePolyline, segLength)
 
 
-def ownerJudge(ctx):
+def _fracInside(rm, poly):
+    """重采样中轴点落在多边形内的占比。"""
+    cnt = sum(1 for p in rm if pointInPolygon(p, poly))
+    return cnt / (len(rm) or 1)
+
+
+def ownerJudge(geom, pose, samples):
     """主人判定整体归属（设计位+样本份额双证据，饿死保护）。"""
-    contours = ctx.geom.contours
-    nStrokes = ctx.pose.nStrokes
-    medians = ctx.pose.medians
-    initMedians = ctx.pose.initMedians
-    sampleSets = ctx.samples.sampleSets
-    contourAllowed = ctx.samples.contourAllowed
+    contours = geom.contours
+    nStrokes = pose.nStrokes
+    medians = pose.medians
+    initMedians = pose.initMedians
+    sampleSets = samples.sampleSets
+    contourAllowed = samples.contourAllowed
 
     # ------------------------------------------------------------ 主人判定整体归属
     resampledMedians = [resamplePolyline([tuple(p) for p in m], 15) for m in medians]
@@ -31,10 +38,6 @@ def ownerJudge(ctx):
     for arr in sampleSets:
         for sm in arr:
             strokeSampleTotals[sm["label"]] += 1
-
-    def fracInside(rm, poly):
-        cnt = sum(1 for p in rm if pointInPolygon(p, poly))
-        return cnt / (len(rm) or 1)
 
     for ci, c in enumerate(contours):
         if c["isHole"]:
@@ -45,8 +48,8 @@ def ownerJudge(ctx):
         nSamp = len(sampleSets[ci]) or 1
         fracs = []
         for k in contourAllowed[ci]:
-            fr = fracInside(resampledMedians[k], c["poly"])
-            fi = fracInside(resampledInit[k], c["poly"])
+            fr = _fracInside(resampledMedians[k], c["poly"])
+            fi = _fracInside(resampledInit[k], c["poly"])
             fracs.append((max(fr, fi), min(fr, fi), fi, fr, k))
         fracs.sort(key=lambda x: -x[0])
         fMax1, fMin1, _fi1, fr1, winner = fracs[0]
@@ -78,15 +81,101 @@ def ownerJudge(ctx):
                 sm["label"] = winner
 
 
-def consolidateArcs(ctx):
-    """边弧整体归属：外轮廓收敛→孔洞径向对应→孔洞整弧。"""
-    contours = ctx.geom.contours
-    nStrokes = ctx.pose.nStrokes
-    widths = ctx.pose.widths
-    w0 = ctx.pose.w0
-    sampleSets = ctx.samples.sampleSets
-    contourAllowed = ctx.samples.contourAllowed
-    scoreOf = ctx.samples.scoreOf
+def _consolidateContour(geom, pose, samples, arcTotals, ci):
+    """轮廓 ci 的边弧整体归属（原 consolidateContour 闭包本体）：
+    按角点切边弧、平均得分整体改判，携带饿死保护；孔洞走断面探针，
+    探不到通道退回径向对应标签多数票。arcTotals 就地增减。"""
+    contours = geom.contours
+    contourAllowed = samples.contourAllowed
+    scoreOf = samples.scoreOf
+    wMedFinal = sorted(pose.widths)[len(pose.widths) // 2] or pose.w0
+    c = contours[ci]
+    arr = samples.sampleSets[ci]
+    cs = sorted(samples.cornerSets[ci])
+    if len(cs) < 2 or not arr:
+        return
+    arcs = {}
+    for i, sm in enumerate(arr):
+        j = 0
+        for jj, cv in enumerate(cs):
+            if cv <= sm["s"]:
+                j = jj
+            elif cv > sm["s"]:
+                break
+        if sm["s"] < cs[0]:
+            j = len(cs) - 1
+        arcs.setdefault(j, []).append(i)
+    for idxs in arcs.values():
+        labels = [arr[i]["label"] for i in idxs]
+        if len(set(labels)) <= 1:
+            continue
+        arcLen = sum(dist(arr[idxs[t]]["pt"], arr[idxs[t + 1]]["pt"])
+                     for t in range(len(idxs) - 1))
+        # 直边（弧内切向累计转角小）必然单主，整弧归属；弯弧（平滑字体
+        # 的连笔过渡可能真跨笔画）长且分歧成块时保留逐样本标签
+        turn = 0.0
+        for t in range(len(idxs) - 1):
+            tA = arr[idxs[t]]["tan"]
+            tB = arr[idxs[t + 1]]["tan"]
+            turn += math.degrees(math.acos(max(-1.0, min(1.0,
+                tA[0] * tB[0] + tA[1] * tB[1]))))
+        if turn > 40.0:
+            domShare = max(labels.count(l) for l in set(labels)) / len(labels)
+            if arcLen > 3.0 * wMedFinal and domShare < 0.75:
+                continue
+        bestK, bestSc = labels[0], 1e18
+        if c["isHole"]:
+            # 孔洞边弧看"断面中心"归属：从弧上取点向墨侧探到对面边界，
+            # 用通道中点对各笔打分——口的内缘断面中心是竖条中心（径向
+            # 对应的正确场景），日的孔顶边断面中心正落在中横中轴线上
+            # （径向对应会把它分给外框近邻、中横颗粒无收的场景）。
+            # 探不到通道（宽交叠区）退回径向对应标签的多数票
+            capH = max(2.0 * wMedFinal, 1.2 * pose.w0, 60.0)
+            probes = []
+            for q in (len(idxs) // 4, len(idxs) // 2, 3 * len(idxs) // 4):
+                sm = arr[idxs[q]]
+                cp = corridorPoint(sm["pt"], sm["tan"], contours, capH,
+                                   max(8.0, capH * 0.15))
+                if cp is not None:
+                    probes.append((cp, sm["tan"]))
+            if probes:
+                for k in contourAllowed[ci]:
+                    sc = sum(scoreOf(cp, tn, k) for cp, tn in probes) \
+                        / len(probes)
+                    if sc < bestSc:
+                        bestSc, bestK = sc, k
+            else:
+                cnt = {}
+                for l in labels:
+                    cnt[l] = cnt.get(l, 0) + 1
+                bestK = max(cnt, key=cnt.get)
+        else:
+            for k in contourAllowed[ci]:
+                sc = sum(scoreOf(arr[i]["pt"], arr[i]["tan"], k)
+                         for i in idxs) / len(idxs)
+                if sc < bestSc:
+                    bestSc, bestK = sc, k
+        # 饿死保护：整弧改判会把某笔总样本压到极少时跳过（小点的孤立
+        # 轮廓曾被整弧划给邻笔，正主颗粒无收）
+        lost = {}
+        for l in labels:
+            if l != bestK:
+                lost[l] = lost.get(l, 0) + 1
+        if any(arcTotals[l] - n_ < 6 for l, n_ in lost.items()):
+            continue
+        for i in idxs:
+            if arr[i]["label"] != bestK:
+                arcTotals[arr[i]["label"]] -= 1
+                arcTotals[bestK] += 1
+                arr[i]["label"] = bestK
+
+
+def consolidateArcs(geom, pose, samples):
+    """边弧整体归属：外轮廓收敛→孔洞径向对应→孔洞整弧；产出
+    samples.cornerSets。"""
+    contours = geom.contours
+    nStrokes = pose.nStrokes
+    sampleSets = samples.sampleSets
 
     # ------------------------------------------------------------ 边弧整体归属
     # 印刷字形的笔画边界天然落在轮廓角点：按角点把轮廓切成边弧，整条边弧
@@ -105,7 +194,7 @@ def consolidateArcs(ctx):
             if tA[0] * tB[0] + tA[1] * tB[1] < math.cos(math.radians(40)):
                 corners.add(j % nSeg)
         cornerSets.append(corners)
-    wMedFinal = sorted(widths)[len(widths) // 2] or w0
+    samples.cornerSets = cornerSets
     # 饿死保护基数只数非孔洞样本：孔洞标签稍后镜像外缘，外缘被整弧改判的
     # 损失会在孔洞上翻倍，用全量基数会让保护被绕过（TC"中"左竖曾因此饿死）
     arcTotals = [0] * nStrokes
@@ -115,90 +204,9 @@ def consolidateArcs(ctx):
         for sm in arr:
             arcTotals[sm["label"]] += 1
 
-    def consolidateContour(ci):
-        c = contours[ci]
-        arr = sampleSets[ci]
-        cs = sorted(cornerSets[ci])
-        if len(cs) < 2 or not arr:
-            return
-        arcs = {}
-        for i, sm in enumerate(arr):
-            j = 0
-            for jj, cv in enumerate(cs):
-                if cv <= sm["s"]:
-                    j = jj
-                elif cv > sm["s"]:
-                    break
-            if sm["s"] < cs[0]:
-                j = len(cs) - 1
-            arcs.setdefault(j, []).append(i)
-        for idxs in arcs.values():
-            labels = [arr[i]["label"] for i in idxs]
-            if len(set(labels)) <= 1:
-                continue
-            arcLen = sum(dist(arr[idxs[t]]["pt"], arr[idxs[t + 1]]["pt"])
-                         for t in range(len(idxs) - 1))
-            # 直边（弧内切向累计转角小）必然单主，整弧归属；弯弧（平滑字体
-            # 的连笔过渡可能真跨笔画）长且分歧成块时保留逐样本标签
-            turn = 0.0
-            for t in range(len(idxs) - 1):
-                tA = arr[idxs[t]]["tan"]
-                tB = arr[idxs[t + 1]]["tan"]
-                turn += math.degrees(math.acos(max(-1.0, min(1.0,
-                    tA[0] * tB[0] + tA[1] * tB[1]))))
-            if turn > 40.0:
-                domShare = max(labels.count(l) for l in set(labels)) / len(labels)
-                if arcLen > 3.0 * wMedFinal and domShare < 0.75:
-                    continue
-            bestK, bestSc = labels[0], 1e18
-            if c["isHole"]:
-                # 孔洞边弧看"断面中心"归属：从弧上取点向墨侧探到对面边界，
-                # 用通道中点对各笔打分——口的内缘断面中心是竖条中心（径向
-                # 对应的正确场景），日的孔顶边断面中心正落在中横中轴线上
-                # （径向对应会把它分给外框近邻、中横颗粒无收的场景）。
-                # 探不到通道（宽交叠区）退回径向对应标签的多数票
-                capH = max(2.0 * wMedFinal, 1.2 * w0, 60.0)
-                probes = []
-                for q in (len(idxs) // 4, len(idxs) // 2, 3 * len(idxs) // 4):
-                    sm = arr[idxs[q]]
-                    cp = corridorPoint(sm["pt"], sm["tan"], contours, capH,
-                                       max(8.0, capH * 0.15))
-                    if cp is not None:
-                        probes.append((cp, sm["tan"]))
-                if probes:
-                    for k in contourAllowed[ci]:
-                        sc = sum(scoreOf(cp, tn, k) for cp, tn in probes) \
-                            / len(probes)
-                        if sc < bestSc:
-                            bestSc, bestK = sc, k
-                else:
-                    cnt = {}
-                    for l in labels:
-                        cnt[l] = cnt.get(l, 0) + 1
-                    bestK = max(cnt, key=cnt.get)
-            else:
-                for k in contourAllowed[ci]:
-                    sc = sum(scoreOf(arr[i]["pt"], arr[i]["tan"], k)
-                             for i in idxs) / len(idxs)
-                    if sc < bestSc:
-                        bestSc, bestK = sc, k
-            # 饿死保护：整弧改判会把某笔总样本压到极少时跳过（小点的孤立
-            # 轮廓曾被整弧划给邻笔，正主颗粒无收）
-            lost = {}
-            for l in labels:
-                if l != bestK:
-                    lost[l] = lost.get(l, 0) + 1
-            if any(arcTotals[l] - n_ < 6 for l, n_ in lost.items()):
-                continue
-            for i in idxs:
-                if arr[i]["label"] != bestK:
-                    arcTotals[arr[i]["label"]] -= 1
-                    arcTotals[bestK] += 1
-                    arr[i]["label"] = bestK
-
     for ci, c in enumerate(contours):
         if not c["isHole"]:
-            consolidateContour(ci)
+            _consolidateContour(geom, pose, samples, arcTotals, ci)
 
     # 孔洞边界标签径向对应（环形结构内外一致，继承已收敛的外缘标签）
     for ci, c in enumerate(contours):
@@ -221,14 +229,12 @@ def consolidateArcs(ctx):
             arcTotals[sm["label"]] += 1
     for ci, c in enumerate(contours):
         if c["isHole"]:
-            consolidateContour(ci)
-
-    ctx.samples.cornerSets = cornerSets
+            _consolidateContour(geom, pose, samples, arcTotals, ci)
 
 
-def labelSmooth(ctx):
+def labelSmooth(samples):
     """标签平滑：短游程并入前邻，消除零星误标。"""
-    sampleSets = ctx.samples.sampleSets
+    sampleSets = samples.sampleSets
 
     # ------------------------------------------------------------ 标签平滑
     for arr in sampleSets:
@@ -259,17 +265,24 @@ def labelSmooth(ctx):
             if not changed:
                 break
 
-    ctx.diag.tick("整体归属与平滑")
+
+def _paramAt(segs, s):
+    """轮廓弧长参数 s（段号+段内 t）→ 采样点与切向。"""
+    si = min(len(segs) - 1, int(s))
+    t = min(1.0, max(0.0, s - si))
+    seg = segs[si]
+    return bezPoint(seg, t), bezTangent(seg, t)
 
 
-def vectorCut(ctx):
-    """矢量切割：标签跳变二分定位切点（吸附角点），产出边弧。"""
-    contours = ctx.geom.contours
-    nStrokes = ctx.pose.nStrokes
-    sampleSets = ctx.samples.sampleSets
-    contourAllowed = ctx.samples.contourAllowed
-    cornerSets = ctx.samples.cornerSets
-    labelOf = ctx.samples.labelOf
+def vectorCut(geom, pose, samples, diag):
+    """矢量切割：标签跳变二分定位切点（吸附角点）；写 diag.cutPoints，
+    返回 strokeArcs（笔→切出的边弧）。"""
+    contours = geom.contours
+    nStrokes = pose.nStrokes
+    sampleSets = samples.sampleSets
+    contourAllowed = samples.contourAllowed
+    cornerSets = samples.cornerSets
+    labelOf = samples.labelOf
 
     # ------------------------------------------------------------ 矢量切割
     cutPoints = []
@@ -284,12 +297,6 @@ def vectorCut(ctx):
             strokeArcs[arr[0]["label"]].append(
                 {"segs": list(c["segs"]), "closed": True, "contour": ci})
             continue
-
-        def paramAt(s):
-            si = min(segCount - 1, int(s))
-            t = min(1.0, max(0.0, s - si))
-            seg = c["segs"][si]
-            return bezPoint(seg, t), bezTangent(seg, t)
 
         bounds = []
         for i in range(n):
@@ -308,14 +315,14 @@ def vectorCut(ctx):
             if sCut is None:
                 for _ in range(22):
                     mid = (s0 + s1) / 2
-                    pt, tan = paramAt(mid % segCount)
+                    pt, tan = _paramAt(c["segs"], mid % segCount)
                     if labelOf(pt, tan, contourAllowed[ci]) == a["label"]:
                         s0 = mid
                     else:
                         s1 = mid
                 sCut = ((s0 + s1) / 2) % segCount
             bounds.append({"s": sCut, "to": b["label"]})
-            pt, _tan = paramAt(sCut)
+            pt, _tan = _paramAt(c["segs"], sCut)
             cutPoints.append({"pt": pt, "from": a["label"], "to": b["label"]})
         bounds.sort(key=lambda x: x["s"])
         for bi in range(len(bounds)):
@@ -337,21 +344,48 @@ def vectorCut(ctx):
             if segs:
                 strokeArcs[label].append({"segs": segs, "closed": False, "contour": ci})
 
-    ctx.diag.cutPoints = cutPoints
-    ctx.strokeArcs = strokeArcs
-    ctx.diag.tick("矢量切割")
+    diag.cutPoints = cutPoints
+    return strokeArcs
 
 
-def reconstruct(ctx):
-    """划分式重构：环路追踪+桥接+碎片环剪除，产出 strokes。"""
-    kai = ctx.kaiRef.kai
-    nStrokes = ctx.pose.nStrokes
-    widths = ctx.pose.widths
-    medians = ctx.pose.medians
-    strokeArcs = ctx.strokeArcs
-    templateSources = ctx.pose.templateSources
-    templatePaths = ctx.pose.templatePaths
-    strokeGroup = ctx.groups.strokeGroup
+def _bridgeSegs(prevSeg, nextSeg):
+    """开弧间桥接段（原 bridge 闭包本体）。笔锋修复：直割线弦切口有
+    "刀削"感，改用三次贝塞尔——两端切线延长交于 CP，以两个中点为
+    控制点（大力智能/MMH 的桥修复法）。切线近平行、交点在反方向或
+    过远时退回直线；越界由布尔收口兜底。间隙 <1.2 不补（返回 None）。"""
+    pA, pB = prevSeg[4], nextSeg[1]
+    chord = dist(pA, pB)
+    if chord < 1.2:
+        return None
+    if chord >= 14.0:
+        tA = bezTangent(prevSeg, 1.0)
+        tB = bezTangent(nextSeg, 0.0)
+        det = tA[0] * (-tB[1]) - (-tB[0]) * tA[1]
+        if abs(det) > 1e-9:
+            rx, ry = pB[0] - pA[0], pB[1] - pA[1]
+            s = (rx * (-tB[1]) - (-tB[0]) * ry) / det
+            u = (tA[0] * ry - tA[1] * rx) / det
+            if s > 0 and u < 0:
+                cp = (pA[0] + tA[0] * s, pA[1] + tA[1] * s)
+                if dist(pA, cp) <= 1.2 * chord and \
+                   dist(pB, cp) <= 1.2 * chord:
+                    return cubicSeg(
+                        pA,
+                        ((pA[0] + cp[0]) / 2, (pA[1] + cp[1]) / 2),
+                        ((pB[0] + cp[0]) / 2, (pB[1] + cp[1]) / 2),
+                        pB)
+    return lineSeg(pA, pB)
+
+
+def reconstruct(kaiRef, groups, pose, strokeArcs):
+    """划分式重构：环路追踪+桥接+碎片环剪除，返回 strokes 结果表。"""
+    kai = kaiRef.kai
+    nStrokes = pose.nStrokes
+    widths = pose.widths
+    medians = pose.medians
+    templateSources = pose.templateSources
+    templatePaths = pose.templatePaths
+    strokeGroup = groups.strokeGroup
 
     # ------------------------------------------------------------ 划分式重构
     strokes = []
@@ -368,33 +402,6 @@ def reconstruct(ctx):
         for a in openArcs:
             byContour.setdefault(a["contour"], []).append(a)
 
-        def bridge(prevSeg, nextSeg):
-            pA, pB = prevSeg[4], nextSeg[1]
-            chord = dist(pA, pB)
-            if chord < 1.2:
-                return None
-            # 笔锋修复：直割线弦切口有"刀削"感，改用三次贝塞尔——两端切线
-            # 延长交于 CP，以两个中点为控制点（大力智能/MMH 的桥修复法）。
-            # 切线近平行、交点在反方向或过远时退回直线；越界由布尔收口兜底
-            if chord >= 14.0:
-                tA = bezTangent(prevSeg, 1.0)
-                tB = bezTangent(nextSeg, 0.0)
-                det = tA[0] * (-tB[1]) - (-tB[0]) * tA[1]
-                if abs(det) > 1e-9:
-                    rx, ry = pB[0] - pA[0], pB[1] - pA[1]
-                    s = (rx * (-tB[1]) - (-tB[0]) * ry) / det
-                    u = (tA[0] * ry - tA[1] * rx) / det
-                    if s > 0 and u < 0:
-                        cp = (pA[0] + tA[0] * s, pA[1] + tA[1] * s)
-                        if dist(pA, cp) <= 1.2 * chord and \
-                           dist(pB, cp) <= 1.2 * chord:
-                            return cubicSeg(
-                                pA,
-                                ((pA[0] + cp[0]) / 2, (pA[1] + cp[1]) / 2),
-                                ((pB[0] + cp[0]) / 2, (pB[1] + cp[1]) / 2),
-                                pB)
-            return lineSeg(pA, pB)
-
         chains = []
         for _, chainArcs in byContour.items():
             segs = []
@@ -405,7 +412,7 @@ def reconstruct(ctx):
                 segs.extend(a["segs"])
                 retained += sum(segLength(x) for x in a["segs"])
                 if idx < len(chainArcs) - 1:
-                    gap = bridge(a["segs"][-1], chainArcs[idx + 1]["segs"][0])
+                    gap = _bridgeSegs(a["segs"][-1], chainArcs[idx + 1]["segs"][0])
                     if gap:
                         segs.append(gap)
                         bridges += 1
@@ -425,7 +432,7 @@ def reconstruct(ctx):
                 if bestD > joinLimit:
                     break
                 nxt = chains.pop(bestI)
-                gap = bridge(cur["segs"][-1], nxt["segs"][0])
+                gap = _bridgeSegs(cur["segs"][-1], nxt["segs"][0])
                 if gap:
                     cur["segs"].append(gap)
                     cur["bridges"] += 1
@@ -434,7 +441,7 @@ def reconstruct(ctx):
                 cur["bridges"] += nxt["bridges"]
                 cur["retained"] += nxt["retained"]
                 cur["bridgeL"] += nxt["bridgeL"]
-            wrap = bridge(cur["segs"][-1], cur["segs"][0])
+            wrap = _bridgeSegs(cur["segs"][-1], cur["segs"][0])
             if wrap:
                 cur["segs"].append(wrap)
                 cur["bridges"] += 1
@@ -466,14 +473,4 @@ def reconstruct(ctx):
             "failed": not pathD,
         })
 
-    ctx.strokes = strokes
-    ctx.diag.tick("重构")
-
-
-def run(ctx):
-    """主人判定→边弧归属→平滑→切割→重构定序执行。"""
-    ownerJudge(ctx)
-    consolidateArcs(ctx)
-    labelSmooth(ctx)
-    vectorCut(ctx)
-    reconstruct(ctx)
+    return strokes
