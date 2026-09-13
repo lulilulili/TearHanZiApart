@@ -4,13 +4,48 @@
    依赖 core.js（el/glyphGroup/colorOf/fmt/state/registerFx）与 fxUtils.js。 */
 "use strict";
 
-const RADICAL_RULES = [   // 按用户优先级：①水蓝 ②火红 ③鬼黑 ④艹绿 ⑤木棕
-  { comps: ["氵", "水", "氺"], name: "水", color: "#1e6fd9" },
-  { comps: ["灬", "火"], name: "火", color: "#d92b2b" },
-  { comps: ["鬼"], name: "鬼", color: "#1b1b1f" },
-  { comps: ["艹"], name: "艹", color: "#2e9e44" },
-  { comps: ["木"], name: "木", color: "#8b5a2b" },
+/* 部首→特效规则。启动时 fetch /api/radicals（部首语义 registry，
+   tools/build_radicals.py 产物）构建：radical+variants→color 映射，
+   particle 字段留存备用；fetch 失败（file:// 直开/后端未更新）退回
+   FALLBACK_RULES。规则序：种子粒子系在前且保持原表优先级
+   （①水蓝 ②火红 ③鬼黑 ④艹绿 ⑤木棕），其余兜底色按部首字典序，
+   故命中判定/染色行为与硬编码时代一致。 */
+const FALLBACK_RULES = [
+  { comps: ["氵", "水", "氺"], name: "水", color: "#1e6fd9", particle: "water" },
+  { comps: ["灬", "火"], name: "火", color: "#d92b2b", particle: "fire" },
+  { comps: ["鬼"], name: "鬼", color: "#1b1b1f", particle: "smoke" },
+  { comps: ["艹"], name: "艹", color: "#2e9e44", particle: "leaf" },
+  { comps: ["木"], name: "木", color: "#8b5a2b", particle: "wood" },
 ];
+const PARTICLE_ORDER = { water: 0, fire: 1, smoke: 2, leaf: 3, wood: 4 };
+let RADICAL_RULES = FALLBACK_RULES;
+
+function BuildRadicalRules(registry) {
+  const byGroup = new Map();   // 同源位形组去重：组内取成员数最多者命名
+  for (const e of registry.radicals || []) {
+    if (!e.effect || !e.effect.color) continue;
+    const comps = (e.variants && e.variants.length) ? e.variants : [e.radical];
+    const key = comps.join("");
+    const cur = byGroup.get(key);
+    if (!cur || (e.count || 0) > cur.count)
+      byGroup.set(key, { comps, name: e.radical, color: e.effect.color,
+                         particle: e.effect.particle || null, count: e.count || 0 });
+  }
+  const rules = [...byGroup.values()];
+  rules.sort((a, b) => {
+    const pa = a.particle in PARTICLE_ORDER ? PARTICLE_ORDER[a.particle] : 9;
+    const pb = b.particle in PARTICLE_ORDER ? PARTICLE_ORDER[b.particle] : 9;
+    return (pa - pb) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+  });
+  return rules;
+}
+
+fetch("/api/radicals").then(r => r.ok ? r.json() : Promise.reject(r.status))
+  .then(reg => {
+    const rules = BuildRadicalRules(reg);
+    if (rules.length) RADICAL_RULES = rules;
+  })
+  .catch(() => {});   // 失败保留 FALLBACK_RULES
 
 /* ---- ⑦ 场引擎：场景装载 + 逐帧驱动 + 复位（含场景保护：会整场重建
    #svgFx 的效果置 sceneDirty，复位/旧效果前自动还原原始笔画场景） ---- */

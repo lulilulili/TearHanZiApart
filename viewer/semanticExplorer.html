@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>字形语义关系图 · SemanticExplorer</title>
+<style>
+  /* 深色系与 charStrokeLab.html 保持一致（:root 变量同源复制） */
+  :root {
+    --bg: #14161a; --panel: #1d2026; --panelHead: #262a31; --line: #33383f;
+    --text: #e8eaed; --dim: #9aa0a8; --accent: #4c8dff; --gold: #d9a441;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif; }
+  header { padding: 14px 20px 10px; border-bottom: 1px solid var(--line); }
+  header h1 { margin: 0 0 2px; font-size: 19px; }
+  header .sub { color: var(--dim); font-size: 12px; }
+  .navLink { font-size: 13px; font-weight: 400; color: var(--accent);
+             text-decoration: none; margin-left: 14px; }
+  .navLink:hover { text-decoration: underline; }
+  .notice { margin: 10px 20px 0; padding: 8px 12px; border: 1px solid #7a5a1e;
+            background: #2a2418; color: #ffb454; border-radius: 8px; font-size: 13px; }
+  .hidden { display: none; }
+  #controls { padding: 10px 20px; border-bottom: 1px solid var(--line); background: #191c21;
+              display: flex; flex-direction: column; gap: 8px; }
+  .ctrlRow { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+  .ctrlRow > label { color: var(--dim); margin-top: 5px; min-width: 34px; }
+  input[type=text] { background: var(--panel); color: var(--text); border: 1px solid var(--line);
+                     border-radius: 6px; padding: 5px 8px; font-size: 14px; }
+  .chipFlow { display: flex; flex-wrap: wrap; gap: 5px; max-height: 96px;
+              overflow-y: auto; flex: 1; min-width: 200px; }
+  .chip { padding: 3px 9px; border: 1px solid var(--line); border-radius: 6px; cursor: pointer;
+          font-size: 14px; user-select: none; white-space: nowrap; }
+  .chip:hover { border-color: var(--accent); }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip .cnt { color: var(--dim); font-size: 11px; margin-left: 4px; }
+  .chip.active .cnt { color: #dce8ff; }
+  button { background: var(--panelHead); color: var(--text); border: 1px solid var(--line);
+           border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); }
+  #main { display: flex; gap: 14px; padding: 14px 20px 40px; align-items: flex-start;
+          flex-wrap: wrap; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+           overflow: hidden; display: flex; flex-direction: column; }
+  .panel > h2 { margin: 0; padding: 8px 14px; font-size: 14px; background: var(--panelHead);
+                border-bottom: 1px solid var(--line); font-weight: 600; }
+  .panel > h2 .tag { color: var(--dim); font-weight: 400; font-size: 12px; margin-left: 8px; }
+  .panelBody { padding: 12px 14px; flex: 1; }
+  #graphPanel { flex: 1; min-width: 0; }
+  #detailPanel { width: 380px; flex: none; }
+  #graphBody { position: relative; }
+  #svgGraph { width: 100%; background: #181b20; border-radius: 8px; display: block; }
+  .charNode { cursor: pointer; }
+  .tooltip { position: absolute; background: #0f1114; border: 1px solid var(--accent);
+             color: var(--text); border-radius: 6px; padding: 4px 9px; font-size: 13px;
+             pointer-events: none; z-index: 5; white-space: nowrap; }
+  .metaLine { color: var(--dim); font-size: 12.5px; margin-top: 8px; min-height: 1.4em; }
+  .muted { color: var(--dim); }
+  .btnRow { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .detailBody { font-size: 13.5px; }
+  .detailRow { margin: 8px 0; }
+  .detailRow .lbl { color: var(--dim); font-size: 12px; display: block; margin-bottom: 2px; }
+  .bigChar { font-size: 42px; line-height: 1.1; margin-right: 10px; vertical-align: middle; }
+  .treeBox ul { margin: 2px 0 2px 16px; padding: 0; list-style: none;
+                border-left: 1px dotted #444; }
+  .treeBox li { padding-left: 8px; }
+  .treeBox .comp { cursor: pointer; }
+  .treeBox .comp:hover { color: var(--accent); }
+  .treeBox .opName { color: var(--gold); }
+  .labLink { color: var(--accent); text-decoration: none; }
+  .labLink:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<header>
+  <h1>字形语义关系图
+    <a class="navLink" href="charStrokeLab.html">← 拆解实验台</a></h1>
+  <div class="sub">选择偏旁与结构后检索同族汉字，以「偏旁 × 结构」双中心网状图呈现字形语义关系
+    （复刻 PPT 网状图）。数据源：makemeahanzi 字典 + 偏旁注册表（本地 strokelab 服务）。</div>
+</header>
+
+<div id="notice" class="notice hidden"></div>
+
+<div id="controls">
+  <div class="ctrlRow">
+    <label>偏旁</label>
+    <input id="radicalFilter" type="text" size="10" placeholder="筛选偏旁…">
+    <div id="radicalChips" class="chipFlow"></div>
+  </div>
+  <div class="ctrlRow">
+    <label>结构</label>
+    <div id="structChips" class="chipFlow"></div>
+    <button id="searchBtn" class="primary">检索</button>
+    <span id="searchStatus" class="muted" style="margin-top:5px"></span>
+  </div>
+</div>
+
+<div id="main">
+  <div class="panel" id="graphPanel">
+    <h2>双中心网状图<span id="graphInfo" class="tag"></span></h2>
+    <div class="panelBody" id="graphBody">
+      <svg id="svgGraph" viewBox="0 0 1000 600"></svg>
+      <div id="tooltip" class="tooltip hidden"></div>
+      <div id="radicalMeta" class="metaLine"></div>
+    </div>
+  </div>
+  <div class="panel" id="detailPanel">
+    <h2>字详情<span class="tag">点击节点或直接输入</span></h2>
+    <div class="panelBody">
+      <div class="btnRow">
+        <input id="detailInput" type="text" size="4" maxlength="2" placeholder="任意字↵">
+        <button id="detailBtn">查询</button>
+      </div>
+      <div id="detailBody" class="detailBody">
+        <span class="muted">点击图中字节点，或输入任意字查询。</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- explorer.js 独立自足（自带 el/api 小工具），不依赖 core.js -->
+<script src="js/explorer.js"></script>
+<script>bootExplorer();</script>
+</body>
+</html>

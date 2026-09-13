@@ -635,6 +635,9 @@ function strokeSubpaths(deco, k, N) {  // 子路径采样缓存（挂在结果�
 async function boot() {
   try {
     setOverlay("连接本地服务…");
+    // 语义关系图页"在拆解实验台打开"经 ?ch=X 直达指定字
+    const urlCh = new URLSearchParams(location.search).get("ch");
+    if (urlCh && urlCh.length) state.ch = [...urlCh][0];
     const meta = await api("/api/fonts");
     const fs = document.getElementById("fontSelect");
     meta.fonts.forEach(f => {

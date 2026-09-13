@@ -72,7 +72,9 @@
 </head>
 <body>
 <header>
-  <h1>汉字矢量笔画拆解实验台</h1>
+  <h1>汉字矢量笔画拆解实验台
+    <a href="semanticExplorer.html" style="font-size:13px;font-weight:400;margin-left:14px;
+       color:var(--accent);text-decoration:none">语义关系图 →</a></h1>
   <div class="sub">算法在本地 Python 服务（strokelab 包）中运行；本页为可视化前端。
     流程：A↔B 标准笔画映射 → D（目标字体形态骨架，按楷体结构定位）→ 与实际路径匹配 →
     De Casteljau 矢量切割 → 划分式重构 → shapely 布尔收口（并集与原字形恒等）。</div>

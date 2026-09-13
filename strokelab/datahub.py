@@ -68,6 +68,7 @@ class DataHub:
         self._geomCache = {}
         self._dictCache = {}
         self._famIndex = None  # 同族字反向索引（懒建，见 familyChars）
+        self._structIndex = None  # 结构（IDS首算子）反向索引（懒建，见 charsByStructure）
         self.libraryA = None
         self._load()
 
@@ -163,6 +164,33 @@ class DataHub:
                     chars.sort()
             self._famIndex = idx
         return "".join(self._famIndex[kind].get(comp, []))
+
+    def charsByRadical(self, radicals):
+        """偏旁集合（调用方已展开同源位形，如 氵→{氵,水,氺}）→ 成员字集合。
+        只含 graphicsIndex 有字形的字；复用 familyChars 的 _famIndex 懒建索引。"""
+        out = set()
+        for r in radicals:
+            out.update(self.familyChars(r, "radical"))
+        return out
+
+    def charsByStructure(self, struct):
+        """struct ∈ IDS 首算子（⿰⿱⿲⿳⿴⿵⿶⿷⿸⿹⿺⿻）或 '独体'（无 IDS 分解）
+        → 成员字集合。首次调用扫 graphicsIndex 懒建 _structIndex（照 _famIndex
+        先例）；未知取值抛 KeyError（服务端映射为 400）。"""
+        ops = IDS_OPS2 + IDS_OPS3
+        if struct != "独体" and struct not in ops:
+            raise KeyError("未知结构: " + struct)
+        if self._structIndex is None:
+            idx = {}
+            for ch in self.graphicsIndex:
+                e = self.dictEntry(ch)
+                if not e:
+                    continue
+                d = e.get("decomposition") or ""
+                key = d[0] if d and d[0] in ops else "独体"
+                idx.setdefault(key, set()).add(ch)
+            self._structIndex = idx
+        return self._structIndex.get(struct, set())
 
     # ------------------------------------------------------------ 结构
     def buildStructureTree(self, ch, depth=0, seen=None):
