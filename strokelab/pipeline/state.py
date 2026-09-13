@@ -61,6 +61,7 @@ class PipelineCtx:
     wEst: float = 0.0                 # 估算笔宽（走廊 buffer 半径基准）
     groupRegion: object = None        # 运行期桥：组→shapely 区域（带缓存）
     support: object = None            # 运行期桥：笔×组→走廊滑动支撑面积
+    barAxisOf: object = None          # 运行期桥：单杆组→主轴角（G6 挂，G8.5 用）
     kaiMatches0: list = None          # 楷体部件路径表（G7/G8.5 用）
     slotMembers: dict = None          # 一级槽位→成员笔
     slotSwaps: list = None            # G7 槽位互换记录
