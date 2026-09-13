@@ -23,15 +23,12 @@ def _affinePoint(kb, tb, sx, sy, p):
     return (tb.x0 + (p[0] - kb.x0) * sx, tb.y0 + (p[1] - kb.y0) * sy)
 
 
-def run(ctx):
-    """产出 ctx.kaiRef.affine/kaiPerims/kaiStrokeBBoxes/kb + ctx.geom.tb +
-    ctx.pose.medians/initMedians/templateSources/templateEnts/nStrokes,
-    并打首段计时。"""
-    dataHub = ctx.dataHub
-    fontEntry = ctx.fontEntry
-    kai = ctx.kaiRef.kai
-    contours = ctx.geom.contours
-    seedMedians = ctx.pose.seedMedians
+def run(dataHub, fontEntry, geom, kaiRef, pose):
+    """产出 kaiRef.affine/kaiPerims/kaiStrokeBBoxes/kb + geom.tb +
+    pose.medians/initMedians/templateSources/templateEnts/nStrokes。"""
+    kai = kaiRef.kai
+    contours = geom.contours
+    seedMedians = pose.seedMedians
     # ------------------------------------------------------------ 全局对齐
     kaiPts = []
     kaiPerims = []
@@ -142,14 +139,13 @@ def run(ctx):
         templateEnts = [None] * len(medians)
     initMedians = [[tuple(p) for p in m] for m in medians]
     nStrokes = len(medians)
-    ctx.kaiRef.kaiPerims = kaiPerims
-    ctx.kaiRef.kaiStrokeBBoxes = kaiStrokeBBoxes
-    ctx.kaiRef.kb = kb
-    ctx.geom.tb = tb
-    ctx.kaiRef.affine = affine
-    ctx.pose.medians = medians
-    ctx.pose.initMedians = initMedians
-    ctx.pose.templateSources = templateSources
-    ctx.pose.templateEnts = templateEnts
-    ctx.pose.nStrokes = nStrokes
-    ctx.diag.tick("解析对齐/D构建")
+    kaiRef.kaiPerims = kaiPerims
+    kaiRef.kaiStrokeBBoxes = kaiStrokeBBoxes
+    kaiRef.kb = kb
+    geom.tb = tb
+    kaiRef.affine = affine
+    pose.medians = medians
+    pose.initMedians = initMedians
+    pose.templateSources = templateSources
+    pose.templateEnts = templateEnts
+    pose.nStrokes = nStrokes

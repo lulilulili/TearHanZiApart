@@ -25,12 +25,11 @@ def _pkg():
     return sys.modules["strokelab.pipeline"]
 
 
-def sealUnion(ctx):
-    """布尔收口 + 并集恒等校验（含空洞识别与饿死救济循环）。"""
-    kai = ctx.kaiRef.kai
-    contours = ctx.geom.contours
-    strokes = ctx.strokes
-    applyBooleanClamp = ctx.applyBooleanClamp
+def sealUnion(geom, kaiRef, strokes, applyBooleanClamp):
+    """布尔收口 + 并集恒等校验（含空洞识别与饿死救济循环）；
+    返回 (unionCheck, holeBoxes)。"""
+    kai = kaiRef.kai
+    contours = geom.contours
 
     # ------------------------------------------------------------ 布尔收口 + 校验
     # 饿死救济先行：切割中颗粒无收/零宽退化环的笔（宾的宀左点曾只得
@@ -51,7 +50,6 @@ def sealUnion(ctx):
                                        round(max(_xs)), round(max(_ys))])
     except Exception:
         pass
-    _holeCount = len(_holeBoxes)
     booleanClamp.rescueStarved(contours, strokes, kai["strokes"],
                                kai["medians"], glyph=_glyph)
     unionCheck = None
@@ -95,16 +93,12 @@ def sealUnion(ctx):
     if unionCheck is None:
         unionCheck = booleanClamp.reUnionCheck(contours, strokes, glyph=_glyph)
 
-    ctx.unionCheck = unionCheck
-    ctx.holeBoxes = _holeBoxes
-    ctx.holeCount = _holeCount
-    ctx.diag.tick("收口")
+    return unionCheck, _holeBoxes
 
 
-def remedianAndSim(ctx):
+def remedianAndSim(kaiRef, strokes):
     """终态中轴线重提（折返矫正）+ 形状匹配打分。"""
-    kai = ctx.kaiRef.kai
-    strokes = ctx.strokes
+    kai = kaiRef.kai
 
     # 终态中轴线重提：median 若残留折返（交叉区断面居中的伪影），用
     # 切割定稿后的单笔多边形重提干净中轴——此时"笔画本身的中轴线"
@@ -322,9 +316,17 @@ def axisGuard(ctx):
 
 
 def run(ctx):
-    """收口→中轴重提→组装→自洽二遍→轴向守卫定序执行，产出 ctx.result。"""
-    sealUnion(ctx)
-    remedianAndSim(ctx)
+    """收口→中轴重提→组装→自洽二遍→轴向守卫定序执行，产出 ctx.result。
+
+    本阶段是唯一收 ctx 整包的阶段（其余阶段只收所需子结构）：result
+    组装=全景状态序列化，自洽二遍/轴向守卫要经 runPipeline 复跑、需要
+    dataHub/fontEntry 等全部入参句柄。"""
+    ctx.unionCheck, ctx.holeBoxes = sealUnion(ctx.geom, ctx.kaiRef,
+                                              ctx.strokes,
+                                              ctx.applyBooleanClamp)
+    ctx.holeCount = len(ctx.holeBoxes)
+    ctx.diag.tick("收口")
+    remedianAndSim(ctx.kaiRef, ctx.strokes)
     buildResult(ctx)
     selfConsistentPass(ctx)
     axisGuard(ctx)

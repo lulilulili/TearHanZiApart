@@ -8,7 +8,10 @@
   所有笔画并集与原字形恒等（不多不少，交叠区双重归属）。
 
 包化布局（原 2862 行单文件按流程切分，见 docs/重构设计.md 模块一）：
-  state.py     PipelineCtx——各阶段共享状态的显式协议
+  state.py     PipelineCtx——七个语义面子结构的组合（GlyphGeom/
+               GroupTable/StrokePose/KaiRef/CostModel/Diagnostics/
+               SampleField）；各阶段函数只收自己需要的子结构（≤5 参数），
+               finalize 除外（result 组装/复跑需要全景）
   helpers.py   模块级纯函数（匈牙利/折返计数/轴向判据/回灌种子…）
   grouping.py  轮廓解析 + 交叠并组 + 组表
   dbuild.py    全局对齐 + D 构建（模板选择/放置/吸直）
@@ -64,13 +67,14 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
                       selfConsistent=selfConsistent, raw=raw,
                       kaiRef=KaiRef(kai=kai),
                       pose=StrokePose(seedMedians=seedMedians))
-
-    grouping.parseAndMerge(ctx)   # 轮廓解析 + 交叠件并组
-    ctx.diag.startTimer()         # 计时基点与原单文件版一致（并组后起表）
-    dbuild.run(ctx)               # 全局对齐 + D 构建
-    grouping.buildTables(ctx)     # 连通组组表
     geom, groups, pose = ctx.geom, ctx.groups, ctx.pose
-    kaiRef, cost, diag = ctx.kaiRef, ctx.cost, ctx.diag
+    kaiRef, cost, diag, samples = ctx.kaiRef, ctx.cost, ctx.diag, ctx.samples
+
+    grouping.parseAndMerge(geom, kaiRef, raw)   # 轮廓解析 + 交叠件并组
+    diag.startTimer()             # 计时基点与原单文件版一致（并组后起表）
+    dbuild.run(dataHub, fontEntry, geom, kaiRef, pose)  # 全局对齐 + D 构建
+    diag.tick("解析对齐/D构建")
+    grouping.buildTables(geom, groups)          # 连通组组表
     # G0/G1 指派 + S1b 语义认领
     diag.semanticClaims = assign.run(geom, kaiRef, groups, pose, cost)
     # G2..G8 仲裁链 + G8.5 梯队——层序即证据强度递增序，不可重排
@@ -86,7 +90,6 @@ def runPipeline(dataHub, fontEntry, ch, applyBooleanClamp=True,
     # G9 组重锚定 + G10 断面吸附
     anchor.run(geom, kaiRef, groups, pose, diag)
     # 归属迭代精调 + 终态吸直 + S2 模板可视化
-    samples = ctx.samples
     samples.contourAllowed = iterate.freezeAllowed(geom, groups, pose)
     diag.tick("连通组分治")
     iterate.refineLoop(geom, kaiRef, pose, samples)
