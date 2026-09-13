@@ -57,15 +57,26 @@ _ALGO_SIG = None
 
 
 def _algoSignature():
-    """算法签名：核心源码内容哈希——算法一变缓存自动失效。"""
+    """算法签名：核心源码内容哈希——算法一变缓存自动失效。
+    pipeline 已包化（strokelab/pipeline/*.py），逐文件按名排序纳入。"""
     global _ALGO_SIG
     if _ALGO_SIG is None:
         h = hashlib.md5()
         pkg = os.path.dirname(os.path.abspath(__file__))
-        for name in ("pipeline.py", "geometry.py", "classify.py",
-                     "boolean.py", "fonthub.py"):
+        srcFiles = []
+        pipeDir = os.path.join(pkg, "pipeline")
+        if os.path.isdir(pipeDir):
+            srcFiles += [os.path.join(pipeDir, n)
+                         for n in sorted(os.listdir(pipeDir))
+                         if n.endswith(".py")]
+        else:
+            srcFiles.append(os.path.join(pkg, "pipeline.py"))
+        srcFiles += [os.path.join(pkg, n)
+                     for n in ("geometry.py", "classify.py",
+                               "boolean.py", "fonthub.py")]
+        for path in srcFiles:
             try:
-                with open(os.path.join(pkg, name), "rb") as f:
+                with open(path, "rb") as f:
                     h.update(f.read())
             except OSError:
                 pass

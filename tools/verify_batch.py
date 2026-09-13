@@ -101,8 +101,14 @@ def file_fingerprint(path: Path) -> dict[str, object]:
 
 def source_fingerprint(root: Path) -> dict[str, object]:
     files = [root / "strokelab" / n for n in
-             ("pipeline.py", "geometry.py", "classify.py", "boolean.py",
+             ("geometry.py", "classify.py", "boolean.py",
               "fonthub.py", "verify.py")]
+    # pipeline 已包化:逐文件按名排序纳入(旧单文件 pipeline.py 兼容保留)
+    pipeDir = root / "strokelab" / "pipeline"
+    if pipeDir.is_dir():
+        files += sorted(pipeDir.glob("*.py"))
+    else:
+        files.append(root / "strokelab" / "pipeline.py")
     h = hashlib.sha256()
     for p in files:
         if p.exists():
