@@ -11,16 +11,19 @@ monkeypatch 语义与原单文件版一致），LADDER_PROBE/_axisFails 同理
 等）随代码保留。
 """
 
+import functools
 import math
 import sys
 from dataclasses import dataclass
 
-from ..geometry import (contourToPath, dist, flattenSegs, midpointRectify,
-                        outlineCenterline, parseContours, resamplePolyline,
-                        shapeDescriptor, shapeSimilarity, straightenSections)
+from ..geometry import (bboxOfPoints, contourToPath, dist, flattenSegs,
+                        midpointRectify, outlineCenterline, parseContours,
+                        resamplePolyline, shapeDescriptor, shapeSimilarity,
+                        straightenSections)
 from .. import boolean as booleanClamp
 from .helpers import (_meanOf, _reMedianFromStroke, _secondPassBetter,
                       _selfSeeds, _switchbackCount)
+from .iterate import _mapTemplatePoint
 
 
 def _pkg():
@@ -207,6 +210,202 @@ def remedianAndSim(kaiRef, strokes):
             s["shapeSim"] = shapeSimilarity(
                 shapeDescriptor([s["path"]]),
                 shapeDescriptor([kai["strokes"][s["index"]]]))
+
+
+def _resampleFractions(pts, n):
+    """按弧长等分重采样成恒 n 点（骨架↔终态median 的弧长对应端）。
+    与 geometry.resamplePolyline（定步长、点数不定）语义不同：相似
+    拟合需要两侧点数严格相等、参数位置一一对应。总弧长退化（点全部
+    重合）返回 None。"""
+    if pts is None or len(pts) < 2:
+        return None
+    cum = [0.0]
+    for i in range(len(pts) - 1):
+        cum.append(cum[-1] + dist(pts[i], pts[i + 1]))
+    total = cum[-1]
+    if total <= 1e-9:
+        return None
+    out = []
+    j = 0
+    for i in range(n):
+        target = total * i / (n - 1)
+        while j < len(pts) - 2 and cum[j + 1] < target:
+            j += 1
+        segL = cum[j + 1] - cum[j]
+        t = (target - cum[j]) / segL if segL > 1e-12 else 0.0
+        out.append((pts[j][0] + (pts[j + 1][0] - pts[j][0]) * t,
+                    pts[j][1] + (pts[j + 1][1] - pts[j][1]) * t))
+    return out
+
+
+def _similarityParams(src, dst):
+    """弧长对应点列 src→dst 的相似变换：((s,cosθ,sinθ,tx,ty), rms)。
+
+    仅准直笔（横竖撇捺点：弦长/弧长 ≥0.95 两侧同时成立）做旋转——
+    准直时首末弦即主方向，角差就是"两者主方向角差"的裁定口径；折笔
+    （横折/钩类）禁入本函数走 bbox 口径：simsun ㇕ 模板竖臂占优
+    （弦角 -65°）而草·日框横臂占优（-31°），弦角差会把整片模板转成
+    对角棒（目检事故，2026-09-14）。微小角（<0.03rad≈1.7°）吸零——
+    横竖类模板保持轴对齐，不被终态 median 的锯齿噪声带歪。缩放/平移
+    在旋转固定后取最小二乘解析解；缩放限 [0.1,10]（骨架与 median 都在
+    字形 em 量级，出界=病态对应）。退化返回 None。"""
+    n = len(src)
+    arcS = sum(dist(src[i], src[i + 1]) for i in range(n - 1))
+    arcD = sum(dist(dst[i], dst[i + 1]) for i in range(n - 1))
+    if arcS <= 1e-9 or arcD <= 1e-9:
+        return None
+    chS = (src[-1][0] - src[0][0], src[-1][1] - src[0][1])
+    chD = (dst[-1][0] - dst[0][0], dst[-1][1] - dst[0][1])
+    ang = math.atan2(chD[1], chD[0]) - math.atan2(chS[1], chS[0])
+    ang = math.atan2(math.sin(ang), math.cos(ang))   # 归一 [-π,π]
+    if abs(ang) < 0.03:
+        ang = 0.0
+    ca, sa = math.cos(ang), math.sin(ang)
+    mSx = sum(p[0] for p in src) / n
+    mSy = sum(p[1] for p in src) / n
+    mDx = sum(p[0] for p in dst) / n
+    mDy = sum(p[1] for p in dst) / n
+    num = den = 0.0
+    for (px, py), (qx, qy) in zip(src, dst):
+        rx = ca * (px - mSx) - sa * (py - mSy)
+        ry = sa * (px - mSx) + ca * (py - mSy)
+        num += rx * (qx - mDx) + ry * (qy - mDy)
+        den += rx * rx + ry * ry
+    if den <= 1e-9 or num <= 0:
+        return None
+    scale = num / den
+    if not 0.1 <= scale <= 10.0:
+        return None
+    tx = mDx - scale * (ca * mSx - sa * mSy)
+    ty = mDy - scale * (sa * mSx + ca * mSy)
+    err = 0.0
+    for (px, py), (qx, qy) in zip(src, dst):
+        ex = scale * (ca * px - sa * py) + tx - qx
+        ey = scale * (sa * px + ca * py) + ty - qy
+        err += ex * ex + ey * ey
+    return (scale, ca, sa, tx, ty), math.sqrt(err / n)
+
+
+def _straightness(pts):
+    """折线直度 = 首末弦长/弧长（∈(0,1]）；弧长退化返回 0。"""
+    arc = sum(dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1))
+    if arc <= 1e-9:
+        return 0.0
+    return dist(pts[0], pts[-1]) / arc
+
+
+def _fitSkeletonToMedian(skel, median):
+    """骨架→终态median 的相似拟合，正反两向取残差小者（终态中轴重提
+    可能翻转 median 走向，见 remedianAndSim 的端点距判向）。仅当骨架
+    与 median 都准直（直度 ≥0.95）才适用——折笔的臂长比例差会让弦角
+    旋转失真，交给 bbox 口径。→ (s,cosθ,sinθ,tx,ty)；不适用/退化 None。"""
+    src = _resampleFractions([tuple(p) for p in skel], 24)
+    dst = _resampleFractions([tuple(p) for p in median], 24)
+    if not src or not dst:
+        return None
+    if _straightness(src) < 0.95 or _straightness(dst) < 0.95:
+        return None
+    best = None
+    for cand in (dst, dst[::-1]):
+        fit = _similarityParams(src, cand)
+        if fit and (best is None or fit[1] < best[1]):
+            best = fit
+    return best[0] if best else None
+
+
+def _applySimilarity(prm, p):
+    s, ca, sa, tx, ty = prm
+    return (s * (ca * p[0] - sa * p[1]) + tx,
+            s * (sa * p[0] + ca * p[1]) + ty)
+
+
+def _movedOutline(contourStrs, mapPoint):
+    """轮廓 d 串列表逐控制点过 mapPoint → 完整笔形路径串（多子路径拼
+    同串，带孔笔形的孔环随控制点整体映射，绕向不变）。"""
+    parts = []
+    for d in contourStrs:
+        for c in parseContours(d):
+            moved = [(sg[0], mapPoint(sg[1]), mapPoint(sg[2]),
+                      mapPoint(sg[3]), mapPoint(sg[4]))
+                     for sg in c["segs"]]
+            parts.append(contourToPath(moved))
+    return " ".join(parts)
+
+
+def _idealFromOutline(contourStrs, skel, median, width):
+    """轮廓+骨架 → 拟合到终态 median 的完整笔形。准直笔走相似拟合
+    （平移+等比缩放+可选旋转，斜笔不被 bbox 拉歪）；折笔/拟合退化走
+    bbox 口径（终态 median 包围盒+半笔宽 ← 轮廓包围盒的轴对齐仿射，
+    与 S2 buildTemplatePaths 同式——非等比拉伸恰好把模板臂长比例改写
+    成目标比例，折笔的正确口径）。"""
+    prm = _fitSkeletonToMedian(skel, median) \
+        if skel and len(skel) >= 2 else None
+    if prm is not None:
+        return _movedOutline(contourStrs,
+                             functools.partial(_applySimilarity, prm))
+    pts = []
+    for d in contourStrs:
+        for c in parseContours(d):
+            pts.extend(flattenSegs(c["segs"], 25))
+    if not pts:
+        return None
+    ob = bboxOfPoints(pts)
+    mb = bboxOfPoints(median)
+    half = width * 0.55
+    dst = (mb.x0 - half, mb.y0 - half, mb.w + 2 * half, mb.h + 2 * half)
+    src = (ob.x0, ob.y0, max(1.0, ob.w), max(1.0, ob.h))
+    return _movedOutline(contourStrs,
+                         functools.partial(_mapTemplatePoint, dst, src))
+
+
+def _idealPathFor(ctx, s):
+    """单笔理想形态拟合链：B模板轮廓 → 楷体同笔轮廓 → None（调用方
+    兜底 templatePath 口径）。异常一律吞掉走下一级——理想层是纯附加
+    陈述，任何失败都不许影响既有产物。"""
+    median = [tuple(p) for p in (s.get("median") or [])]
+    if len(median) < 2:
+        return None
+    ents = ctx.pose.templateEnts or []
+    ent = ents[s["index"]] if s["index"] < len(ents) else None
+    if ent is not None:
+        try:
+            # 骨架在 dbuild 候选扫描时已算并缓存（ensureSkeleton 记忆化），
+            # 这里恒命中缓存，不产生新计算/新缓存写标记
+            skel = ctx.fontEntry.ensureSkeleton(ent, ctx.dataHub)
+            out = _idealFromOutline(ent["contours"], skel, median, s["width"])
+            if out:
+                return out
+        except Exception:
+            pass
+    # 楷体回退：模板缺失（templateEnts None——楷体中轴回退/自洽回灌
+    # 种子遍/C库顶替）或模板轮廓退化时，用楷体该笔轮廓（正版参照笔形）
+    # 以楷体中轴为骨架同法拟合——终态位置仍由本字 median 给出
+    try:
+        kai = ctx.kaiRef.kai
+        k = s["index"]
+        out = _idealFromOutline([kai["strokes"][k]], kai["medians"][k],
+                                median, s["width"])
+        if out:
+            return out
+    except Exception:
+        pass
+    return None
+
+
+def buildIdealPaths(ctx):
+    """理想形态双输出（设计裁定"路3"）：动画层与拼装层解耦。
+
+    strokes[k]["idealPath"] = B库模板轮廓拟合到该笔终态位置的完整
+    笔形——准直笔走 骨架↔终态median 弧长对应相似拟合（平移+等比缩放
+    +可选旋转），折笔走终态 median 包围盒的 bbox 口径（见
+    _idealFromOutline）。动画/书写效果用它，切割产生的小三角/毛边/
+    入侵残片不可见（允许交叠，绘制本就叠画）；"path" 恒等拼片不动
+    （拼装场景/并集恒等硬保证的口径）。回退链见 _idealPathFor；末级
+    回退现 templatePath。字段永远存在（空串=无）。只新增字段，不碰
+    任何既有字段与判定（parity 快照不含本字段，34 例硬门为证）。"""
+    for s in ctx.strokes:
+        ideal = _idealPathFor(ctx, s)
+        s["idealPath"] = ideal if ideal else (s.get("templatePath") or "")
 
 
 def buildResult(ctx):
@@ -413,6 +612,11 @@ def run(ctx, frontReuse=None):
     # 计时对账:终态重提逐笔跑 Voronoi,衬线体(宋体)蛇形多时开销显著,
     # 无独立 tick 曾让这段时间凭空消失(用户对账发现)
     ctx.diag.tick("终态中轴重提")
+    # 理想形态双输出：终态 median 定稿后拟合（拟合目标就是终态位置），
+    # 在 buildResult 前挂字段——首遍/自洽二遍/轴向守卫重跑遍都各自经
+    # 此，采纳哪遍字段都在
+    buildIdealPaths(ctx)
+    ctx.diag.tick("理想形态拟合")
     buildResult(ctx)
     # 重试遍（seedMedians 给定）不再嵌套重试，快照无消费者，不抓
     reuse = FrontReuse.fromCtx(ctx, _glyph) \

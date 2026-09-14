@@ -176,16 +176,34 @@ async function refresh() {
   }
 }
 
+/* ---------------- 理想形态开关（设计裁定"路3"：双输出解耦） ----------------
+   拆解协议 strokes[k].idealPath = B库模板按 骨架↔终态median 相似拟合到
+   终态位置的完整笔形（允许交叠）；path 仍是恒等拼片。⑦/⑧ 面板各有独立
+   checkbox（默认关），开启时效果单元用 idealPath 渲染/采样——绘制本就
+   叠画，交叠无碍；拼装/校验类面板（①〜⑥）永远用恒等拼片，不受开关影响。 */
+function idealOn(panel) {
+  const cb = document.getElementById(panel === 2 ? "fx2Ideal" : "fxIdeal");
+  return !!(cb && cb.checked);
+}
+function drawPathOf(s, panel) {
+  return (idealOn(panel) && s.idealPath) ? s.idealPath : s.path;
+}
+
 function renderAll() {
   renderRealPaths();
-  fx.load(state.result.strokes.filter(s => !s.failed).map(s => ({
-    path: s.path, color: colorOf(s.index),
-  })));
+  loadFxScene();
   renderKaiPanel();
   renderLibrary();
   renderStructure();
   renderSteps();
   renderResult();
+}
+
+/* ⑦ 场景装载（refresh 与理想形态开关切换共用同一映射） */
+function loadFxScene() {
+  fx.load(state.result.strokes.filter(s => !s.failed).map(s => ({
+    path: drawPathOf(s, 1), color: colorOf(s.index),
+  })));
 }
 
 /* ---------------- ① 真实路径 ---------------- */
@@ -625,9 +643,12 @@ function fetchDeco(ch) {
 }
 function strokeSubpaths(deco, k, N) {  // 子路径采样缓存（挂在结果对象上）
   deco._subs = deco._subs || {};
-  const key = k + "_" + N;
+  // 理想形态开关（⑧场）：开启且该笔有 idealPath 时采样理想笔形；
+  // 缓存键带态别后缀，两态互不污染（同一 deco 会被反复切换取样）
+  const ideal = idealOn(2) ? deco.strokes[k].idealPath : "";
+  const key = k + "_" + N + (ideal ? "_i" : "");
   if (!(key in deco._subs))
-    deco._subs[key] = fxU.sampleSubpaths(deco.strokes[k].path, N);
+    deco._subs[key] = fxU.sampleSubpaths(ideal || deco.strokes[k].path, N);
   return deco._subs[key];
 }
 
@@ -673,6 +694,11 @@ async function boot() {
       resAnimator.playing ? resAnimator.pause() : resAnimator.play();
     document.getElementById("resReset").onclick = () => resAnimator.reset();
     document.getElementById("resSpeed").onchange = e => resAnimator.speed = +e.target.value;
+    // 理想形态开关：⑦切换即重装场景（立即可见）；⑧的效果在点击时读
+    // 开关状态并把态别织进场景 key（fxMulti），此处无需重建
+    document.getElementById("fxIdeal").onchange = () => {
+      if (state.result) loadFxScene();
+    };
     bindFxButtons();                   // ⑦/⑧ 效果按钮统一走注册表
     await refresh();
   } catch (e) {
