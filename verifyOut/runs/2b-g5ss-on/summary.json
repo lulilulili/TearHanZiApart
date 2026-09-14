@@ -1,0 +1,14 @@
+{
+ "simsun": {
+  "total": 7,
+  "skipped": 0,
+  "tested": 7,
+  "passed": 7,
+  "passRate": 100.0,
+  "byCode": {},
+  "failChars": {},
+  "avgRetain": 0.889,
+  "clampedStrokes": 18,
+  "kaiTplStrokes": 4
+ }
+}

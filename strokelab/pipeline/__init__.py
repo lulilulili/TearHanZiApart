@@ -79,7 +79,7 @@ ARB_G8_EXEC = _os.environ.get("STROKELAB_G8_EXEC", "1") != "0"
 # 复核可用前段截跑，tools/enum_barcap.py）。默认 False（基线逐位一致，
 # parity 硬门），六门标定达标后转 True 提交。环境变量
 # STROKELAB_PEN_BARCAP=1 开（spawn worker 继承语义同 CLIB_ENABLE）。
-PEN_BARCAP = _os.environ.get("STROKELAB_PEN_BARCAP", "") == "1"
+PEN_BARCAP = _os.environ.get("STROKELAB_PEN_BARCAP", "1") == "1"
 
 from .helpers import (_medianDeviation, _hungarian, _switchbackCount,
                       _axisFails, _reMedianFromStroke, _selfSeeds,
