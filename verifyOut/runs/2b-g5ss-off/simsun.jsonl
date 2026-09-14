@@ -1,0 +1,7 @@
+{"ch": "儋", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.933, "clamped": 4, "kaiTpl": 1}, "ms": 3929}
+{"ch": "擔", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.894, "clamped": 1, "kaiTpl": 0}, "ms": 3350}
+{"ch": "檐", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.865, "clamped": 3, "kaiTpl": 0}, "ms": 7082}
+{"ch": "訃", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.903, "clamped": 0, "kaiTpl": 0}, "ms": 1316}
+{"ch": "褡", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.883, "clamped": 2, "kaiTpl": 0}, "ms": 3018}
+{"ch": "銲", "fails": [{"code": "TYPE", "detail": "7:横轴偏44°"}, {"code": "AREA", "detail": "1:3%→14%"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 8, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.87, "clamped": 2, "kaiTpl": 1}, "ms": 4647}
+{"ch": "鹈", "fails": [], "m": {"short": 0.02, "excess": 0.01, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.844, "clamped": 6, "kaiTpl": 0}, "ms": 3955}

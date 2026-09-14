@@ -1,0 +1,125 @@
+{
+  "createdAt": "2026-09-14T21:59:56.340671+08:00",
+  "preset": "sample",
+  "root": "D:\\Personal_Work\\TearHanZiApart",
+  "fonts": [
+    {
+      "path": "D:\\Personal_Work\\TearHanZiApart\\Fonts\\HarmonyOS_Sans_SC.ttf",
+      "size": 20617156,
+      "mtimeNs": 1752820192000000000
+    },
+    {
+      "path": "D:\\Personal_Work\\TearHanZiApart\\Fonts\\simsun.ttc",
+      "size": 18070492,
+      "mtimeNs": 1788578451193041400
+    }
+  ],
+  "charCount": 30,
+  "charSha256": "cb88b3a84b51adcefe7f6b4c562a3d3391be9dde132e472c8ae35f82551a9a78",
+  "stride": 10,
+  "jobs": 6,
+  "source": {
+    "algorithmSha256": "87ec7fcdff09cf65de9d324083572a9e00c3e8780563fff130878a83106fd861",
+    "python": "3.9.1",
+    "platform": "Windows-10-10.0.19041-SP0",
+    "machine": "AMD64"
+  },
+  "elapsedSeconds": 321.879,
+  "summary": {
+    "HarmonyOS_Sans_SC": {
+      "total": 30,
+      "skipped": 0,
+      "tested": 30,
+      "passed": 21,
+      "passRate": 70.0,
+      "byCode": {
+        "TYPE": {
+          "count": 7,
+          "chars": "戆濞痺颦鼽鼾齄"
+        },
+        "ORDER": {
+          "count": 1,
+          "chars": "戆"
+        },
+        "OVERLAP": {
+          "count": 3,
+          "chars": "戆髀鼾"
+        },
+        "AREA": {
+          "count": 2,
+          "chars": "戆輻"
+        }
+      },
+      "failChars": {
+        "颦": [
+          "TYPE"
+        ],
+        "髀": [
+          "OVERLAP"
+        ],
+        "鼽": [
+          "TYPE"
+        ],
+        "鼾": [
+          "OVERLAP",
+          "TYPE"
+        ],
+        "齄": [
+          "TYPE"
+        ],
+        "戆": [
+          "AREA",
+          "ORDER",
+          "OVERLAP",
+          "TYPE"
+        ],
+        "濞": [
+          "TYPE"
+        ],
+        "痺": [
+          "TYPE"
+        ],
+        "輻": [
+          "AREA"
+        ]
+      },
+      "avgRetain": 0.93,
+      "clampedStrokes": 79,
+      "kaiTplStrokes": 17
+    },
+    "simsun": {
+      "total": 30,
+      "skipped": 0,
+      "tested": 30,
+      "passed": 26,
+      "passRate": 86.67,
+      "byCode": {
+        "TYPE": {
+          "count": 3,
+          "chars": "戆首髀"
+        },
+        "AREA": {
+          "count": 1,
+          "chars": "啤"
+        }
+      },
+      "failChars": {
+        "啤": [
+          "AREA"
+        ],
+        "髀": [
+          "TYPE"
+        ],
+        "首": [
+          "TYPE"
+        ],
+        "戆": [
+          "TYPE"
+        ]
+      },
+      "avgRetain": 0.833,
+      "clampedStrokes": 141,
+      "kaiTplStrokes": 14
+    }
+  }
+}

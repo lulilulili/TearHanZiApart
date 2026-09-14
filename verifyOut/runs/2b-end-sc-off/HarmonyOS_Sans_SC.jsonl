@@ -1,0 +1,686 @@
+{"ch": "剜", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.956, "clamped": 0, "kaiTpl": 0}, "ms": 3334}
+{"ch": "剳", "fails": [{"code": "TYPE", "detail": "3:横轴偏36°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.915, "clamped": 0, "kaiTpl": 0}, "ms": 5483}
+{"ch": "劄", "fails": [{"code": "ORDER", "detail": "9-12y"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 6, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.935, "clamped": 8, "kaiTpl": 0}, "ms": 9633}
+{"ch": "劣", "fails": [{"code": "ORDER", "detail": "3-5y"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 2429}
+{"ch": "勃", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.947, "clamped": 0, "kaiTpl": 0}, "ms": 4185}
+{"ch": "勸", "fails": [{"code": "TYPE", "detail": "11:竖轴偏55°"}, {"code": "OVERLAP", "detail": "13-14:81%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.846, "clamped": 9, "kaiTpl": 0}, "ms": 10985}
+{"ch": "博", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.986, "clamped": 0, "kaiTpl": 0}, "ms": 3289}
+{"ch": "吶", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.897, "clamped": 0, "kaiTpl": 0}, "ms": 4665}
+{"ch": "咸", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.896, "clamped": 0, "kaiTpl": 0}, "ms": 4484}
+{"ch": "哌", "fails": [{"code": "AREA", "detail": "6:19%→4%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.887, "clamped": 1, "kaiTpl": 0}, "ms": 4057}
+{"ch": "哏", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.867, "clamped": 4, "kaiTpl": 0}, "ms": 7607}
+{"ch": "哥", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.845, "clamped": 0, "kaiTpl": 0}, "ms": 3688}
+{"ch": "哪", "fails": [{"code": "ORDER", "detail": "3-7x"}, {"code": "AREA", "detail": "7:22%→5%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.858, "clamped": 2, "kaiTpl": 0}, "ms": 6873}
+{"ch": "哱", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.886, "clamped": 0, "kaiTpl": 0}, "ms": 3956}
+{"ch": "啇", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.921, "clamped": 0, "kaiTpl": 0}, "ms": 3949}
+{"ch": "啪", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.926, "clamped": 0, "kaiTpl": 0}, "ms": 5168}
+{"ch": "㡭", "fails": [{"code": "AREA", "detail": "12:2%→8%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 4}, "ms": 2762}
+{"ch": "䧹", "fails": [{"code": "TYPE", "detail": "1:横轴偏39°"}, {"code": "AREA", "detail": "8:5%→1%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 1, "retain": 0.945, "clamped": 8, "kaiTpl": 0}, "ms": 9865}
+{"ch": "临", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.983, "clamped": 0, "kaiTpl": 0}, "ms": 3693}
+{"ch": "倀", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.981, "clamped": 0, "kaiTpl": 0}, "ms": 3022}
+{"ch": "倫", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.967, "clamped": 0, "kaiTpl": 0}, "ms": 4382}
+{"ch": "偷", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.935, "clamped": 6, "kaiTpl": 0}, "ms": 6431}
+{"ch": "偿", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.976, "clamped": 0, "kaiTpl": 0}, "ms": 3581}
+{"ch": "儂", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.955, "clamped": 0, "kaiTpl": 1}, "ms": 5435}
+{"ch": "儈", "fails": [{"code": "AREA", "detail": "6:11%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.94, "clamped": 0, "kaiTpl": 1}, "ms": 5714}
+{"ch": "儉", "fails": [{"code": "TYPE", "detail": "7:横轴偏39°"}, {"code": "AREA", "detail": "10:2%→12%"}], "m": {"short": 0.0, "excess": 0.01, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.859, "clamped": 2, "kaiTpl": 0}, "ms": 6434}
+{"ch": "償", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.907, "clamped": 0, "kaiTpl": 1}, "ms": 5886}
+{"ch": "儻", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.932, "clamped": 0, "kaiTpl": 0}, "ms": 6412}
+{"ch": "兜", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.807, "clamped": 4, "kaiTpl": 0}, "ms": 3875}
+{"ch": "冁", "fails": [{"code": "AREA", "detail": "17:9%→2%"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.941, "clamped": 8, "kaiTpl": 1}, "ms": 9087}
+{"ch": "冣", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.949, "clamped": 0, "kaiTpl": 0}, "ms": 4924}
+{"ch": "冪", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 3, "compQuota": 0, "compOut": 1, "retain": 0.83, "clamped": 7, "kaiTpl": 0}, "ms": 8379}
+{"ch": "寬", "fails": [{"code": "TYPE", "detail": "6:横轴偏89°"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.87, "clamped": 11, "kaiTpl": 0}, "ms": 9435}
+{"ch": "寶", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.894, "clamped": 4, "kaiTpl": 1}, "ms": 7707}
+{"ch": "尉", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.953, "clamped": 8, "kaiTpl": 0}, "ms": 6964}
+{"ch": "尞", "fails": [{"code": "AREA", "detail": "2:17%→3%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.929, "clamped": 2, "kaiTpl": 1}, "ms": 5065}
+{"ch": "岵", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.964, "clamped": 0, "kaiTpl": 1}, "ms": 3041}
+{"ch": "峇", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.888, "clamped": 5, "kaiTpl": 0}, "ms": 6426}
+{"ch": "崙", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.953, "clamped": 6, "kaiTpl": 0}, "ms": 5648}
+{"ch": "嵒", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.816, "clamped": 0, "kaiTpl": 0}, "ms": 4102}
+{"ch": "嵛", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.921, "clamped": 2, "kaiTpl": 0}, "ms": 6565}
+{"ch": "嶝", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.943, "clamped": 3, "kaiTpl": 2}, "ms": 5632}
+{"ch": "嶽", "fails": [{"code": "TYPE", "detail": "8:横轴偏40°"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 8, "orderX": 1, "compQuota": 0, "compOut": 1, "retain": 0.92, "clamped": 3, "kaiTpl": 0}, "ms": 8852}
+{"ch": "巍", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.946, "clamped": 0, "kaiTpl": 0}, "ms": 7023}
+{"ch": "巖", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.865, "clamped": 5, "kaiTpl": 1}, "ms": 7211}
+{"ch": "希", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 1, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.973, "clamped": 0, "kaiTpl": 0}, "ms": 3591}
+{"ch": "帚", "fails": [{"code": "TYPE", "detail": "5:竖轴偏84°"}, {"code": "AREA", "detail": "4:19%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.883, "clamped": 8, "kaiTpl": 0}, "ms": 9652}
+{"ch": "带", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.949, "clamped": 0, "kaiTpl": 0}, "ms": 3474}
+{"ch": "姑", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.954, "clamped": 0, "kaiTpl": 1}, "ms": 3200}
+{"ch": "威", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.963, "clamped": 0, "kaiTpl": 0}, "ms": 3519}
+{"ch": "婦", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.922, "clamped": 6, "kaiTpl": 0}, "ms": 8813}
+{"ch": "媷", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.975, "clamped": 0, "kaiTpl": 1}, "ms": 4375}
+{"ch": "嫘", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.943, "clamped": 0, "kaiTpl": 0}, "ms": 5373}
+{"ch": "嫜", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.941, "clamped": 0, "kaiTpl": 1}, "ms": 4103}
+{"ch": "嫦", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.896, "clamped": 0, "kaiTpl": 2}, "ms": 5071}
+{"ch": "嫪", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.939, "clamped": 2, "kaiTpl": 0}, "ms": 5787}
+{"ch": "嬛", "fails": [{"code": "AREA", "detail": "7:4%→1% 11:3%→14%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.849, "clamped": 10, "kaiTpl": 3}, "ms": 7899}
+{"ch": "孃", "fails": [{"code": "OVERLAP", "detail": "6-8:69%"}, {"code": "AREA", "detail": "10:2%→7%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 9, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.864, "clamped": 13, "kaiTpl": 1}, "ms": 9880}
+{"ch": "孱", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.927, "clamped": 8, "kaiTpl": 0}, "ms": 6485}
+{"ch": "孵", "fails": [{"code": "AREA", "detail": "4:11%→1%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.918, "clamped": 2, "kaiTpl": 0}, "ms": 6413}
+{"ch": "孽", "fails": [{"code": "AREA", "detail": "7:5%→1%"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.88, "clamped": 12, "kaiTpl": 2}, "ms": 9710}
+{"ch": "宛", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.919, "clamped": 5, "kaiTpl": 0}, "ms": 6208}
+{"ch": "審", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.972, "clamped": 0, "kaiTpl": 1}, "ms": 5935}
+{"ch": "寫", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 10, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.881, "clamped": 11, "kaiTpl": 1}, "ms": 10445}
+{"ch": "圍", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.924, "clamped": 0, "kaiTpl": 0}, "ms": 5681}
+{"ch": "園", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.933, "clamped": 0, "kaiTpl": 1}, "ms": 7024}
+{"ch": "圜", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.902, "clamped": 0, "kaiTpl": 0}, "ms": 8386}
+{"ch": "垠", "fails": [{"code": "AREA", "detail": "6:25%→5%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.912, "clamped": 2, "kaiTpl": 0}, "ms": 4855}
+{"ch": "埤", "fails": [{"code": "TYPE", "detail": "6:横轴偏73°"}, {"code": "AREA", "detail": "6:3%→1%"}], "m": {"short": 0.0, "excess": 0.01, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.962, "clamped": 5, "kaiTpl": 0}, "ms": 8433}
+{"ch": "塊", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 4, "compQuota": 0, "compOut": 0, "retain": 0.909, "clamped": 3, "kaiTpl": 0}, "ms": 7597}
+{"ch": "塑", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.968, "clamped": 0, "kaiTpl": 0}, "ms": 4365}
+{"ch": "塔", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.9, "clamped": 2, "kaiTpl": 1}, "ms": 6367}
+{"ch": "塚", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.976, "clamped": 0, "kaiTpl": 0}, "ms": 5183}
+{"ch": "塾", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.927, "clamped": 0, "kaiTpl": 0}, "ms": 4915}
+{"ch": "墮", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 1, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.953, "clamped": 7, "kaiTpl": 1}, "ms": 5882}
+{"ch": "墼", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.913, "clamped": 3, "kaiTpl": 0}, "ms": 5534}
+{"ch": "墾", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.98, "clamped": 0, "kaiTpl": 1}, "ms": 5449}
+{"ch": "壓", "fails": [{"code": "TYPE", "detail": "9:横轴偏86°"}, {"code": "ORDER", "detail": "6-15x"}, {"code": "AREA", "detail": "4:1%→6%"}], "m": {"short": 0.0, "excess": 0.01, "reclass": 8, "orderX": 8, "compQuota": 0, "compOut": 0, "retain": 0.912, "clamped": 9, "kaiTpl": 0}, "ms": 12474}
+{"ch": "壕", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.936, "clamped": 6, "kaiTpl": 2}, "ms": 6128}
+{"ch": "壟", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.97, "clamped": 0, "kaiTpl": 0}, "ms": 6230}
+{"ch": "啫", "fails": [{"code": "ORDER", "detail": "2-9y"}], "m": {"short": 0.0, "excess": 0.01, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.928, "clamped": 6, "kaiTpl": 0}, "ms": 12532}
+{"ch": "喘", "fails": [{"code": "TYPE", "detail": "5:竖轴偏81°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.889, "clamped": 10, "kaiTpl": 1}, "ms": 9800}
+{"ch": "喙", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.946, "clamped": 0, "kaiTpl": 1}, "ms": 4926}
+{"ch": "喨", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.848, "clamped": 0, "kaiTpl": 0}, "ms": 4582}
+{"ch": "喻", "fails": [{"code": "ORDER", "detail": "2-9y"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.906, "clamped": 0, "kaiTpl": 0}, "ms": 7000}
+{"ch": "嗎", "fails": [{"code": "ORDER", "detail": "2-5y 4-9y"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.861, "clamped": 2, "kaiTpl": 0}, "ms": 4898}
+{"ch": "嗒", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 3, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.872, "clamped": 2, "kaiTpl": 0}, "ms": 4284}
+{"ch": "嗚", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.844, "clamped": 7, "kaiTpl": 0}, "ms": 5967}
+{"ch": "嘎", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.915, "clamped": 0, "kaiTpl": 1}, "ms": 5979}
+{"ch": "嘛", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.94, "clamped": 0, "kaiTpl": 0}, "ms": 4820}
+{"ch": "噓", "fails": [{"code": "TYPE", "detail": "13:横轴偏52°"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 8, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.878, "clamped": 14, "kaiTpl": 0}, "ms": 14350}
+{"ch": "噥", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.919, "clamped": 0, "kaiTpl": 0}, "ms": 6966}
+{"ch": "噪", "fails": [{"code": "TYPE", "detail": "12:横轴偏37°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.8, "clamped": 0, "kaiTpl": 0}, "ms": 8953}
+{"ch": "噱", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.951, "clamped": 0, "kaiTpl": 0}, "ms": 6327}
+{"ch": "噲", "fails": [{"code": "TYPE", "detail": "5:横轴偏58°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.864, "clamped": 3, "kaiTpl": 1}, "ms": 9997}
+{"ch": "囌", "fails": [{"code": "TYPE", "detail": "4:横轴偏37°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.888, "clamped": 4, "kaiTpl": 0}, "ms": 9678}
+{"ch": "帮", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 1, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.965, "clamped": 0, "kaiTpl": 0}, "ms": 4585}
+{"ch": "帳", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 0, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.969, "clamped": 0, "kaiTpl": 0}, "ms": 5114}
+{"ch": "幌", "fails": [{"code": "OVERLAP", "detail": "7-9:100%"}, {"code": "AREA", "detail": "4:11%→2% 5:3%→13%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.892, "clamped": 7, "kaiTpl": 1}, "ms": 7815}
+{"ch": "幫", "fails": [{"code": "AREA", "detail": "11:9%→2% 12:3%→17%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.93, "clamped": 1, "kaiTpl": 2}, "ms": 5884}
+{"ch": "幬", "fails": [{"code": "TYPE", "detail": "9:横轴偏51°"}, {"code": "AREA", "detail": "9:4%→1%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.921, "clamped": 9, "kaiTpl": 1}, "ms": 9412}
+{"ch": "廂", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.98, "clamped": 0, "kaiTpl": 0}, "ms": 5298}
+{"ch": "廝", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.979, "clamped": 0, "kaiTpl": 0}, "ms": 4644}
+{"ch": "廠", "fails": [{"code": "TYPE", "detail": "1:横轴偏38°"}, {"code": "AREA", "detail": "14:10%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 12, "compQuota": 0, "compOut": 3, "retain": 0.885, "clamped": 4, "kaiTpl": 1}, "ms": 13335}
+{"ch": "廥", "fails": [{"code": "TYPE", "detail": "6:竖轴偏35°"}, {"code": "AREA", "detail": "7:10%→2%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.903, "clamped": 8, "kaiTpl": 1}, "ms": 10217}
+{"ch": "彝", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 2}, "ms": 3374}
+{"ch": "彞", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 2}, "ms": 4075}
+{"ch": "彟", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.95, "clamped": 2, "kaiTpl": 0}, "ms": 6184}
+{"ch": "彰", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.957, "clamped": 0, "kaiTpl": 0}, "ms": 4100}
+{"ch": "很", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 2, "orderX": 4, "compQuota": 0, "compOut": 0, "retain": 0.94, "clamped": 3, "kaiTpl": 0}, "ms": 7849}
+{"ch": "恂", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 1, "compQuota": 0, "compOut": 1, "retain": 0.93, "clamped": 0, "kaiTpl": 0}, "ms": 4267}
+{"ch": "恨", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 5, "compQuota": 0, "compOut": 0, "retain": 0.926, "clamped": 1, "kaiTpl": 0}, "ms": 6412}
+{"ch": "捡", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.922, "clamped": 2, "kaiTpl": 0}, "ms": 4210}
+{"ch": "捨", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.916, "clamped": 3, "kaiTpl": 0}, "ms": 4787}
+{"ch": "掄", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 8, "compQuota": 0, "compOut": 0, "retain": 0.969, "clamped": 0, "kaiTpl": 0}, "ms": 5447}
+{"ch": "揸", "fails": [{"code": "AREA", "detail": "10:3%→11%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.949, "clamped": 0, "kaiTpl": 0}, "ms": 4904}
+{"ch": "搏", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.987, "clamped": 0, "kaiTpl": 0}, "ms": 4463}
+{"ch": "搭", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.97, "clamped": 0, "kaiTpl": 0}, "ms": 5279}
+{"ch": "搿", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.946, "clamped": 0, "kaiTpl": 0}, "ms": 5287}
+{"ch": "摯", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 8, "compQuota": 0, "compOut": 1, "retain": 1.0, "clamped": 0, "kaiTpl": 1}, "ms": 3688}
+{"ch": "撂", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.945, "clamped": 0, "kaiTpl": 0}, "ms": 6889}
+{"ch": "撅", "fails": [], "m": {"short": 0.0, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.945, "clamped": 6, "kaiTpl": 0}, "ms": 12797}
+{"ch": "撳", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 1}, "ms": 2891}
+{"ch": "擊", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.915, "clamped": 1, "kaiTpl": 0}, "ms": 6258}
+{"ch": "擯", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.952, "clamped": 0, "kaiTpl": 0}, "ms": 5813}
+{"ch": "擲", "fails": [{"code": "AREA", "detail": "15:15%→3%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.987, "clamped": 0, "kaiTpl": 0}, "ms": 8099}
+{"ch": "擻", "fails": [{"code": "ORDER", "detail": "5-15x"}, {"code": "AREA", "detail": "6:1%→9% 15:4%→1%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.892, "clamped": 2, "kaiTpl": 0}, "ms": 8625}
+{"ch": "攫", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 9, "compQuota": 0, "compOut": 0, "retain": 0.912, "clamped": 11, "kaiTpl": 0}, "ms": 10341}
+{"ch": "恺", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.913, "clamped": 1, "kaiTpl": 0}, "ms": 3916}
+{"ch": "悵", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.983, "clamped": 0, "kaiTpl": 1}, "ms": 3097}
+{"ch": "惋", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.96, "clamped": 0, "kaiTpl": 0}, "ms": 5282}
+{"ch": "愉", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 1, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.976, "clamped": 0, "kaiTpl": 0}, "ms": 4486}
+{"ch": "慄", "fails": [{"code": "TYPE", "detail": "9:横轴偏35°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.951, "clamped": 0, "kaiTpl": 0}, "ms": 6311}
+{"ch": "慷", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 1, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.979, "clamped": 0, "kaiTpl": 1}, "ms": 5553}
+{"ch": "憑", "fails": [{"code": "TYPE", "detail": "3:竖轴偏64°"}, {"code": "ORDER", "detail": "2-5y"}], "m": {"short": 0.01, "excess": 0.02, "reclass": 9, "orderX": 2, "compQuota": 0, "compOut": 1, "retain": 0.954, "clamped": 8, "kaiTpl": 0}, "ms": 10816}
+{"ch": "憲", "fails": [{"code": "AREA", "detail": "4:4%→1%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.917, "clamped": 2, "kaiTpl": 0}, "ms": 5851}
+{"ch": "憹", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.96, "clamped": 0, "kaiTpl": 0}, "ms": 5774}
+{"ch": "懇", "fails": [{"code": "AREA", "detail": "9:2%→7%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 10, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.96, "clamped": 5, "kaiTpl": 1}, "ms": 9881}
+{"ch": "懑", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.99, "clamped": 0, "kaiTpl": 0}, "ms": 7479}
+{"ch": "懾", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 3573}
+{"ch": "戆", "fails": [{"code": "TYPE", "detail": "19:竖轴偏78°"}, {"code": "AREA", "detail": "7:2%→8%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 13, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.951, "clamped": 3, "kaiTpl": 2}, "ms": 15286}
+{"ch": "戇", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.951, "clamped": 0, "kaiTpl": 3}, "ms": 9187}
+{"ch": "戛", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 2, "compQuota": 0, "compOut": 1, "retain": 0.925, "clamped": 2, "kaiTpl": 0}, "ms": 8028}
+{"ch": "拾", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.903, "clamped": 3, "kaiTpl": 0}, "ms": 7461}
+{"ch": "敞", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.916, "clamped": 0, "kaiTpl": 1}, "ms": 5937}
+{"ch": "斂", "fails": [{"code": "SPLIT", "detail": "4(2片)"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.882, "clamped": 3, "kaiTpl": 0}, "ms": 5377}
+{"ch": "斓", "fails": [{"code": "TYPE", "detail": "12:横轴偏52°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.962, "clamped": 1, "kaiTpl": 0}, "ms": 11403}
+{"ch": "旉", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.986, "clamped": 0, "kaiTpl": 1}, "ms": 3896}
+{"ch": "晗", "fails": [{"code": "AREA", "detail": "5:13%→3%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.859, "clamped": 2, "kaiTpl": 0}, "ms": 4873}
+{"ch": "晨", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.939, "clamped": 0, "kaiTpl": 1}, "ms": 6737}
+{"ch": "暉", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.764, "clamped": 5, "kaiTpl": 0}, "ms": 7668}
+{"ch": "暱", "fails": [{"code": "TYPE", "detail": "6:横轴偏74°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.847, "clamped": 2, "kaiTpl": 0}, "ms": 12017}
+{"ch": "暹", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.94, "clamped": 0, "kaiTpl": 0}, "ms": 4915}
+{"ch": "曬", "fails": [{"code": "AREA", "detail": "10:5%→1% 11:1%→6%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.919, "clamped": 0, "kaiTpl": 0}, "ms": 7258}
+{"ch": "朝", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 1, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.937, "clamped": 0, "kaiTpl": 0}, "ms": 5680}
+{"ch": "根", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 4, "orderX": 6, "compQuota": 0, "compOut": 0, "retain": 0.943, "clamped": 6, "kaiTpl": 0}, "ms": 8260}
+{"ch": "棥", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 2982}
+{"ch": "棲", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.988, "clamped": 0, "kaiTpl": 0}, "ms": 5238}
+{"ch": "椭", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.945, "clamped": 6, "kaiTpl": 0}, "ms": 9242}
+{"ch": "楠", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.991, "clamped": 0, "kaiTpl": 2}, "ms": 4768}
+{"ch": "榆", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.965, "clamped": 0, "kaiTpl": 0}, "ms": 5201}
+{"ch": "槃", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.972, "clamped": 0, "kaiTpl": 0}, "ms": 5108}
+{"ch": "槺", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.981, "clamped": 0, "kaiTpl": 1}, "ms": 6433}
+{"ch": "槿", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.906, "clamped": 7, "kaiTpl": 1}, "ms": 6720}
+{"ch": "樊", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 4864}
+{"ch": "橛", "fails": [{"code": "TYPE", "detail": "4:横轴偏62°"}, {"code": "AREA", "detail": "4:8%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.942, "clamped": 2, "kaiTpl": 0}, "ms": 12548}
+{"ch": "橢", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.949, "clamped": 2, "kaiTpl": 0}, "ms": 8089}
+{"ch": "橥", "fails": [{"code": "TYPE", "detail": "12:竖轴偏76°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.916, "clamped": 8, "kaiTpl": 0}, "ms": 10435}
+{"ch": "橱", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.936, "clamped": 0, "kaiTpl": 0}, "ms": 5843}
+{"ch": "橾", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.843, "clamped": 10, "kaiTpl": 0}, "ms": 8324}
+{"ch": "檄", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.96, "clamped": 9, "kaiTpl": 0}, "ms": 8843}
+{"ch": "檎", "fails": [{"code": "AREA", "detail": "5:9%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.94, "clamped": 2, "kaiTpl": 0}, "ms": 8749}
+{"ch": "檔", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.928, "clamped": 0, "kaiTpl": 0}, "ms": 6281}
+{"ch": "檢", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.859, "clamped": 4, "kaiTpl": 0}, "ms": 5769}
+{"ch": "檯", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.942, "clamped": 1, "kaiTpl": 0}, "ms": 5730}
+{"ch": "檵", "fails": [{"code": "AREA", "detail": "16:1%→6%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 1}, "ms": 5268}
+{"ch": "櫚", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.78, "clamped": 5, "kaiTpl": 0}, "ms": 10387}
+{"ch": "櫞", "fails": [{"code": "ORDER", "detail": "13-16y"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 3584}
+{"ch": "櫪", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.953, "clamped": 5, "kaiTpl": 2}, "ms": 6790}
+{"ch": "欄", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.891, "clamped": 9, "kaiTpl": 1}, "ms": 11022}
+{"ch": "欒", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.963, "clamped": 0, "kaiTpl": 0}, "ms": 6336}
+{"ch": "欞", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 13, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.883, "clamped": 13, "kaiTpl": 0}, "ms": 10065}
+{"ch": "歛", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.886, "clamped": 3, "kaiTpl": 1}, "ms": 5972}
+{"ch": "歡", "fails": [{"code": "TYPE", "detail": "11:竖轴偏58°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.86, "clamped": 12, "kaiTpl": 0}, "ms": 13076}
+{"ch": "歧", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 2}, "ms": 2159}
+{"ch": "歸", "fails": [{"code": "TYPE", "detail": "7:横轴偏72°"}, {"code": "AREA", "detail": "16:12%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 6, "compQuota": 0, "compOut": 2, "retain": 0.863, "clamped": 12, "kaiTpl": 0}, "ms": 12524}
+{"ch": "殓", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 6, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.918, "clamped": 3, "kaiTpl": 0}, "ms": 6250}
+{"ch": "殮", "fails": [], "m": {"short": 0.01, "excess": 0.02, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.844, "clamped": 11, "kaiTpl": 0}, "ms": 9250}
+{"ch": "氅", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.933, "clamped": 0, "kaiTpl": 1}, "ms": 5816}
+{"ch": "氩", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 1}, "ms": 3613}
+{"ch": "派", "fails": [{"code": "AREA", "detail": "6:21%→5%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.964, "clamped": 0, "kaiTpl": 1}, "ms": 4880}
+{"ch": "浪", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 6, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.946, "clamped": 4, "kaiTpl": 0}, "ms": 8422}
+{"ch": "淪", "fails": [{"code": "AREA", "detail": "9:5%→20%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.974, "clamped": 0, "kaiTpl": 0}, "ms": 4566}
+{"ch": "渝", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 6, "compQuota": 0, "compOut": 0, "retain": 0.928, "clamped": 2, "kaiTpl": 0}, "ms": 6793}
+{"ch": "游", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.981, "clamped": 0, "kaiTpl": 2}, "ms": 4708}
+{"ch": "溦", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.966, "clamped": 0, "kaiTpl": 0}, "ms": 4833}
+{"ch": "滅", "fails": [{"code": "AREA", "detail": "3:9%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.932, "clamped": 2, "kaiTpl": 1}, "ms": 5605}
+{"ch": "滬", "fails": [], "m": {"short": 0.02, "excess": 0.01, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.829, "clamped": 8, "kaiTpl": 2}, "ms": 11620}
+{"ch": "滸", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.942, "clamped": 0, "kaiTpl": 0}, "ms": 3565}
+{"ch": "漆", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.967, "clamped": 2, "kaiTpl": 0}, "ms": 5368}
+{"ch": "漲", "fails": [{"code": "TYPE", "detail": "6:横轴偏50°"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.902, "clamped": 8, "kaiTpl": 1}, "ms": 9816}
+{"ch": "漶", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.877, "clamped": 9, "kaiTpl": 0}, "ms": 7027}
+{"ch": "漿", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 1, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 4540}
+{"ch": "潑", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.918, "clamped": 2, "kaiTpl": 0}, "ms": 6129}
+{"ch": "澜", "fails": [{"code": "TYPE", "detail": "11:横轴偏54°"}, {"code": "AREA", "detail": "10:1%→4%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.96, "clamped": 1, "kaiTpl": 1}, "ms": 10628}
+{"ch": "澡", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.838, "clamped": 0, "kaiTpl": 0}, "ms": 8522}
+{"ch": "濂", "fails": [{"code": "AREA", "detail": "12:10%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.94, "clamped": 2, "kaiTpl": 0}, "ms": 7233}
+{"ch": "濃", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.958, "clamped": 0, "kaiTpl": 0}, "ms": 6193}
+{"ch": "狊", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.911, "clamped": 2, "kaiTpl": 0}, "ms": 5847}
+{"ch": "狠", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 4, "compQuota": 0, "compOut": 0, "retain": 0.926, "clamped": 1, "kaiTpl": 0}, "ms": 7930}
+{"ch": "猹", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.951, "clamped": 0, "kaiTpl": 0}, "ms": 4780}
+{"ch": "猿", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.943, "clamped": 0, "kaiTpl": 1}, "ms": 5300}
+{"ch": "玲", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.972, "clamped": 0, "kaiTpl": 0}, "ms": 4148}
+{"ch": "珥", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 1, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 2350}
+{"ch": "瑋", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.938, "clamped": 0, "kaiTpl": 0}, "ms": 5131}
+{"ch": "璁", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.969, "clamped": 0, "kaiTpl": 0}, "ms": 6864}
+{"ch": "璣", "fails": [{"code": "AREA", "detail": "9:1%→7%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 5542}
+{"ch": "璩", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.993, "clamped": 0, "kaiTpl": 0}, "ms": 8933}
+{"ch": "環", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.921, "clamped": 0, "kaiTpl": 1}, "ms": 6774}
+{"ch": "瓤", "fails": [{"code": "AREA", "detail": "19:13%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.884, "clamped": 2, "kaiTpl": 0}, "ms": 8290}
+{"ch": "畝", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 3, "compQuota": 0, "compOut": 2, "retain": 0.948, "clamped": 0, "kaiTpl": 0}, "ms": 5315}
+{"ch": "略", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 1, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.937, "clamped": 0, "kaiTpl": 0}, "ms": 7068}
+{"ch": "畬", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.945, "clamped": 0, "kaiTpl": 0}, "ms": 5440}
+{"ch": "疇", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.917, "clamped": 2, "kaiTpl": 1}, "ms": 8795}
+{"ch": "痕", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 4, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.941, "clamped": 6, "kaiTpl": 0}, "ms": 8041}
+{"ch": "痨", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.963, "clamped": 0, "kaiTpl": 0}, "ms": 5035}
+{"ch": "瘀", "fails": [{"code": "AREA", "detail": "1:12%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.938, "clamped": 0, "kaiTpl": 1}, "ms": 6083}
+{"ch": "瘙", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.942, "clamped": 0, "kaiTpl": 0}, "ms": 8233}
+{"ch": "瘩", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.924, "clamped": 3, "kaiTpl": 0}, "ms": 6449}
+{"ch": "瘰", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.907, "clamped": 2, "kaiTpl": 0}, "ms": 11353}
+{"ch": "瘴", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.955, "clamped": 0, "kaiTpl": 0}, "ms": 6218}
+{"ch": "癃", "fails": [], "m": {"short": 0.0, "excess": 0.01, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.965, "clamped": 3, "kaiTpl": 1}, "ms": 9151}
+{"ch": "癆", "fails": [{"code": "AREA", "detail": "11:4%→1% 13:3%→12% 14:11%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 2, "retain": 0.943, "clamped": 0, "kaiTpl": 2}, "ms": 7334}
+{"ch": "癌", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.841, "clamped": 0, "kaiTpl": 0}, "ms": 6076}
+{"ch": "癒", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 5, "compQuota": 0, "compOut": 0, "retain": 0.943, "clamped": 2, "kaiTpl": 0}, "ms": 7899}
+{"ch": "癞", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.942, "clamped": 0, "kaiTpl": 0}, "ms": 7129}
+{"ch": "癟", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.924, "clamped": 1, "kaiTpl": 0}, "ms": 8301}
+{"ch": "癩", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.917, "clamped": 0, "kaiTpl": 0}, "ms": 9373}
+{"ch": "癰", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.928, "clamped": 11, "kaiTpl": 0}, "ms": 10578}
+{"ch": "癱", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.932, "clamped": 3, "kaiTpl": 0}, "ms": 9284}
+{"ch": "濛", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.952, "clamped": 2, "kaiTpl": 0}, "ms": 5188}
+{"ch": "濾", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.96, "clamped": 0, "kaiTpl": 0}, "ms": 6576}
+{"ch": "瀚", "fails": [{"code": "TYPE", "detail": "9:横轴偏34°"}, {"code": "AREA", "detail": "18:1%→7%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 12, "orderX": 2, "compQuota": 0, "compOut": 1, "retain": 0.936, "clamped": 0, "kaiTpl": 0}, "ms": 10783}
+{"ch": "瀝", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.993, "clamped": 0, "kaiTpl": 2}, "ms": 4919}
+{"ch": "瀾", "fails": [{"code": "TYPE", "detail": "16:横轴偏46°"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 8, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.873, "clamped": 12, "kaiTpl": 1}, "ms": 17249}
+{"ch": "灌", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.906, "clamped": 0, "kaiTpl": 0}, "ms": 6019}
+{"ch": "灏", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.922, "clamped": 0, "kaiTpl": 0}, "ms": 7580}
+{"ch": "灑", "fails": [{"code": "AREA", "detail": "9:6%→1% 10:1%→7%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.944, "clamped": 1, "kaiTpl": 1}, "ms": 7350}
+{"ch": "煉", "fails": [{"code": "TYPE", "detail": "9:横轴偏52°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.932, "clamped": 4, "kaiTpl": 2}, "ms": 8916}
+{"ch": "煺", "fails": [], "m": {"short": 0.02, "excess": 0.01, "reclass": 9, "orderX": 3, "compQuota": 0, "compOut": 1, "retain": 0.923, "clamped": 6, "kaiTpl": 2}, "ms": 9814}
+{"ch": "燥", "fails": [{"code": "TYPE", "detail": "12:横轴偏36° 13:横轴偏37°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.842, "clamped": 0, "kaiTpl": 0}, "ms": 9501}
+{"ch": "燮", "fails": [{"code": "AREA", "detail": "13:11%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.931, "clamped": 2, "kaiTpl": 2}, "ms": 6614}
+{"ch": "燴", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 11, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.935, "clamped": 8, "kaiTpl": 0}, "ms": 14033}
+{"ch": "爨", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 16, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.931, "clamped": 12, "kaiTpl": 0}, "ms": 15802}
+{"ch": "牒", "fails": [{"code": "AREA", "detail": "7:2%→13%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.881, "clamped": 4, "kaiTpl": 0}, "ms": 6734}
+{"ch": "犂", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.923, "clamped": 2, "kaiTpl": 0}, "ms": 5274}
+{"ch": "癲", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.964, "clamped": 1, "kaiTpl": 2}, "ms": 7821}
+{"ch": "皖", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.92, "clamped": 0, "kaiTpl": 0}, "ms": 4580}
+{"ch": "皚", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.893, "clamped": 0, "kaiTpl": 0}, "ms": 5248}
+{"ch": "皻", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.972, "clamped": 0, "kaiTpl": 0}, "ms": 7066}
+{"ch": "盥", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.952, "clamped": 4, "kaiTpl": 1}, "ms": 8886}
+{"ch": "眳", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.936, "clamped": 0, "kaiTpl": 0}, "ms": 6355}
+{"ch": "眼", "fails": [{"code": "AREA", "detail": "7:3%→15% 8:24%→4%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.889, "clamped": 5, "kaiTpl": 0}, "ms": 9476}
+{"ch": "睥", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.891, "clamped": 2, "kaiTpl": 0}, "ms": 7616}
+{"ch": "瞼", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.822, "clamped": 3, "kaiTpl": 0}, "ms": 9484}
+{"ch": "矗", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.98, "clamped": 1, "kaiTpl": 0}, "ms": 10505}
+{"ch": "矯", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.882, "clamped": 0, "kaiTpl": 0}, "ms": 7726}
+{"ch": "码", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.912, "clamped": 0, "kaiTpl": 0}, "ms": 5308}
+{"ch": "硪", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.938, "clamped": 0, "kaiTpl": 0}, "ms": 4983}
+{"ch": "硼", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.864, "clamped": 7, "kaiTpl": 0}, "ms": 22104}
+{"ch": "碳", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.928, "clamped": 0, "kaiTpl": 1}, "ms": 5552}
+{"ch": "磚", "fails": [{"code": "AREA", "detail": "9:3%→0%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 1, "compQuota": 0, "compOut": 1, "retain": 0.877, "clamped": 10, "kaiTpl": 0}, "ms": 13516}
+{"ch": "礬", "fails": [{"code": "TYPE", "detail": "9:竖轴偏43°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.99, "clamped": 0, "kaiTpl": 0}, "ms": 10190}
+{"ch": "礴", "fails": [{"code": "TYPE", "detail": "14:横轴偏35°"}, {"code": "AREA", "detail": "13:9%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.957, "clamped": 0, "kaiTpl": 0}, "ms": 8969}
+{"ch": "祯", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.983, "clamped": 0, "kaiTpl": 0}, "ms": 5606}
+{"ch": "禕", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.941, "clamped": 0, "kaiTpl": 1}, "ms": 4927}
+{"ch": "禱", "fails": [], "m": {"short": 0.0, "excess": 0.01, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.943, "clamped": 13, "kaiTpl": 1}, "ms": 8429}
+{"ch": "禳", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.91, "clamped": 0, "kaiTpl": 2}, "ms": 6331}
+{"ch": "稈", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 3, "compQuota": 0, "compOut": 1, "retain": 0.952, "clamped": 8, "kaiTpl": 0}, "ms": 11207}
+{"ch": "稨", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.971, "clamped": 0, "kaiTpl": 0}, "ms": 9225}
+{"ch": "穫", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.961, "clamped": 2, "kaiTpl": 0}, "ms": 8567}
+{"ch": "穰", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.915, "clamped": 0, "kaiTpl": 2}, "ms": 7531}
+{"ch": "窬", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.944, "clamped": 10, "kaiTpl": 0}, "ms": 9306}
+{"ch": "簷", "fails": [{"code": "AREA", "detail": "0:6%→1%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 5, "compQuota": 0, "compOut": 0, "retain": 0.958, "clamped": 2, "kaiTpl": 0}, "ms": 7908}
+{"ch": "籀", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.966, "clamped": 0, "kaiTpl": 1}, "ms": 6707}
+{"ch": "籌", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.931, "clamped": 2, "kaiTpl": 1}, "ms": 6864}
+{"ch": "籙", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 1}, "ms": 5295}
+{"ch": "粟", "fails": [{"code": "AREA", "detail": "2:14%→3%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.95, "clamped": 0, "kaiTpl": 1}, "ms": 4421}
+{"ch": "粮", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.921, "clamped": 3, "kaiTpl": 1}, "ms": 8911}
+{"ch": "糌", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.989, "clamped": 0, "kaiTpl": 0}, "ms": 11220}
+{"ch": "糗", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.969, "clamped": 0, "kaiTpl": 0}, "ms": 10972}
+{"ch": "糬", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.961, "clamped": 0, "kaiTpl": 1}, "ms": 6884}
+{"ch": "糯", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.979, "clamped": 0, "kaiTpl": 2}, "ms": 5289}
+{"ch": "純", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.928, "clamped": 0, "kaiTpl": 0}, "ms": 8110}
+{"ch": "絜", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 4331}
+{"ch": "給", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.928, "clamped": 3, "kaiTpl": 0}, "ms": 7373}
+{"ch": "綸", "fails": [{"code": "TYPE", "detail": "8:横轴偏41°"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 9, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.927, "clamped": 8, "kaiTpl": 0}, "ms": 13870}
+{"ch": "緘", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.915, "clamped": 1, "kaiTpl": 0}, "ms": 6764}
+{"ch": "緝", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 10, "compQuota": 0, "compOut": 1, "retain": 0.9, "clamped": 3, "kaiTpl": 0}, "ms": 6895}
+{"ch": "緞", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.94, "clamped": 4, "kaiTpl": 0}, "ms": 8235}
+{"ch": "緣", "fails": [{"code": "ORDER", "detail": "9-12y 12-13y"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 7776}
+{"ch": "練", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.964, "clamped": 0, "kaiTpl": 0}, "ms": 13719}
+{"ch": "縛", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.989, "clamped": 0, "kaiTpl": 0}, "ms": 6352}
+{"ch": "縣", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.991, "clamped": 0, "kaiTpl": 0}, "ms": 6246}
+{"ch": "縱", "fails": [{"code": "AREA", "detail": "10:1%→7%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 6796}
+{"ch": "繆", "fails": [{"code": "ORDER", "detail": "12-15y"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.968, "clamped": 2, "kaiTpl": 0}, "ms": 7568}
+{"ch": "繕", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.97, "clamped": 2, "kaiTpl": 1}, "ms": 7631}
+{"ch": "繪", "fails": [{"code": "TYPE", "detail": "8:横轴偏51°"}, {"code": "AREA", "detail": "11:3%→0%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.908, "clamped": 3, "kaiTpl": 1}, "ms": 11266}
+{"ch": "繯", "fails": [{"code": "AREA", "detail": "7:10%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.929, "clamped": 0, "kaiTpl": 1}, "ms": 6866}
+{"ch": "繰", "fails": [{"code": "AREA", "detail": "14:2%→10%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 12, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.863, "clamped": 0, "kaiTpl": 0}, "ms": 6234}
+{"ch": "繳", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.964, "clamped": 7, "kaiTpl": 1}, "ms": 10363}
+{"ch": "繹", "fails": [{"code": "TYPE", "detail": "13:横轴偏63°"}, {"code": "AREA", "detail": "13:10%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.946, "clamped": 2, "kaiTpl": 1}, "ms": 8965}
+{"ch": "繼", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 5236}
+{"ch": "纖", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 7750}
+{"ch": "纜", "fails": [{"code": "AREA", "detail": "17:1%→4%"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.907, "clamped": 13, "kaiTpl": 0}, "ms": 12680}
+{"ch": "给", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.949, "clamped": 0, "kaiTpl": 0}, "ms": 5951}
+{"ch": "绷", "fails": [{"code": "TYPE", "detail": "7:竖轴偏82°"}, {"code": "AREA", "detail": "7:15%→3%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 4, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.902, "clamped": 5, "kaiTpl": 0}, "ms": 21833}
+{"ch": "缄", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.911, "clamped": 0, "kaiTpl": 0}, "ms": 6597}
+{"ch": "缉", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.89, "clamped": 2, "kaiTpl": 0}, "ms": 6401}
+{"ch": "缛", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.99, "clamped": 0, "kaiTpl": 1}, "ms": 6813}
+{"ch": "缳", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.913, "clamped": 0, "kaiTpl": 2}, "ms": 5273}
+{"ch": "缴", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.956, "clamped": 8, "kaiTpl": 0}, "ms": 9874}
+{"ch": "罈", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.909, "clamped": 12, "kaiTpl": 0}, "ms": 10118}
+{"ch": "罐", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.912, "clamped": 0, "kaiTpl": 0}, "ms": 7068}
+{"ch": "羚", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.95, "clamped": 2, "kaiTpl": 0}, "ms": 4889}
+{"ch": "翠", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 2874}
+{"ch": "翥", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.958, "clamped": 0, "kaiTpl": 0}, "ms": 6534}
+{"ch": "翼", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.919, "clamped": 2, "kaiTpl": 0}, "ms": 8466}
+{"ch": "耠", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.929, "clamped": 2, "kaiTpl": 0}, "ms": 4992}
+{"ch": "耢", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.976, "clamped": 0, "kaiTpl": 0}, "ms": 5954}
+{"ch": "耦", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.952, "clamped": 0, "kaiTpl": 0}, "ms": 6632}
+{"ch": "耩", "fails": [{"code": "AREA", "detail": "12:15%→3%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 1, "compQuota": 0, "compOut": 1, "retain": 0.965, "clamped": 2, "kaiTpl": 0}, "ms": 6738}
+{"ch": "聱", "fails": [{"code": "AREA", "detail": "13:2%→11%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 1.0, "clamped": 0, "kaiTpl": 1}, "ms": 3163}
+{"ch": "聾", "fails": [{"code": "OVERLAP", "detail": "10-12:100% 10-15:77%"}, {"code": "AREA", "detail": "12:12%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.928, "clamped": 3, "kaiTpl": 1}, "ms": 13967}
+{"ch": "肰", "fails": [], "m": {"short": 0.0, "excess": 0.01, "reclass": 6, "orderX": 6, "compQuota": 0, "compOut": 1, "retain": 0.912, "clamped": 2, "kaiTpl": 0}, "ms": 9800}
+{"ch": "脘", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.962, "clamped": 0, "kaiTpl": 0}, "ms": 6984}
+{"ch": "艷", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.936, "clamped": 8, "kaiTpl": 0}, "ms": 11049}
+{"ch": "茛", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.895, "clamped": 5, "kaiTpl": 0}, "ms": 5581}
+{"ch": "荟", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.941, "clamped": 2, "kaiTpl": 0}, "ms": 4666}
+{"ch": "莶", "fails": [{"code": "AREA", "detail": "4:17%→3%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.9, "clamped": 2, "kaiTpl": 0}, "ms": 2423}
+{"ch": "萄", "fails": [{"code": "AREA", "detail": "3:3%→28% 4:31%→6%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 11, "compQuota": 0, "compOut": 0, "retain": 0.95, "clamped": 2, "kaiTpl": 0}, "ms": 5132}
+{"ch": "蒂", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.958, "clamped": 0, "kaiTpl": 0}, "ms": 4777}
+{"ch": "蒎", "fails": [{"code": "AREA", "detail": "9:16%→4%"}], "m": {"short": 0.0, "excess": 0.02, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.937, "clamped": 2, "kaiTpl": 1}, "ms": 6269}
+{"ch": "蒭", "fails": [{"code": "TYPE", "detail": "1:横轴偏42°"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.9, "clamped": 5, "kaiTpl": 0}, "ms": 14163}
+{"ch": "蓊", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 3952}
+{"ch": "蔟", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 1}, "ms": 3809}
+{"ch": "蔥", "fails": [{"code": "AREA", "detail": "6:19%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.936, "clamped": 2, "kaiTpl": 2}, "ms": 6535}
+{"ch": "蔭", "fails": [{"code": "AREA", "detail": "6:9%→2% 8:1%→6%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.916, "clamped": 9, "kaiTpl": 0}, "ms": 10199}
+{"ch": "蕕", "fails": [{"code": "TYPE", "detail": "3:横轴偏55°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 1, "kaiTpl": 0}, "ms": 6092}
+{"ch": "蕠", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.906, "clamped": 2, "kaiTpl": 2}, "ms": 6948}
+{"ch": "蕪", "fails": [{"code": "TYPE", "detail": "1:横轴偏39°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.966, "clamped": 6, "kaiTpl": 0}, "ms": 8633}
+{"ch": "薇", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.948, "clamped": 2, "kaiTpl": 1}, "ms": 6942}
+{"ch": "脣", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.976, "clamped": 0, "kaiTpl": 1}, "ms": 5500}
+{"ch": "脸", "fails": [], "m": {"short": 0.0, "excess": 0.01, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.93, "clamped": 0, "kaiTpl": 0}, "ms": 10446}
+{"ch": "脹", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.975, "clamped": 0, "kaiTpl": 1}, "ms": 6797}
+{"ch": "腚", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.945, "clamped": 0, "kaiTpl": 0}, "ms": 6412}
+{"ch": "腺", "fails": [{"code": "ORDER", "detail": "1-6y"}, {"code": "AREA", "detail": "8:2%→16%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.927, "clamped": 7, "kaiTpl": 0}, "ms": 11750}
+{"ch": "腿", "fails": [{"code": "OVERLAP", "detail": "5-8:100%"}, {"code": "AREA", "detail": "7:14%→3%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 8, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.917, "clamped": 6, "kaiTpl": 0}, "ms": 12040}
+{"ch": "膨", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.942, "clamped": 0, "kaiTpl": 0}, "ms": 5895}
+{"ch": "膾", "fails": [{"code": "AREA", "detail": "8:11%→1% 10:1%→6%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.941, "clamped": 0, "kaiTpl": 0}, "ms": 10262}
+{"ch": "臊", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.841, "clamped": 0, "kaiTpl": 0}, "ms": 7400}
+{"ch": "臌", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.944, "clamped": 0, "kaiTpl": 0}, "ms": 8846}
+{"ch": "臟", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.945, "clamped": 2, "kaiTpl": 0}, "ms": 16232}
+{"ch": "舫", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 1, "compQuota": 0, "compOut": 1, "retain": 0.937, "clamped": 2, "kaiTpl": 0}, "ms": 7480}
+{"ch": "艦", "fails": [{"code": "TYPE", "detail": "6:横轴偏84°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.948, "clamped": 3, "kaiTpl": 0}, "ms": 11211}
+{"ch": "艮", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 3, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.841, "clamped": 5, "kaiTpl": 0}, "ms": 9366}
+{"ch": "良", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 3, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.863, "clamped": 6, "kaiTpl": 0}, "ms": 11034}
+{"ch": "艰", "fails": [{"code": "AREA", "detail": "4:3%→15% 5:27%→4%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.914, "clamped": 4, "kaiTpl": 1}, "ms": 10133}
+{"ch": "薈", "fails": [{"code": "AREA", "detail": "8:11%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.849, "clamped": 2, "kaiTpl": 1}, "ms": 7509}
+{"ch": "薤", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 2, "kaiTpl": 0}, "ms": 3552}
+{"ch": "薶", "fails": [{"code": "TYPE", "detail": "1:横轴偏58°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.934, "clamped": 2, "kaiTpl": 0}, "ms": 8896}
+{"ch": "藁", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 2, "retain": 0.889, "clamped": 0, "kaiTpl": 0}, "ms": 6007}
+{"ch": "藐", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.965, "clamped": 0, "kaiTpl": 1}, "ms": 7769}
+{"ch": "藒", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.937, "clamped": 2, "kaiTpl": 0}, "ms": 8921}
+{"ch": "藓", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.965, "clamped": 0, "kaiTpl": 1}, "ms": 5067}
+{"ch": "藭", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.905, "clamped": 4, "kaiTpl": 0}, "ms": 8551}
+{"ch": "藹", "fails": [{"code": "OVERLAP", "detail": "12-13:92%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.887, "clamped": 3, "kaiTpl": 0}, "ms": 8381}
+{"ch": "藺", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.887, "clamped": 12, "kaiTpl": 0}, "ms": 15850}
+{"ch": "藻", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.861, "clamped": 0, "kaiTpl": 0}, "ms": 6262}
+{"ch": "蘄", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.829, "clamped": 2, "kaiTpl": 0}, "ms": 8370}
+{"ch": "蘖", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.947, "clamped": 8, "kaiTpl": 0}, "ms": 8648}
+{"ch": "蘚", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 2, "retain": 0.945, "clamped": 2, "kaiTpl": 0}, "ms": 6450}
+{"ch": "蘭", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.879, "clamped": 11, "kaiTpl": 0}, "ms": 15606}
+{"ch": "蘵", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.944, "clamped": 3, "kaiTpl": 0}, "ms": 7986}
+{"ch": "蠢", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.89, "clamped": 0, "kaiTpl": 0}, "ms": 8138}
+{"ch": "蠱", "fails": [{"code": "AREA", "detail": "5:1%→5%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.877, "clamped": 5, "kaiTpl": 1}, "ms": 8398}
+{"ch": "衛", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 2, "retain": 0.938, "clamped": 0, "kaiTpl": 0}, "ms": 6448}
+{"ch": "衰", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.945, "clamped": 0, "kaiTpl": 1}, "ms": 4917}
+{"ch": "袷", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.921, "clamped": 4, "kaiTpl": 1}, "ms": 5569}
+{"ch": "裊", "fails": [{"code": "AREA", "detail": "6:16%→3%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 4, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.923, "clamped": 8, "kaiTpl": 0}, "ms": 11512}
+{"ch": "裘", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 3}, "ms": 2733}
+{"ch": "裝", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 1}, "ms": 3456}
+{"ch": "裟", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 1}, "ms": 3435}
+{"ch": "製", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.982, "clamped": 0, "kaiTpl": 1}, "ms": 6239}
+{"ch": "褡", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.935, "clamped": 5, "kaiTpl": 1}, "ms": 7394}
+{"ch": "褰", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.979, "clamped": 0, "kaiTpl": 0}, "ms": 7118}
+{"ch": "襄", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.896, "clamped": 0, "kaiTpl": 2}, "ms": 6017}
+{"ch": "襖", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.961, "clamped": 2, "kaiTpl": 4}, "ms": 6882}
+{"ch": "襞", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.919, "clamped": 7, "kaiTpl": 2}, "ms": 8216}
+{"ch": "襠", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.933, "clamped": 0, "kaiTpl": 2}, "ms": 6218}
+{"ch": "蘸", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.971, "clamped": 0, "kaiTpl": 0}, "ms": 7798}
+{"ch": "蚕", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 1, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.933, "clamped": 0, "kaiTpl": 0}, "ms": 10316}
+{"ch": "蚩", "fails": [{"code": "AREA", "detail": "6:6%→25%"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.848, "clamped": 4, "kaiTpl": 0}, "ms": 7318}
+{"ch": "蛉", "fails": [{"code": "AREA", "detail": "7:15%→4%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.916, "clamped": 0, "kaiTpl": 0}, "ms": 4883}
+{"ch": "蛩", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.931, "clamped": 0, "kaiTpl": 0}, "ms": 10874}
+{"ch": "蛾", "fails": [{"code": "TYPE", "detail": "0:竖轴偏32° 2:横轴偏67°"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.941, "clamped": 7, "kaiTpl": 0}, "ms": 12481}
+{"ch": "蜃", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.914, "clamped": 7, "kaiTpl": 0}, "ms": 9275}
+{"ch": "蝓", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.909, "clamped": 2, "kaiTpl": 0}, "ms": 6457}
+{"ch": "蝣", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.937, "clamped": 0, "kaiTpl": 1}, "ms": 6019}
+{"ch": "螞", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 2, "compQuota": 0, "compOut": 1, "retain": 0.923, "clamped": 2, "kaiTpl": 0}, "ms": 7576}
+{"ch": "蟓", "fails": [{"code": "ORDER", "detail": "1-7y 11-13y"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 4, "compQuota": 0, "compOut": 0, "retain": 0.919, "clamped": 0, "kaiTpl": 1}, "ms": 8108}
+{"ch": "蟬", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.79, "clamped": 2, "kaiTpl": 0}, "ms": 7318}
+{"ch": "蠊", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.929, "clamped": 1, "kaiTpl": 0}, "ms": 17783}
+{"ch": "蠍", "fails": [{"code": "ORDER", "detail": "10-17y"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 12, "orderX": 4, "compQuota": 0, "compOut": 0, "retain": 0.932, "clamped": 0, "kaiTpl": 0}, "ms": 9620}
+{"ch": "蠑", "fails": [{"code": "AREA", "detail": "15:8%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.955, "clamped": 0, "kaiTpl": 2}, "ms": 9602}
+{"ch": "蠡", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.927, "clamped": 0, "kaiTpl": 1}, "ms": 8810}
+{"ch": "襲", "fails": [{"code": "AREA", "detail": "12:12%→3% 14:2%→8%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.96, "clamped": 2, "kaiTpl": 0}, "ms": 10114}
+{"ch": "覽", "fails": [{"code": "OVERLAP", "detail": "16-17:100%"}, {"code": "AREA", "detail": "10:8%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.917, "clamped": 9, "kaiTpl": 0}, "ms": 11838}
+{"ch": "觀", "fails": [{"code": "OVERLAP", "detail": "13-14:73%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.854, "clamped": 12, "kaiTpl": 0}, "ms": 11829}
+{"ch": "訊", "fails": [{"code": "TYPE", "detail": "1:横轴偏72°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.919, "clamped": 1, "kaiTpl": 0}, "ms": 6913}
+{"ch": "訌", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.918, "clamped": 0, "kaiTpl": 0}, "ms": 3335}
+{"ch": "訣", "fails": [{"code": "AREA", "detail": "3:4%→15%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 1, "orderX": 1, "compQuota": 0, "compOut": 2, "retain": 0.928, "clamped": 0, "kaiTpl": 0}, "ms": 6796}
+{"ch": "詆", "fails": [{"code": "AREA", "detail": "2:4%→0%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 4, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.871, "clamped": 7, "kaiTpl": 0}, "ms": 8733}
+{"ch": "詣", "fails": [{"code": "TYPE", "detail": "1:横轴偏67°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.924, "clamped": 1, "kaiTpl": 0}, "ms": 7840}
+{"ch": "詰", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.923, "clamped": 0, "kaiTpl": 1}, "ms": 5325}
+{"ch": "誌", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.942, "clamped": 0, "kaiTpl": 0}, "ms": 5733}
+{"ch": "誘", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.939, "clamped": 0, "kaiTpl": 0}, "ms": 8616}
+{"ch": "誠", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.925, "clamped": 0, "kaiTpl": 0}, "ms": 7169}
+{"ch": "誹", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.944, "clamped": 0, "kaiTpl": 0}, "ms": 3828}
+{"ch": "誾", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.846, "clamped": 11, "kaiTpl": 0}, "ms": 11166}
+{"ch": "論", "fails": [{"code": "AREA", "detail": "2:3%→1% 7:13%→3%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.878, "clamped": 2, "kaiTpl": 0}, "ms": 7516}
+{"ch": "諛", "fails": [{"code": "AREA", "detail": "2:3%→1%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.84, "clamped": 13, "kaiTpl": 0}, "ms": 8819}
+{"ch": "諫", "fails": [{"code": "TYPE", "detail": "12:横轴偏54°"}, {"code": "AREA", "detail": "11:1%→8%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.893, "clamped": 3, "kaiTpl": 1}, "ms": 9179}
+{"ch": "諭", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.932, "clamped": 0, "kaiTpl": 0}, "ms": 5034}
+{"ch": "諮", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.938, "clamped": 0, "kaiTpl": 0}, "ms": 4941}
+{"ch": "諱", "fails": [{"code": "TYPE", "detail": "1:横轴偏70° 4:竖轴偏37°"}, {"code": "AREA", "detail": "13:5%→1%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 2, "compQuota": 0, "compOut": 1, "retain": 0.894, "clamped": 12, "kaiTpl": 1}, "ms": 10799}
+{"ch": "諳", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.94, "clamped": 0, "kaiTpl": 0}, "ms": 6016}
+{"ch": "諶", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.949, "clamped": 0, "kaiTpl": 1}, "ms": 6537}
+{"ch": "諾", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.91, "clamped": 0, "kaiTpl": 0}, "ms": 9744}
+{"ch": "謁", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.912, "clamped": 0, "kaiTpl": 0}, "ms": 7455}
+{"ch": "謅", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.915, "clamped": 0, "kaiTpl": 0}, "ms": 6758}
+{"ch": "謎", "fails": [{"code": "TYPE", "detail": "15:横轴偏38°"}, {"code": "AREA", "detail": "2:3%→0%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.891, "clamped": 2, "kaiTpl": 0}, "ms": 7288}
+{"ch": "謔", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.93, "clamped": 1, "kaiTpl": 1}, "ms": 5803}
+{"ch": "謝", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.943, "clamped": 0, "kaiTpl": 0}, "ms": 6273}
+{"ch": "謠", "fails": [{"code": "AREA", "detail": "8:14%→3%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 5, "compQuota": 0, "compOut": 1, "retain": 0.952, "clamped": 0, "kaiTpl": 1}, "ms": 6903}
+{"ch": "謨", "fails": [{"code": "AREA", "detail": "2:3%→1%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.881, "clamped": 2, "kaiTpl": 0}, "ms": 6548}
+{"ch": "謹", "fails": [{"code": "AREA", "detail": "2:3%→0%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.859, "clamped": 2, "kaiTpl": 0}, "ms": 7595}
+{"ch": "譎", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.901, "clamped": 0, "kaiTpl": 2}, "ms": 7985}
+{"ch": "賦", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.938, "clamped": 2, "kaiTpl": 0}, "ms": 6592}
+{"ch": "贅", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.932, "clamped": 2, "kaiTpl": 1}, "ms": 7455}
+{"ch": "贛", "fails": [{"code": "TYPE", "detail": "17:竖轴偏65°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.92, "clamped": 10, "kaiTpl": 1}, "ms": 15713}
+{"ch": "赋", "fails": [{"code": "AREA", "detail": "1:15%→3%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.954, "clamped": 3, "kaiTpl": 0}, "ms": 7283}
+{"ch": "赣", "fails": [{"code": "TYPE", "detail": "17:竖轴偏85°"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.921, "clamped": 10, "kaiTpl": 1}, "ms": 14716}
+{"ch": "趨", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.963, "clamped": 0, "kaiTpl": 1}, "ms": 9346}
+{"ch": "跛", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.917, "clamped": 0, "kaiTpl": 0}, "ms": 6925}
+{"ch": "跟", "fails": [{"code": "TYPE", "detail": "0:竖轴偏33°"}, {"code": "ORDER", "detail": "6-9y"}, {"code": "AREA", "detail": "10:24%→4% 11:6%→24%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.877, "clamped": 8, "kaiTpl": 0}, "ms": 12558}
+{"ch": "跻", "fails": [{"code": "AREA", "detail": "4:2%→12%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 1, "compQuota": 0, "compOut": 2, "retain": 0.94, "clamped": 0, "kaiTpl": 0}, "ms": 5357}
+{"ch": "踅", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.933, "clamped": 2, "kaiTpl": 1}, "ms": 6158}
+{"ch": "踉", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 9, "orderX": 4, "compQuota": 0, "compOut": 0, "retain": 0.876, "clamped": 9, "kaiTpl": 1}, "ms": 11558}
+{"ch": "踘", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.947, "clamped": 0, "kaiTpl": 1}, "ms": 7132}
+{"ch": "踹", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.924, "clamped": 0, "kaiTpl": 0}, "ms": 6360}
+{"ch": "蹄", "fails": [], "m": {"short": 0.0, "excess": 0.01, "reclass": 8, "orderX": 4, "compQuota": 0, "compOut": 0, "retain": 0.889, "clamped": 10, "kaiTpl": 0}, "ms": 10349}
+{"ch": "蹌", "fails": [{"code": "AREA", "detail": "8:12%→2% 9:2%→8%"}], "m": {"short": 0.0, "excess": 0.01, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.867, "clamped": 8, "kaiTpl": 0}, "ms": 14764}
+{"ch": "蹚", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.899, "clamped": 0, "kaiTpl": 0}, "ms": 5992}
+{"ch": "譚", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.888, "clamped": 0, "kaiTpl": 0}, "ms": 8483}
+{"ch": "譯", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.912, "clamped": 13, "kaiTpl": 0}, "ms": 8989}
+{"ch": "讌", "fails": [{"code": "AREA", "detail": "18:9%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 7, "compQuota": 0, "compOut": 0, "retain": 0.876, "clamped": 2, "kaiTpl": 1}, "ms": 7267}
+{"ch": "讒", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 12, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.872, "clamped": 2, "kaiTpl": 0}, "ms": 8256}
+{"ch": "讓", "fails": [{"code": "AREA", "detail": "14:2%→7%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.864, "clamped": 6, "kaiTpl": 0}, "ms": 8589}
+{"ch": "讕", "fails": [{"code": "TYPE", "detail": "20:横轴偏48° 21:竖轴偏87°"}, {"code": "AREA", "detail": "19:1%→7% 21:7%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.868, "clamped": 12, "kaiTpl": 1}, "ms": 16571}
+{"ch": "讚", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.95, "clamped": 0, "kaiTpl": 1}, "ms": 9331}
+{"ch": "讞", "fails": [{"code": "TYPE", "detail": "16:横轴偏57°"}, {"code": "AREA", "detail": "10:10%→2% 19:1%→3%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.896, "clamped": 14, "kaiTpl": 2}, "ms": 19117}
+{"ch": "诂", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.976, "clamped": 0, "kaiTpl": 0}, "ms": 4433}
+{"ch": "谭", "fails": [{"code": "TYPE", "detail": "8:竖轴偏48°"}, {"code": "AREA", "detail": "10:3%→10%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.889, "clamped": 9, "kaiTpl": 0}, "ms": 14099}
+{"ch": "豔", "fails": [{"code": "AREA", "detail": "25:2%→7%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.961, "clamped": 0, "kaiTpl": 0}, "ms": 10481}
+{"ch": "豪", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.893, "clamped": 3, "kaiTpl": 0}, "ms": 9758}
+{"ch": "豱", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.925, "clamped": 2, "kaiTpl": 0}, "ms": 7326}
+{"ch": "貇", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.894, "clamped": 6, "kaiTpl": 1}, "ms": 11261}
+{"ch": "貔", "fails": [{"code": "AREA", "detail": "11:2%→12%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.969, "clamped": 0, "kaiTpl": 0}, "ms": 7473}
+{"ch": "賑", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.947, "clamped": 0, "kaiTpl": 0}, "ms": 6370}
+{"ch": "蹤", "fails": [{"code": "AREA", "detail": "11:1%→7%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.956, "clamped": 0, "kaiTpl": 0}, "ms": 5889}
+{"ch": "蹰", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.902, "clamped": 0, "kaiTpl": 0}, "ms": 7111}
+{"ch": "躁", "fails": [{"code": "TYPE", "detail": "15:横轴偏39°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.824, "clamped": 0, "kaiTpl": 0}, "ms": 8251}
+{"ch": "躑", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.954, "clamped": 0, "kaiTpl": 0}, "ms": 14668}
+{"ch": "躕", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.916, "clamped": 0, "kaiTpl": 0}, "ms": 8895}
+{"ch": "躚", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.888, "clamped": 11, "kaiTpl": 0}, "ms": 12476}
+{"ch": "躞", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.922, "clamped": 0, "kaiTpl": 2}, "ms": 7206}
+{"ch": "躪", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.886, "clamped": 14, "kaiTpl": 0}, "ms": 14934}
+{"ch": "輪", "fails": [{"code": "OVERLAP", "detail": "8-13:85%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.895, "clamped": 10, "kaiTpl": 0}, "ms": 13533}
+{"ch": "輯", "fails": [{"code": "TYPE", "detail": "3:横轴偏79°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.887, "clamped": 10, "kaiTpl": 0}, "ms": 13350}
+{"ch": "輸", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 4, "compQuota": 0, "compOut": 0, "retain": 0.942, "clamped": 9, "kaiTpl": 0}, "ms": 8946}
+{"ch": "輾", "fails": [{"code": "TYPE", "detail": "13:横轴偏83°"}, {"code": "AREA", "detail": "14:10%→2%"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 7, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.947, "clamped": 9, "kaiTpl": 1}, "ms": 14051}
+{"ch": "輿", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 2, "retain": 0.914, "clamped": 2, "kaiTpl": 0}, "ms": 7585}
+{"ch": "轟", "fails": [{"code": "ORDER", "detail": "3-14x 4-14x"}, {"code": "AREA", "detail": "17:1%→9%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.88, "clamped": 12, "kaiTpl": 0}, "ms": 13570}
+{"ch": "辑", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 8, "compQuota": 0, "compOut": 0, "retain": 0.885, "clamped": 2, "kaiTpl": 0}, "ms": 4928}
+{"ch": "辥", "fails": [{"code": "AREA", "detail": "3:2%→9%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.868, "clamped": 4, "kaiTpl": 1}, "ms": 7698}
+{"ch": "鑒", "fails": [{"code": "AREA", "detail": "15:12%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 13, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.936, "clamped": 0, "kaiTpl": 0}, "ms": 6247}
+{"ch": "鑫", "fails": [{"code": "AREA", "detail": "17:8%→1%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.968, "clamped": 2, "kaiTpl": 3}, "ms": 7601}
+{"ch": "鑭", "fails": [{"code": "TYPE", "detail": "21:横轴偏57°"}, {"code": "AREA", "detail": "20:1%→4%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.91, "clamped": 9, "kaiTpl": 2}, "ms": 16130}
+{"ch": "鑰", "fails": [{"code": "AREA", "detail": "13:1%→6%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 13, "orderX": 28, "compQuota": 0, "compOut": 0, "retain": 0.865, "clamped": 4, "kaiTpl": 1}, "ms": 8992}
+{"ch": "鑲", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.927, "clamped": 0, "kaiTpl": 3}, "ms": 6910}
+{"ch": "鑷", "fails": [{"code": "AREA", "detail": "17:1%→4%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 13, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 1}, "ms": 5232}
+{"ch": "鑽", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 12, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.991, "clamped": 0, "kaiTpl": 5}, "ms": 13359}
+{"ch": "鑾", "fails": [{"code": "AREA", "detail": "15:1%→7%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.964, "clamped": 0, "kaiTpl": 2}, "ms": 9674}
+{"ch": "钴", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.983, "clamped": 0, "kaiTpl": 0}, "ms": 4982}
+{"ch": "铪", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.904, "clamped": 3, "kaiTpl": 0}, "ms": 5756}
+{"ch": "链", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.973, "clamped": 2, "kaiTpl": 0}, "ms": 6050}
+{"ch": "锨", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.984, "clamped": 0, "kaiTpl": 0}, "ms": 5291}
+{"ch": "镇", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.991, "clamped": 0, "kaiTpl": 0}, "ms": 5972}
+{"ch": "镑", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.979, "clamped": 0, "kaiTpl": 1}, "ms": 5727}
+{"ch": "镕", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.918, "clamped": 10, "kaiTpl": 0}, "ms": 8700}
+{"ch": "镢", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.98, "clamped": 1, "kaiTpl": 0}, "ms": 15157}
+{"ch": "釀", "fails": [{"code": "TYPE", "detail": "17:竖轴偏43°"}, {"code": "AREA", "detail": "15:4%→1% 23:9%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 14, "orderX": 5, "compQuota": 0, "compOut": 1, "retain": 0.92, "clamped": 8, "kaiTpl": 0}, "ms": 18160}
+{"ch": "鈷", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.987, "clamped": 0, "kaiTpl": 1}, "ms": 4810}
+{"ch": "鈿", "fails": [{"code": "AREA", "detail": "9:24%→4%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.959, "clamped": 2, "kaiTpl": 1}, "ms": 7971}
+{"ch": "銀", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 4, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.958, "clamped": 8, "kaiTpl": 1}, "ms": 8809}
+{"ch": "銚", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 1}, "ms": 3074}
+{"ch": "鋃", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 4, "compQuota": 0, "compOut": 0, "retain": 0.93, "clamped": 3, "kaiTpl": 1}, "ms": 9235}
+{"ch": "錠", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.965, "clamped": 2, "kaiTpl": 1}, "ms": 6816}
+{"ch": "録", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 8, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 2}, "ms": 3607}
+{"ch": "鎔", "fails": [{"code": "OVERLAP", "detail": "14-16:78%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 4, "compQuota": 0, "compOut": 0, "retain": 0.919, "clamped": 1, "kaiTpl": 1}, "ms": 6720}
+{"ch": "鎛", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.991, "clamped": 0, "kaiTpl": 1}, "ms": 6586}
+{"ch": "鎦", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.973, "clamped": 0, "kaiTpl": 0}, "ms": 9237}
+{"ch": "鎧", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.942, "clamped": 0, "kaiTpl": 1}, "ms": 8311}
+{"ch": "鎮", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.993, "clamped": 0, "kaiTpl": 1}, "ms": 6221}
+{"ch": "鏖", "fails": [{"code": "AREA", "detail": "17:2%→7%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.978, "clamped": 0, "kaiTpl": 1}, "ms": 9095}
+{"ch": "鐮", "fails": [{"code": "TYPE", "detail": "17:竖轴偏87°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.987, "clamped": 0, "kaiTpl": 1}, "ms": 14454}
+{"ch": "鑑", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.953, "clamped": 2, "kaiTpl": 0}, "ms": 11808}
+{"ch": "辯", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.959, "clamped": 0, "kaiTpl": 0}, "ms": 6574}
+{"ch": "農", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.949, "clamped": 0, "kaiTpl": 1}, "ms": 6362}
+{"ch": "還", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.84, "clamped": 10, "kaiTpl": 2}, "ms": 11204}
+{"ch": "邛", "fails": [{"code": "AREA", "detail": "3:34%→5%"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 2, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.884, "clamped": 2, "kaiTpl": 0}, "ms": 2948}
+{"ch": "郾", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.919, "clamped": 0, "kaiTpl": 0}, "ms": 6932}
+{"ch": "鄆", "fails": [{"code": "OVERLAP", "detail": "9-10:100%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.875, "clamped": 1, "kaiTpl": 0}, "ms": 8079}
+{"ch": "鄲", "fails": [{"code": "OVERLAP", "detail": "12-13:100%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.727, "clamped": 3, "kaiTpl": 0}, "ms": 9004}
+{"ch": "鄴", "fails": [{"code": "AREA", "detail": "13:21%→4%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 5, "compQuota": 0, "compOut": 0, "retain": 0.963, "clamped": 2, "kaiTpl": 1}, "ms": 6833}
+{"ch": "酆", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.93, "clamped": 3, "kaiTpl": 0}, "ms": 8515}
+{"ch": "酱", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.989, "clamped": 0, "kaiTpl": 0}, "ms": 7166}
+{"ch": "酿", "fails": [{"code": "ORDER", "detail": "6-10y"}, {"code": "AREA", "detail": "2:15%→4% 12:5%→24%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.891, "clamped": 8, "kaiTpl": 1}, "ms": 10201}
+{"ch": "醜", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.884, "clamped": 1, "kaiTpl": 0}, "ms": 10435}
+{"ch": "醪", "fails": [{"code": "TYPE", "detail": "12:横轴偏74°"}, {"code": "AREA", "detail": "7:7%→1%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.937, "clamped": 8, "kaiTpl": 0}, "ms": 15199}
+{"ch": "醭", "fails": [{"code": "OVERLAP", "detail": "5-6:100%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.937, "clamped": 0, "kaiTpl": 2}, "ms": 8216}
+{"ch": "醱", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.926, "clamped": 9, "kaiTpl": 1}, "ms": 9946}
+{"ch": "醵", "fails": [{"code": "AREA", "detail": "15:9%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.926, "clamped": 3, "kaiTpl": 1}, "ms": 12067}
+{"ch": "阑", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.952, "clamped": 0, "kaiTpl": 0}, "ms": 11758}
+{"ch": "阒", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 2, "retain": 0.929, "clamped": 2, "kaiTpl": 0}, "ms": 7554}
+{"ch": "限", "fails": [{"code": "OVERLAP", "detail": "4-6:64%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.83, "clamped": 6, "kaiTpl": 1}, "ms": 9558}
+{"ch": "陜", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 1.0, "clamped": 0, "kaiTpl": 0}, "ms": 5582}
+{"ch": "陣", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.871, "clamped": 2, "kaiTpl": 0}, "ms": 8296}
+{"ch": "险", "fails": [{"code": "ORDER", "detail": "2-7y"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.902, "clamped": 2, "kaiTpl": 0}, "ms": 5903}
+{"ch": "隋", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.939, "clamped": 6, "kaiTpl": 0}, "ms": 7897}
+{"ch": "隗", "fails": [{"code": "AREA", "detail": "4:13%→2% 6:3%→20% 9:7%→1%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 1, "compQuota": 0, "compOut": 1, "retain": 0.882, "clamped": 2, "kaiTpl": 0}, "ms": 9665}
+{"ch": "險", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 10, "orderX": 8, "compQuota": 0, "compOut": 0, "retain": 0.822, "clamped": 8, "kaiTpl": 0}, "ms": 9935}
+{"ch": "雚", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.899, "clamped": 0, "kaiTpl": 0}, "ms": 5312}
+{"ch": "震", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.975, "clamped": 0, "kaiTpl": 1}, "ms": 6098}
+{"ch": "霢", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.949, "clamped": 0, "kaiTpl": 3}, "ms": 7261}
+{"ch": "霽", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.961, "clamped": 2, "kaiTpl": 2}, "ms": 8088}
+{"ch": "靦", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.942, "clamped": 0, "kaiTpl": 0}, "ms": 8446}
+{"ch": "靶", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.836, "clamped": 4, "kaiTpl": 0}, "ms": 8449}
+{"ch": "韁", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.871, "clamped": 9, "kaiTpl": 0}, "ms": 10868}
+{"ch": "饗", "fails": [], "m": {"short": 0.02, "excess": 0.02, "reclass": 11, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.915, "clamped": 12, "kaiTpl": 0}, "ms": 14208}
+{"ch": "饸", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.904, "clamped": 3, "kaiTpl": 0}, "ms": 5550}
+{"ch": "馕", "fails": [{"code": "SPLIT", "detail": "12(2片)"}, {"code": "TYPE", "detail": "19:竖轴偏67°"}, {"code": "AREA", "detail": "5:4%→0% 15:1%→4%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.872, "clamped": 6, "kaiTpl": 2}, "ms": 13570}
+{"ch": "首", "fails": [{"code": "AREA", "detail": "3:5%→25% 5:28%→4%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 2, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.987, "clamped": 0, "kaiTpl": 0}, "ms": 4328}
+{"ch": "騰", "fails": [{"code": "AREA", "detail": "15:13%→1%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.935, "clamped": 10, "kaiTpl": 1}, "ms": 13828}
+{"ch": "驀", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.926, "clamped": 2, "kaiTpl": 0}, "ms": 8401}
+{"ch": "驛", "fails": [{"code": "TYPE", "detail": "15:横轴偏79°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 13, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.939, "clamped": 2, "kaiTpl": 0}, "ms": 11289}
+{"ch": "驢", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.947, "clamped": 0, "kaiTpl": 0}, "ms": 10261}
+{"ch": "驤", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.916, "clamped": 0, "kaiTpl": 2}, "ms": 8374}
+{"ch": "骊", "fails": [{"code": "AREA", "detail": "6:2%→10%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.935, "clamped": 1, "kaiTpl": 0}, "ms": 7392}
+{"ch": "骣", "fails": [], "m": {"short": 0.02, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.91, "clamped": 10, "kaiTpl": 0}, "ms": 12407}
+{"ch": "骦", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.948, "clamped": 2, "kaiTpl": 0}, "ms": 8476}
+{"ch": "骧", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.908, "clamped": 0, "kaiTpl": 1}, "ms": 7304}
+{"ch": "骷", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.943, "clamped": 0, "kaiTpl": 0}, "ms": 5499}
+{"ch": "骺", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.936, "clamped": 0, "kaiTpl": 1}, "ms": 6730}
+{"ch": "髅", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.966, "clamped": 0, "kaiTpl": 1}, "ms": 8178}
+{"ch": "镧", "fails": [{"code": "AREA", "detail": "11:1%→11% 14:9%→1%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.964, "clamped": 0, "kaiTpl": 1}, "ms": 8714}
+{"ch": "镶", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.915, "clamped": 0, "kaiTpl": 2}, "ms": 7392}
+{"ch": "閔", "fails": [{"code": "AREA", "detail": "2:2%→9%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.892, "clamped": 8, "kaiTpl": 0}, "ms": 12235}
+{"ch": "閣", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.823, "clamped": 9, "kaiTpl": 0}, "ms": 13965}
+{"ch": "閤", "fails": [{"code": "AREA", "detail": "2:2%→8%"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.83, "clamped": 9, "kaiTpl": 0}, "ms": 10258}
+{"ch": "閥", "fails": [{"code": "AREA", "detail": "2:2%→8%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.89, "clamped": 8, "kaiTpl": 0}, "ms": 9895}
+{"ch": "閫", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.874, "clamped": 7, "kaiTpl": 0}, "ms": 12675}
+{"ch": "閬", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.844, "clamped": 3, "kaiTpl": 1}, "ms": 12101}
+{"ch": "閹", "fails": [{"code": "AREA", "detail": "2:2%→7%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.885, "clamped": 10, "kaiTpl": 0}, "ms": 18151}
+{"ch": "閻", "fails": [{"code": "AREA", "detail": "2:2%→8%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.873, "clamped": 7, "kaiTpl": 0}, "ms": 16662}
+{"ch": "閾", "fails": [{"code": "TYPE", "detail": "2:横轴偏73°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.827, "clamped": 4, "kaiTpl": 0}, "ms": 19858}
+{"ch": "闃", "fails": [{"code": "AREA", "detail": "2:1%→7%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.892, "clamped": 7, "kaiTpl": 0}, "ms": 9760}
+{"ch": "闈", "fails": [{"code": "TYPE", "detail": "2:横轴偏65°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.853, "clamped": 4, "kaiTpl": 0}, "ms": 14145}
+{"ch": "闔", "fails": [{"code": "ORDER", "detail": "4-9y"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 1, "retain": 0.877, "clamped": 10, "kaiTpl": 0}, "ms": 14387}
+{"ch": "關", "fails": [{"code": "AREA", "detail": "2:1%→7%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.911, "clamped": 8, "kaiTpl": 1}, "ms": 13938}
+{"ch": "闡", "fails": [{"code": "AREA", "detail": "2:1%→7%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.809, "clamped": 9, "kaiTpl": 0}, "ms": 20646}
+{"ch": "韃", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.921, "clamped": 2, "kaiTpl": 0}, "ms": 8399}
+{"ch": "韆", "fails": [{"code": "AREA", "detail": "3:2%→9%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.852, "clamped": 14, "kaiTpl": 1}, "ms": 13472}
+{"ch": "韜", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.937, "clamped": 0, "kaiTpl": 1}, "ms": 6041}
+{"ch": "項", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.958, "clamped": 0, "kaiTpl": 0}, "ms": 5359}
+{"ch": "頜", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.917, "clamped": 0, "kaiTpl": 0}, "ms": 5762}
+{"ch": "顛", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.964, "clamped": 0, "kaiTpl": 1}, "ms": 6579}
+{"ch": "顴", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.843, "clamped": 12, "kaiTpl": 1}, "ms": 13967}
+{"ch": "颌", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.926, "clamped": 0, "kaiTpl": 1}, "ms": 5677}
+{"ch": "颦", "fails": [{"code": "TYPE", "detail": "9:竖轴偏85° 16:横轴偏50°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.924, "clamped": 11, "kaiTpl": 4}, "ms": 18468}
+{"ch": "颧", "fails": [{"code": "TYPE", "detail": "10:竖轴偏44°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.882, "clamped": 4, "kaiTpl": 0}, "ms": 11282}
+{"ch": "颻", "fails": [{"code": "AREA", "detail": "11:22%→0%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.923, "clamped": 1, "kaiTpl": 1}, "ms": 9653}
+{"ch": "飄", "fails": [{"code": "ORDER", "detail": "14-19x"}, {"code": "AREA", "detail": "12:22%→3% 14:2%→13%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.919, "clamped": 10, "kaiTpl": 0}, "ms": 15888}
+{"ch": "飚", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.995, "clamped": 0, "kaiTpl": 3}, "ms": 8437}
+{"ch": "飨", "fails": [{"code": "AREA", "detail": "9:16%→4%"}], "m": {"short": 0.02, "excess": 0.01, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.894, "clamped": 8, "kaiTpl": 1}, "ms": 10298}
+{"ch": "飬", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.964, "clamped": 5, "kaiTpl": 0}, "ms": 8902}
+{"ch": "餄", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.892, "clamped": 7, "kaiTpl": 0}, "ms": 10342}
+{"ch": "髑", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.906, "clamped": 0, "kaiTpl": 0}, "ms": 9034}
+{"ch": "鬈", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.98, "clamped": 0, "kaiTpl": 2}, "ms": 6691}
+{"ch": "鬓", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.963, "clamped": 1, "kaiTpl": 0}, "ms": 7239}
+{"ch": "鬣", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.948, "clamped": 5, "kaiTpl": 0}, "ms": 15845}
+{"ch": "鬱", "fails": [{"code": "TYPE", "detail": "11:竖轴偏46°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.972, "clamped": 3, "kaiTpl": 2}, "ms": 15308}
+{"ch": "鬳", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.933, "clamped": 0, "kaiTpl": 0}, "ms": 8394}
+{"ch": "魄", "fails": [{"code": "ORDER", "detail": "2-7y"}, {"code": "AREA", "detail": "7:13%→2% 9:4%→18% 12:7%→1%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 5, "compQuota": 0, "compOut": 0, "retain": 0.882, "clamped": 7, "kaiTpl": 0}, "ms": 12047}
+{"ch": "鯊", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.968, "clamped": 1, "kaiTpl": 2}, "ms": 6282}
+{"ch": "鯰", "fails": [{"code": "AREA", "detail": "12:10%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.953, "clamped": 0, "kaiTpl": 0}, "ms": 6801}
+{"ch": "鰆", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.942, "clamped": 0, "kaiTpl": 0}, "ms": 8879}
+{"ch": "鰲", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.944, "clamped": 2, "kaiTpl": 0}, "ms": 9534}
+{"ch": "鰹", "fails": [{"code": "ORDER", "detail": "12-15y"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 11, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.952, "clamped": 1, "kaiTpl": 0}, "ms": 7900}
+{"ch": "鱀", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 12, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.932, "clamped": 7, "kaiTpl": 0}, "ms": 16457}
+{"ch": "鱄", "fails": [{"code": "TYPE", "detail": "15:横轴偏33°"}, {"code": "AREA", "detail": "15:3%→0%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 8, "orderX": 4, "compQuota": 0, "compOut": 1, "retain": 0.927, "clamped": 12, "kaiTpl": 0}, "ms": 16342}
+{"ch": "鱖", "fails": [{"code": "TYPE", "detail": "11:横轴偏66°"}, {"code": "AREA", "detail": "11:6%→1%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.942, "clamped": 2, "kaiTpl": 1}, "ms": 14999}
+{"ch": "鱠", "fails": [{"code": "TYPE", "detail": "13:横轴偏50°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.905, "clamped": 4, "kaiTpl": 1}, "ms": 13183}
+{"ch": "鱸", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.941, "clamped": 0, "kaiTpl": 0}, "ms": 11887}
+{"ch": "鱻", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.929, "clamped": 0, "kaiTpl": 1}, "ms": 14634}
+{"ch": "鲙", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.918, "clamped": 2, "kaiTpl": 0}, "ms": 7348}
+{"ch": "鲩", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.929, "clamped": 2, "kaiTpl": 0}, "ms": 6231}
+{"ch": "鲫", "fails": [{"code": "ORDER", "detail": "7-10y"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.818, "clamped": 8, "kaiTpl": 0}, "ms": 13348}
+{"ch": "鲴", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.906, "clamped": 0, "kaiTpl": 0}, "ms": 8208}
+{"ch": "鳧", "fails": [{"code": "AREA", "detail": "6:19%→2%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.848, "clamped": 7, "kaiTpl": 1}, "ms": 17879}
+{"ch": "鵜", "fails": [{"code": "AREA", "detail": "4:13%→3%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.956, "clamped": 0, "kaiTpl": 0}, "ms": 10367}
+{"ch": "鶚", "fails": [{"code": "OVERLAP", "detail": "13-14:100%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 8, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.846, "clamped": 11, "kaiTpl": 0}, "ms": 14358}
+{"ch": "鶴", "fails": [{"code": "OVERLAP", "detail": "11-20:100%"}, {"code": "AREA", "detail": "6:2%→0% 11:7%→2% 16:19%→2%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.867, "clamped": 11, "kaiTpl": 0}, "ms": 16688}
+{"ch": "鶹", "fails": [{"code": "TYPE", "detail": "13:横轴偏39°"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.945, "clamped": 12, "kaiTpl": 0}, "ms": 15649}
+{"ch": "鶼", "fails": [{"code": "AREA", "detail": "11:8%→2% 14:2%→10%"}], "m": {"short": 0.0, "excess": 0.03, "reclass": 8, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.941, "clamped": 4, "kaiTpl": 0}, "ms": 8734}
+{"ch": "鷂", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.95, "clamped": 10, "kaiTpl": 0}, "ms": 10729}
+{"ch": "鷓", "fails": [{"code": "AREA", "detail": "12:8%→2%"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 10, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.911, "clamped": 7, "kaiTpl": 0}, "ms": 10566}
+{"ch": "鷫", "fails": [{"code": "AREA", "detail": "16:1%→6%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 11, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.921, "clamped": 12, "kaiTpl": 0}, "ms": 11998}
+{"ch": "鷸", "fails": [{"code": "AREA", "detail": "15:2%→7%"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.921, "clamped": 6, "kaiTpl": 1}, "ms": 11684}
+{"ch": "鷹", "fails": [{"code": "TYPE", "detail": "6:竖轴偏75°"}, {"code": "AREA", "detail": "1:8%→1% 7:1%→11% 8:3%→0%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 12, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.946, "clamped": 9, "kaiTpl": 1}, "ms": 19760}
+{"ch": "鸂", "fails": [], "m": {"short": 0.01, "excess": 0.0, "reclass": 8, "orderX": 2, "compQuota": 0, "compOut": 0, "retain": 0.947, "clamped": 5, "kaiTpl": 1}, "ms": 11889}
+{"ch": "鸊", "fails": [{"code": "TYPE", "detail": "7:横轴偏73°"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.901, "clamped": 11, "kaiTpl": 0}, "ms": 17147}
+{"ch": "鸚", "fails": [{"code": "AREA", "detail": "21:2%→10% 23:18%→1%"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 13, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.9, "clamped": 5, "kaiTpl": 5}, "ms": 12958}
+{"ch": "鸡", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 1, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.986, "clamped": 0, "kaiTpl": 0}, "ms": 5719}
+{"ch": "鸶", "fails": [{"code": "AREA", "detail": "4:18%→2% 5:3%→14%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.991, "clamped": 0, "kaiTpl": 2}, "ms": 6666}
+{"ch": "鸸", "fails": [{"code": "AREA", "detail": "7:11%→2% 8:1%→9%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.963, "clamped": 0, "kaiTpl": 1}, "ms": 5939}
+{"ch": "鹂", "fails": [{"code": "AREA", "detail": "8:11%→2% 9:1%→11%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.936, "clamped": 5, "kaiTpl": 0}, "ms": 9101}
+{"ch": "鹆", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.931, "clamped": 0, "kaiTpl": 1}, "ms": 5644}
+{"ch": "鹊", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 3, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.916, "clamped": 2, "kaiTpl": 1}, "ms": 6712}
+{"ch": "鹔", "fails": [{"code": "AREA", "detail": "9:10%→2% 10:1%→10%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.981, "clamped": 0, "kaiTpl": 0}, "ms": 4364}
+{"ch": "鹕", "fails": [{"code": "AREA", "detail": "10:10%→2% 11:1%→10%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.874, "clamped": 8, "kaiTpl": 0}, "ms": 10624}
+{"ch": "鹗", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 3, "compQuota": 0, "compOut": 0, "retain": 0.807, "clamped": 2, "kaiTpl": 0}, "ms": 3741}
+{"ch": "鹚", "fails": [{"code": "AREA", "detail": "10:11%→2% 11:1%→11%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.993, "clamped": 0, "kaiTpl": 0}, "ms": 5506}
+{"ch": "鹛", "fails": [], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.865, "clamped": 8, "kaiTpl": 0}, "ms": 8057}
+{"ch": "鹦", "fails": [{"code": "AREA", "detail": "12:9%→2% 13:1%→10%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.939, "clamped": 3, "kaiTpl": 0}, "ms": 6853}
+{"ch": "鹨", "fails": [{"code": "AREA", "detail": "12:10%→2% 13:1%→11%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.994, "clamped": 0, "kaiTpl": 0}, "ms": 7910}
+{"ch": "鹩", "fails": [{"code": "AREA", "detail": "13:10%→2% 14:1%→10%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.956, "clamped": 0, "kaiTpl": 2}, "ms": 7268}
+{"ch": "鹪", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.983, "clamped": 0, "kaiTpl": 1}, "ms": 6203}
+{"ch": "鹫", "fails": [{"code": "AREA", "detail": "9:8%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 4, "compQuota": 0, "compOut": 1, "retain": 0.906, "clamped": 3, "kaiTpl": 2}, "ms": 7116}
+{"ch": "鹬", "fails": [{"code": "AREA", "detail": "13:9%→2% 14:1%→8%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.914, "clamped": 8, "kaiTpl": 0}, "ms": 10269}
+{"ch": "鹭", "fails": [{"code": "AREA", "detail": "12:2%→12%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 12, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.862, "clamped": 9, "kaiTpl": 2}, "ms": 8998}
+{"ch": "鹰", "fails": [{"code": "TYPE", "detail": "6:竖轴偏35°"}, {"code": "AREA", "detail": "16:22%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.952, "clamped": 2, "kaiTpl": 0}, "ms": 8248}
+{"ch": "鹳", "fails": [{"code": "OVERLAP", "detail": "19-20:100%"}, {"code": "AREA", "detail": "18:10%→2% 19:1%→5%"}], "m": {"short": 0.01, "excess": 0.01, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.884, "clamped": 2, "kaiTpl": 0}, "ms": 7508}
+{"ch": "鹹", "fails": [{"code": "AREA", "detail": "6:1%→4%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.925, "clamped": 0, "kaiTpl": 0}, "ms": 6104}
+{"ch": "鹼", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.873, "clamped": 5, "kaiTpl": 0}, "ms": 11581}
+{"ch": "麂", "fails": [{"code": "OVERLAP", "detail": "0-3:100%"}, {"code": "AREA", "detail": "3:10%→2% 6:5%→20%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.9, "clamped": 1, "kaiTpl": 0}, "ms": 5116}
+{"ch": "麗", "fails": [{"code": "AREA", "detail": "14:4%→18%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.92, "clamped": 1, "kaiTpl": 0}, "ms": 7414}
+{"ch": "麯", "fails": [{"code": "AREA", "detail": "10:14%→2% 12:17%→4%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 5, "compQuota": 0, "compOut": 0, "retain": 0.966, "clamped": 2, "kaiTpl": 1}, "ms": 5432}
+{"ch": "麵", "fails": [{"code": "AREA", "detail": "13:6%→23%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 5, "compQuota": 0, "compOut": 1, "retain": 0.967, "clamped": 2, "kaiTpl": 1}, "ms": 5719}
+{"ch": "麿", "fails": [{"code": "TYPE", "detail": "4:竖轴偏42°"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.931, "clamped": 2, "kaiTpl": 1}, "ms": 6473}
+{"ch": "黠", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.938, "clamped": 7, "kaiTpl": 1}, "ms": 6458}
+{"ch": "黯", "fails": [{"code": "AREA", "detail": "6:4%→1%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 9, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.924, "clamped": 3, "kaiTpl": 0}, "ms": 8727}
+{"ch": "黷", "fails": [{"code": "TYPE", "detail": "4:横轴偏66°"}, {"code": "AREA", "detail": "21:10%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.902, "clamped": 17, "kaiTpl": 1}, "ms": 16183}
+{"ch": "鼓", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.936, "clamped": 0, "kaiTpl": 1}, "ms": 4717}
+{"ch": "鼕", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.935, "clamped": 2, "kaiTpl": 0}, "ms": 5847}
+{"ch": "鼱", "fails": [{"code": "AREA", "detail": "0:4%→0%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 8, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.934, "clamped": 1, "kaiTpl": 0}, "ms": 8466}
+{"ch": "鼴", "fails": [{"code": "TYPE", "detail": "16:横轴偏51°"}, {"code": "AREA", "detail": "16:1%→5%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 1, "compQuota": 0, "compOut": 0, "retain": 0.916, "clamped": 11, "kaiTpl": 0}, "ms": 12518}
+{"ch": "鼾", "fails": [{"code": "TYPE", "detail": "6:竖轴偏57° 8:横轴偏75°"}, {"code": "OVERLAP", "detail": "2-3:100% 2-4:100%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 4, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.896, "clamped": 8, "kaiTpl": 1}, "ms": 9098}
+{"ch": "齋", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 5, "orderX": 0, "compQuota": 0, "compOut": 1, "retain": 0.948, "clamped": 0, "kaiTpl": 1}, "ms": 3900}
+{"ch": "齌", "fails": [{"code": "AREA", "detail": "11:13%→2%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 2, "retain": 0.97, "clamped": 2, "kaiTpl": 2}, "ms": 5041}
+{"ch": "齎", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 10, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.964, "clamped": 1, "kaiTpl": 0}, "ms": 7266}
+{"ch": "齦", "fails": [{"code": "ORDER", "detail": "7-12y"}, {"code": "AREA", "detail": "7:1%→7% 14:7%→1%"}], "m": {"short": 0.01, "excess": 0.0, "reclass": 12, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.963, "clamped": 8, "kaiTpl": 0}, "ms": 12523}
+{"ch": "龔", "fails": [{"code": "AREA", "detail": "12:12%→3%"}], "m": {"short": 0.0, "excess": 0.0, "reclass": 6, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.915, "clamped": 3, "kaiTpl": 0}, "ms": 14317}
+{"ch": "龥", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 7, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.825, "clamped": 5, "kaiTpl": 1}, "ms": 8120}
+{"ch": "龺", "fails": [], "m": {"short": 0.0, "excess": 0.0, "reclass": 0, "orderX": 0, "compQuota": 0, "compOut": 0, "retain": 0.92, "clamped": 0, "kaiTpl": 0}, "ms": 2175}

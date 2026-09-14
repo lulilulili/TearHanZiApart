@@ -1,0 +1,115 @@
+{
+ "HarmonyOS_Sans_SC": {
+  "total": 958,
+  "skipped": 1,
+  "tested": 957,
+  "passed": 932,
+  "passRate": 97.39,
+  "byCode": {
+   "TYPE": {
+    "count": 12,
+    "chars": "兇勸啟戆甕痺禼衢鄖雙颞鼴"
+   },
+   "ORDER": {
+    "count": 7,
+    "chars": "喧喹嘯戆攮緣缪"
+   },
+   "OVERLAP": {
+    "count": 4,
+    "chars": "勸廄戆還"
+   },
+   "AREA": {
+    "count": 10,
+    "chars": "勸孵憲戆攮甕趨雙鹭麝"
+   }
+  },
+  "failChars": {
+   "兇": [
+    "TYPE"
+   ],
+   "勸": [
+    "AREA",
+    "OVERLAP",
+    "TYPE"
+   ],
+   "啟": [
+    "TYPE"
+   ],
+   "喧": [
+    "ORDER"
+   ],
+   "喹": [
+    "ORDER"
+   ],
+   "嘯": [
+    "ORDER"
+   ],
+   "孵": [
+    "AREA"
+   ],
+   "廄": [
+    "OVERLAP"
+   ],
+   "憲": [
+    "AREA"
+   ],
+   "戆": [
+    "AREA",
+    "ORDER",
+    "OVERLAP",
+    "TYPE"
+   ],
+   "攮": [
+    "AREA",
+    "ORDER"
+   ],
+   "甕": [
+    "AREA",
+    "TYPE"
+   ],
+   "痺": [
+    "TYPE"
+   ],
+   "禼": [
+    "TYPE"
+   ],
+   "缪": [
+    "ORDER"
+   ],
+   "緣": [
+    "ORDER"
+   ],
+   "衢": [
+    "TYPE"
+   ],
+   "趨": [
+    "AREA"
+   ],
+   "還": [
+    "OVERLAP"
+   ],
+   "鄖": [
+    "TYPE"
+   ],
+   "雙": [
+    "AREA",
+    "TYPE"
+   ],
+   "颞": [
+    "TYPE"
+   ],
+   "鹭": [
+    "AREA"
+   ],
+   "麝": [
+    "AREA"
+   ],
+   "鼴": [
+    "TYPE"
+   ]
+  },
+  "avgRetain": 0.956,
+  "clampedStrokes": 862,
+  "kaiTplStrokes": 262
+ }
+}

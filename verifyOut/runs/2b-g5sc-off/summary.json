@@ -1,0 +1,36 @@
+{
+ "HarmonyOS_Sans_SC": {
+  "total": 14,
+  "skipped": 0,
+  "tested": 14,
+  "passed": 11,
+  "passRate": 78.57,
+  "byCode": {
+   "TYPE": {
+    "count": 3,
+    "chars": "戆繪鼴"
+   },
+   "AREA": {
+    "count": 3,
+    "chars": "戆繪鼴"
+   }
+  },
+  "failChars": {
+   "戆": [
+    "AREA",
+    "TYPE"
+   ],
+   "繪": [
+    "AREA",
+    "TYPE"
+   ],
+   "鼴": [
+    "AREA",
+    "TYPE"
+   ]
+  },
+  "avgRetain": 0.93,
+  "clampedStrokes": 45,
+  "kaiTplStrokes": 5
+ }
+}

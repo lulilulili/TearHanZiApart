@@ -1,0 +1,456 @@
+{
+  "createdAt": "2026-09-14T21:52:25.648126+08:00",
+  "preset": "sample",
+  "root": "D:\\Personal_Work\\TearHanZiApart",
+  "fonts": [
+    {
+      "path": "D:\\Personal_Work\\TearHanZiApart\\Fonts\\simsun.ttc",
+      "size": 18070492,
+      "mtimeNs": 1788578451193041400
+    }
+  ],
+  "charCount": 339,
+  "charSha256": "b59856989f8fbcd245f9fd753e56ccae098bfc96e48d3ed94d3ffbcc864d277b",
+  "stride": 10,
+  "jobs": 6,
+  "source": {
+    "algorithmSha256": "87ec7fcdff09cf65de9d324083572a9e00c3e8780563fff130878a83106fd861",
+    "python": "3.9.1",
+    "platform": "Windows-10-10.0.19041-SP0",
+    "machine": "AMD64"
+  },
+  "elapsedSeconds": 683.117,
+  "summary": {
+    "simsun": {
+      "total": 339,
+      "skipped": 0,
+      "tested": 339,
+      "passed": 215,
+      "passRate": 63.42,
+      "byCode": {
+        "SPLIT": {
+          "count": 1,
+          "chars": "録"
+        },
+        "TYPE": {
+          "count": 10,
+          "chars": "嵛澀澹碱蝓說謅譜譯錦"
+        },
+        "ORDER": {
+          "count": 5,
+          "chars": "措誨諸謔讞"
+        },
+        "OVERLAP": {
+          "count": 62,
+          "chars": "䕭勢啬噌嶝減溶滻澀熾獵璧糯繕纜膽蘵訁訥許訴詛試詬話該詼誆誘誚語諂論諠諢諭謁謅謐謚講譙譚譫議譴讀讖讞錦镢镧闃隊險颻騰驀髮鰭鱠黷"
+        },
+        "AREA": {
+          "count": 71,
+          "chars": "亹儕嶝性慨撥擠擰氮溶澹緣繪纜臟薩蘵蝓蟾觥訊訓訢註詣誆誑誣誤誨說誹調請諒諛諤諦諸謀謂謊謚謝謫謳譎譚譜譫譯讚讞赡輪錨鏡镢闃隊韆颻驀鷂鷹鹑鹽鼱齙齦齧"
+        }
+      },
+      "failChars": {
+        "性": [
+          "AREA"
+        ],
+        "慨": [
+          "AREA"
+        ],
+        "䕭": [
+          "OVERLAP"
+        ],
+        "亹": [
+          "AREA"
+        ],
+        "儕": [
+          "AREA"
+        ],
+        "勢": [
+          "OVERLAP"
+        ],
+        "啬": [
+          "OVERLAP"
+        ],
+        "氮": [
+          "AREA"
+        ],
+        "減": [
+          "OVERLAP"
+        ],
+        "溶": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "滻": [
+          "OVERLAP"
+        ],
+        "噌": [
+          "OVERLAP"
+        ],
+        "嵛": [
+          "TYPE"
+        ],
+        "嶝": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "措": [
+          "ORDER"
+        ],
+        "撥": [
+          "AREA"
+        ],
+        "擠": [
+          "AREA"
+        ],
+        "擰": [
+          "AREA"
+        ],
+        "澀": [
+          "OVERLAP",
+          "TYPE"
+        ],
+        "澹": [
+          "AREA",
+          "TYPE"
+        ],
+        "熾": [
+          "OVERLAP"
+        ],
+        "獵": [
+          "OVERLAP"
+        ],
+        "璧": [
+          "OVERLAP"
+        ],
+        "碱": [
+          "TYPE"
+        ],
+        "訢": [
+          "AREA"
+        ],
+        "訥": [
+          "OVERLAP"
+        ],
+        "許": [
+          "OVERLAP"
+        ],
+        "訴": [
+          "OVERLAP"
+        ],
+        "註": [
+          "AREA"
+        ],
+        "詛": [
+          "OVERLAP"
+        ],
+        "詣": [
+          "AREA"
+        ],
+        "試": [
+          "OVERLAP"
+        ],
+        "詬": [
+          "OVERLAP"
+        ],
+        "話": [
+          "OVERLAP"
+        ],
+        "該": [
+          "OVERLAP"
+        ],
+        "詼": [
+          "OVERLAP"
+        ],
+        "誆": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "誑": [
+          "AREA"
+        ],
+        "誘": [
+          "OVERLAP"
+        ],
+        "誚": [
+          "OVERLAP"
+        ],
+        "語": [
+          "OVERLAP"
+        ],
+        "糯": [
+          "OVERLAP"
+        ],
+        "緣": [
+          "AREA"
+        ],
+        "繕": [
+          "OVERLAP"
+        ],
+        "繪": [
+          "AREA"
+        ],
+        "纜": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "膽": [
+          "OVERLAP"
+        ],
+        "臟": [
+          "AREA"
+        ],
+        "薩": [
+          "AREA"
+        ],
+        "蘵": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "蝓": [
+          "AREA",
+          "TYPE"
+        ],
+        "蟾": [
+          "AREA"
+        ],
+        "觥": [
+          "AREA"
+        ],
+        "訁": [
+          "OVERLAP"
+        ],
+        "訊": [
+          "AREA"
+        ],
+        "訓": [
+          "AREA"
+        ],
+        "誣": [
+          "AREA"
+        ],
+        "誤": [
+          "AREA"
+        ],
+        "誨": [
+          "AREA",
+          "ORDER"
+        ],
+        "說": [
+          "AREA",
+          "TYPE"
+        ],
+        "誹": [
+          "AREA"
+        ],
+        "調": [
+          "AREA"
+        ],
+        "諂": [
+          "OVERLAP"
+        ],
+        "請": [
+          "AREA"
+        ],
+        "諒": [
+          "AREA"
+        ],
+        "論": [
+          "OVERLAP"
+        ],
+        "諛": [
+          "AREA"
+        ],
+        "諠": [
+          "OVERLAP"
+        ],
+        "諢": [
+          "OVERLAP"
+        ],
+        "諤": [
+          "AREA"
+        ],
+        "諦": [
+          "AREA"
+        ],
+        "諭": [
+          "OVERLAP"
+        ],
+        "諸": [
+          "AREA",
+          "ORDER"
+        ],
+        "謀": [
+          "AREA"
+        ],
+        "謁": [
+          "OVERLAP"
+        ],
+        "謂": [
+          "AREA"
+        ],
+        "謅": [
+          "OVERLAP",
+          "TYPE"
+        ],
+        "謊": [
+          "AREA"
+        ],
+        "謐": [
+          "OVERLAP"
+        ],
+        "謔": [
+          "ORDER"
+        ],
+        "謚": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "講": [
+          "OVERLAP"
+        ],
+        "謝": [
+          "AREA"
+        ],
+        "謫": [
+          "AREA"
+        ],
+        "謳": [
+          "AREA"
+        ],
+        "譎": [
+          "AREA"
+        ],
+        "譙": [
+          "OVERLAP"
+        ],
+        "譚": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "輪": [
+          "AREA"
+        ],
+        "镢": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "镧": [
+          "OVERLAP"
+        ],
+        "闃": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "隊": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "險": [
+          "OVERLAP"
+        ],
+        "譜": [
+          "AREA",
+          "TYPE"
+        ],
+        "譫": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "譯": [
+          "AREA",
+          "TYPE"
+        ],
+        "議": [
+          "OVERLAP"
+        ],
+        "譴": [
+          "OVERLAP"
+        ],
+        "讀": [
+          "OVERLAP"
+        ],
+        "讖": [
+          "OVERLAP"
+        ],
+        "讚": [
+          "AREA"
+        ],
+        "讞": [
+          "AREA",
+          "ORDER",
+          "OVERLAP"
+        ],
+        "赡": [
+          "AREA"
+        ],
+        "齦": [
+          "AREA"
+        ],
+        "齧": [
+          "AREA"
+        ],
+        "錦": [
+          "OVERLAP",
+          "TYPE"
+        ],
+        "錨": [
+          "AREA"
+        ],
+        "録": [
+          "SPLIT"
+        ],
+        "鏡": [
+          "AREA"
+        ],
+        "韆": [
+          "AREA"
+        ],
+        "颻": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "騰": [
+          "OVERLAP"
+        ],
+        "驀": [
+          "AREA",
+          "OVERLAP"
+        ],
+        "髮": [
+          "OVERLAP"
+        ],
+        "鰭": [
+          "OVERLAP"
+        ],
+        "鱠": [
+          "OVERLAP"
+        ],
+        "鷂": [
+          "AREA"
+        ],
+        "鷹": [
+          "AREA"
+        ],
+        "鹑": [
+          "AREA"
+        ],
+        "鹽": [
+          "AREA"
+        ],
+        "黷": [
+          "OVERLAP"
+        ],
+        "鼱": [
+          "AREA"
+        ],
+        "齙": [
+          "AREA"
+        ]
+      },
+      "avgRetain": 0.864,
+      "clampedStrokes": 1284,
+      "kaiTplStrokes": 115
+    }
+  }
+}

@@ -1,0 +1,113 @@
+{
+ "HarmonyOS_Sans_SC": {
+  "total": 30,
+  "skipped": 0,
+  "tested": 30,
+  "passed": 17,
+  "passRate": 56.67,
+  "byCode": {
+   "TYPE": {
+    "count": 10,
+    "chars": "埤戆濞痺礴颦鱄鼽鼾齄"
+   },
+   "OVERLAP": {
+    "count": 2,
+    "chars": "髀鼾"
+   },
+   "AREA": {
+    "count": 6,
+    "chars": "埤戆礴輻首鱄"
+   }
+  },
+  "failChars": {
+   "埤": [
+    "AREA",
+    "TYPE"
+   ],
+   "濞": [
+    "TYPE"
+   ],
+   "痺": [
+    "TYPE"
+   ],
+   "礴": [
+    "AREA",
+    "TYPE"
+   ],
+   "輻": [
+    "AREA"
+   ],
+   "颦": [
+    "TYPE"
+   ],
+   "髀": [
+    "OVERLAP"
+   ],
+   "鱄": [
+    "AREA",
+    "TYPE"
+   ],
+   "鼽": [
+    "TYPE"
+   ],
+   "鼾": [
+    "OVERLAP",
+    "TYPE"
+   ],
+   "齄": [
+    "TYPE"
+   ],
+   "首": [
+    "AREA"
+   ],
+   "戆": [
+    "AREA",
+    "TYPE"
+   ]
+  },
+  "avgRetain": 0.931,
+  "clampedStrokes": 114,
+  "kaiTplStrokes": 17
+ },
+ "simsun": {
+  "total": 30,
+  "skipped": 0,
+  "tested": 30,
+  "passed": 24,
+  "passRate": 80.0,
+  "byCode": {
+   "TYPE": {
+    "count": 5,
+    "chars": "博戆銲首髀"
+   },
+   "AREA": {
+    "count": 2,
+    "chars": "啤銲"
+   }
+  },
+  "failChars": {
+   "博": [
+    "TYPE"
+   ],
+   "啤": [
+    "AREA"
+   ],
+   "髀": [
+    "TYPE"
+   ],
+   "首": [
+    "TYPE"
+   ],
+   "戆": [
+    "TYPE"
+   ],
+   "銲": [
+    "AREA",
+    "TYPE"
+   ]
+  },
+  "avgRetain": 0.832,
+  "clampedStrokes": 143,
+  "kaiTplStrokes": 14
+ }
+}

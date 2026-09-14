@@ -1,0 +1,37 @@
+{
+  "createdAt": "2026-09-14T20:07:50.174973+08:00",
+  "preset": "sample",
+  "root": "D:\\Personal_Work\\TearHanZiApart",
+  "fonts": [
+    {
+      "path": "D:\\Personal_Work\\TearHanZiApart\\Fonts\\simsun.ttc",
+      "size": 18070492,
+      "mtimeNs": 1788578451193041400
+    }
+  ],
+  "charCount": 7,
+  "charSha256": "36044acf5b11d31eb7fdf75600e96f07f56baf62169fb58bcc35ff8e8b8bd0e6",
+  "stride": 10,
+  "jobs": 4,
+  "source": {
+    "algorithmSha256": "87ec7fcdff09cf65de9d324083572a9e00c3e8780563fff130878a83106fd861",
+    "python": "3.9.1",
+    "platform": "Windows-10-10.0.19041-SP0",
+    "machine": "AMD64"
+  },
+  "elapsedSeconds": 56.173,
+  "summary": {
+    "simsun": {
+      "total": 7,
+      "skipped": 0,
+      "tested": 7,
+      "passed": 7,
+      "passRate": 100.0,
+      "byCode": {},
+      "failChars": {},
+      "avgRetain": 0.896,
+      "clampedStrokes": 17,
+      "kaiTplStrokes": 3
+    }
+  }
+}

@@ -1,0 +1,462 @@
+{
+ "HarmonyOS_Sans_SC": {
+  "total": 686,
+  "skipped": 0,
+  "tested": 686,
+  "passed": 555,
+  "passRate": 80.9,
+  "byCode": {
+   "COUNT": {
+    "count": 1,
+    "chars": "斂"
+   },
+   "SPLIT": {
+    "count": 4,
+    "chars": "冣孃漲蘖"
+   },
+   "TYPE": {
+    "count": 40,
+    "chars": "儉剳勸咸壓帚幬戆擊攫槃歡濾燥盥蕕藓藭蘚諱譚赣跟踅蹰轟辥釀鑰闈顴颦颧鹬鹰麗麯麵鼴鼾"
+   },
+   "ORDER": {
+    "count": 19,
+    "chars": "喻婦孃嵛戆瀾璩籌緣縱繆臌蟓轟酿顛魄鷹麯"
+   },
+   "OVERLAP": {
+    "count": 20,
+    "chars": "剜勸幫戆暹歡游癱腿蠢覽赣輿還醭鈷顛鷂麂鼾"
+   },
+   "AREA": {
+    "count": 76,
+    "chars": "临冪勸咸圜嬛孵審幫幬彟恺憲戆掄擊攫斂旉橢檯歡濂猹璣疇瘰皚碳綸緘繰缄罈翼脘腚薇藒藭藺蝣蠊襖觀諱謅譚譯讓谭豔贅赣趨踘躑轟酿釀鎦鎧链锨镕隋險韜飄馕鶴鷂鷹鹭麂鼱"
+   }
+  },
+  "failChars": {
+   "临": [
+    "AREA"
+   ],
+   "儉": [
+    "TYPE"
+   ],
+   "冣": [
+    "SPLIT"
+   ],
+   "冪": [
+    "AREA"
+   ],
+   "喻": [
+    "ORDER"
+   ],
+   "剜": [
+    "OVERLAP"
+   ],
+   "剳": [
+    "TYPE"
+   ],
+   "勸": [
+    "AREA",
+    "OVERLAP",
+    "TYPE"
+   ],
+   "咸": [
+    "AREA",
+    "TYPE"
+   ],
+   "嵛": [
+    "ORDER"
+   ],
+   "帚": [
+    "TYPE"
+   ],
+   "圜": [
+    "AREA"
+   ],
+   "壓": [
+    "TYPE"
+   ],
+   "婦": [
+    "ORDER"
+   ],
+   "嬛": [
+    "AREA"
+   ],
+   "孃": [
+    "ORDER",
+    "SPLIT"
+   ],
+   "孵": [
+    "AREA"
+   ],
+   "審": [
+    "AREA"
+   ],
+   "幫": [
+    "AREA",
+    "OVERLAP"
+   ],
+   "幬": [
+    "AREA",
+    "TYPE"
+   ],
+   "彟": [
+    "AREA"
+   ],
+   "恺": [
+    "AREA"
+   ],
+   "憲": [
+    "AREA"
+   ],
+   "戆": [
+    "AREA",
+    "ORDER",
+    "OVERLAP",
+    "TYPE"
+   ],
+   "斂": [
+    "AREA",
+    "COUNT"
+   ],
+   "旉": [
+    "AREA"
+   ],
+   "暹": [
+    "OVERLAP"
+   ],
+   "掄": [
+    "AREA"
+   ],
+   "擊": [
+    "AREA",
+    "TYPE"
+   ],
+   "攫": [
+    "AREA",
+    "TYPE"
+   ],
+   "歡": [
+    "AREA",
+    "OVERLAP",
+    "TYPE"
+   ],
+   "槃": [
+    "TYPE"
+   ],
+   "橢": [
+    "AREA"
+   ],
+   "檯": [
+    "AREA"
+   ],
+   "游": [
+    "OVERLAP"
+   ],
+   "漲": [
+    "SPLIT"
+   ],
+   "濂": [
+    "AREA"
+   ],
+   "猹": [
+    "AREA"
+   ],
+   "璣": [
+    "AREA"
+   ],
+   "璩": [
+    "ORDER"
+   ],
+   "疇": [
+    "AREA"
+   ],
+   "籌": [
+    "ORDER"
+   ],
+   "濾": [
+    "TYPE"
+   ],
+   "瀾": [
+    "ORDER"
+   ],
+   "燥": [
+    "TYPE"
+   ],
+   "瘰": [
+    "AREA"
+   ],
+   "癱": [
+    "OVERLAP"
+   ],
+   "皚": [
+    "AREA"
+   ],
+   "盥": [
+    "TYPE"
+   ],
+   "碳": [
+    "AREA"
+   ],
+   "綸": [
+    "AREA"
+   ],
+   "緘": [
+    "AREA"
+   ],
+   "緣": [
+    "ORDER"
+   ],
+   "縱": [
+    "ORDER"
+   ],
+   "繆": [
+    "ORDER"
+   ],
+   "繰": [
+    "AREA"
+   ],
+   "缄": [
+    "AREA"
+   ],
+   "罈": [
+    "AREA"
+   ],
+   "翼": [
+    "AREA"
+   ],
+   "脘": [
+    "AREA"
+   ],
+   "蕕": [
+    "TYPE"
+   ],
+   "薇": [
+    "AREA"
+   ],
+   "腚": [
+    "AREA"
+   ],
+   "腿": [
+    "OVERLAP"
+   ],
+   "臌": [
+    "ORDER"
+   ],
+   "藒": [
+    "AREA"
+   ],
+   "藓": [
+    "TYPE"
+   ],
+   "藭": [
+    "AREA",
+    "TYPE"
+   ],
+   "藺": [
+    "AREA"
+   ],
+   "蘖": [
+    "SPLIT"
+   ],
+   "蘚": [
+    "TYPE"
+   ],
+   "蝣": [
+    "AREA"
+   ],
+   "蟓": [
+    "ORDER"
+   ],
+   "蠊": [
+    "AREA"
+   ],
+   "蠢": [
+    "OVERLAP"
+   ],
+   "襖": [
+    "AREA"
+   ],
+   "覽": [
+    "OVERLAP"
+   ],
+   "觀": [
+    "AREA"
+   ],
+   "諱": [
+    "AREA",
+    "TYPE"
+   ],
+   "謅": [
+    "AREA"
+   ],
+   "譚": [
+    "AREA",
+    "TYPE"
+   ],
+   "譯": [
+    "AREA"
+   ],
+   "讓": [
+    "AREA"
+   ],
+   "谭": [
+    "AREA"
+   ],
+   "豔": [
+    "AREA"
+   ],
+   "贅": [
+    "AREA"
+   ],
+   "赣": [
+    "AREA",
+    "OVERLAP",
+    "TYPE"
+   ],
+   "趨": [
+    "AREA"
+   ],
+   "跟": [
+    "TYPE"
+   ],
+   "踅": [
+    "TYPE"
+   ],
+   "踘": [
+    "AREA"
+   ],
+   "還": [
+    "OVERLAP"
+   ],
+   "酿": [
+    "AREA",
+    "ORDER"
+   ],
+   "醭": [
+    "OVERLAP"
+   ],
+   "蹰": [
+    "TYPE"
+   ],
+   "躑": [
+    "AREA"
+   ],
+   "輿": [
+    "OVERLAP"
+   ],
+   "轟": [
+    "AREA",
+    "ORDER",
+    "TYPE"
+   ],
+   "辥": [
+    "TYPE"
+   ],
+   "釀": [
+    "AREA",
+    "TYPE"
+   ],
+   "鈷": [
+    "OVERLAP"
+   ],
+   "鎦": [
+    "AREA"
+   ],
+   "鎧": [
+    "AREA"
+   ],
+   "鑰": [
+    "TYPE"
+   ],
+   "链": [
+    "AREA"
+   ],
+   "锨": [
+    "AREA"
+   ],
+   "镕": [
+    "AREA"
+   ],
+   "隋": [
+    "AREA"
+   ],
+   "險": [
+    "AREA"
+   ],
+   "馕": [
+    "AREA"
+   ],
+   "魄": [
+    "ORDER"
+   ],
+   "闈": [
+    "TYPE"
+   ],
+   "韜": [
+    "AREA"
+   ],
+   "顛": [
+    "ORDER",
+    "OVERLAP"
+   ],
+   "顴": [
+    "TYPE"
+   ],
+   "颦": [
+    "TYPE"
+   ],
+   "颧": [
+    "TYPE"
+   ],
+   "飄": [
+    "AREA"
+   ],
+   "鶴": [
+    "AREA"
+   ],
+   "鷂": [
+    "AREA",
+    "OVERLAP"
+   ],
+   "鷹": [
+    "AREA",
+    "ORDER"
+   ],
+   "鼱": [
+    "AREA"
+   ],
+   "鼴": [
+    "TYPE"
+   ],
+   "鼾": [
+    "OVERLAP",
+    "TYPE"
+   ],
+   "鹬": [
+    "TYPE"
+   ],
+   "鹭": [
+    "AREA"
+   ],
+   "鹰": [
+    "TYPE"
+   ],
+   "麂": [
+    "AREA",
+    "OVERLAP"
+   ],
+   "麗": [
+    "TYPE"
+   ],
+   "麯": [
+    "ORDER",
+    "TYPE"
+   ],
+   "麵": [
+    "TYPE"
+   ]
+  },
+  "avgRetain": 0.93,
+  "clampedStrokes": 1832,
+  "kaiTplStrokes": 303
+ }
+}

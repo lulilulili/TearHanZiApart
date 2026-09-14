@@ -1,0 +1,28 @@
+{
+ "simsun": {
+  "total": 7,
+  "skipped": 0,
+  "tested": 7,
+  "passed": 6,
+  "passRate": 85.71,
+  "byCode": {
+   "TYPE": {
+    "count": 1,
+    "chars": "銲"
+   },
+   "AREA": {
+    "count": 1,
+    "chars": "銲"
+   }
+  },
+  "failChars": {
+   "銲": [
+    "AREA",
+    "TYPE"
+   ]
+  },
+  "avgRetain": 0.885,
+  "clampedStrokes": 18,
+  "kaiTplStrokes": 2
+ }
+}

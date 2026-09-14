@@ -1,0 +1,141 @@
+{
+  "createdAt": "2026-09-14T06:53:46.733047+08:00",
+  "preset": "sample",
+  "root": "D:\\Personal_Work\\TearHanZiApart",
+  "fonts": [
+    {
+      "path": "D:\\Personal_Work\\TearHanZiApart\\Fonts\\HarmonyOS_Sans_SC.ttf",
+      "size": 20617156,
+      "mtimeNs": 1752820192000000000
+    },
+    {
+      "path": "D:\\Personal_Work\\TearHanZiApart\\Fonts\\simsun.ttc",
+      "size": 18070492,
+      "mtimeNs": 1788578451193041400
+    }
+  ],
+  "charCount": 30,
+  "charSha256": "cb88b3a84b51adcefe7f6b4c562a3d3391be9dde132e472c8ae35f82551a9a78",
+  "stride": 10,
+  "jobs": 6,
+  "source": {
+    "algorithmSha256": "273ff47d364435e66eaa60d2674f3300f4835201f9466a1de35bcbc7d6da5c07",
+    "python": "3.9.1",
+    "platform": "Windows-10-10.0.19041-SP0",
+    "machine": "AMD64"
+  },
+  "elapsedSeconds": 149.124,
+  "summary": {
+    "HarmonyOS_Sans_SC": {
+      "total": 30,
+      "skipped": 0,
+      "tested": 30,
+      "passed": 17,
+      "passRate": 56.67,
+      "byCode": {
+        "TYPE": {
+          "count": 10,
+          "chars": "埤戆濞痺礴颦鱄鼽鼾齄"
+        },
+        "OVERLAP": {
+          "count": 2,
+          "chars": "髀鼾"
+        },
+        "AREA": {
+          "count": 6,
+          "chars": "埤戆礴輻首鱄"
+        }
+      },
+      "failChars": {
+        "埤": [
+          "AREA",
+          "TYPE"
+        ],
+        "濞": [
+          "TYPE"
+        ],
+        "痺": [
+          "TYPE"
+        ],
+        "礴": [
+          "AREA",
+          "TYPE"
+        ],
+        "輻": [
+          "AREA"
+        ],
+        "颦": [
+          "TYPE"
+        ],
+        "髀": [
+          "OVERLAP"
+        ],
+        "鱄": [
+          "AREA",
+          "TYPE"
+        ],
+        "鼽": [
+          "TYPE"
+        ],
+        "鼾": [
+          "OVERLAP",
+          "TYPE"
+        ],
+        "齄": [
+          "TYPE"
+        ],
+        "首": [
+          "AREA"
+        ],
+        "戆": [
+          "AREA",
+          "TYPE"
+        ]
+      },
+      "avgRetain": 0.931,
+      "clampedStrokes": 114,
+      "kaiTplStrokes": 17
+    },
+    "simsun": {
+      "total": 30,
+      "skipped": 0,
+      "tested": 30,
+      "passed": 24,
+      "passRate": 80.0,
+      "byCode": {
+        "TYPE": {
+          "count": 5,
+          "chars": "博戆銲首髀"
+        },
+        "AREA": {
+          "count": 2,
+          "chars": "啤銲"
+        }
+      },
+      "failChars": {
+        "博": [
+          "TYPE"
+        ],
+        "啤": [
+          "AREA"
+        ],
+        "髀": [
+          "TYPE"
+        ],
+        "首": [
+          "TYPE"
+        ],
+        "戆": [
+          "TYPE"
+        ],
+        "銲": [
+          "AREA",
+          "TYPE"
+        ]
+      },
+      "avgRetain": 0.832,
+      "clampedStrokes": 143,
+      "kaiTplStrokes": 14
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "createdAt": "2026-09-14T06:49:27.237860+08:00",
+  "preset": "sample",
+  "root": "D:\\Personal_Work\\TearHanZiApart",
+  "fonts": [
+    {
+      "path": "D:\\Personal_Work\\TearHanZiApart\\Fonts\\simsun.ttc",
+      "size": 18070492,
+      "mtimeNs": 1788578451193041400
+    }
+  ],
+  "charCount": 7,
+  "charSha256": "36044acf5b11d31eb7fdf75600e96f07f56baf62169fb58bcc35ff8e8b8bd0e6",
+  "stride": 10,
+  "jobs": 4,
+  "source": {
+    "algorithmSha256": "273ff47d364435e66eaa60d2674f3300f4835201f9466a1de35bcbc7d6da5c07",
+    "python": "3.9.1",
+    "platform": "Windows-10-10.0.19041-SP0",
+    "machine": "AMD64"
+  },
+  "elapsedSeconds": 29.698,
+  "summary": {
+    "simsun": {
+      "total": 7,
+      "skipped": 0,
+      "tested": 7,
+      "passed": 6,
+      "passRate": 85.71,
+      "byCode": {
+        "TYPE": {
+          "count": 1,
+          "chars": "銲"
+        },
+        "AREA": {
+          "count": 1,
+          "chars": "銲"
+        }
+      },
+      "failChars": {
+        "銲": [
+          "AREA",
+          "TYPE"
+        ]
+      },
+      "avgRetain": 0.885,
+      "clampedStrokes": 18,
+      "kaiTplStrokes": 2
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "createdAt": "2026-09-14T06:30:56.336643+08:00",
+  "preset": "sample",
+  "root": "D:\\Personal_Work\\TearHanZiApart",
+  "fonts": [
+    {
+      "path": "D:\\Personal_Work\\TearHanZiApart\\Fonts\\HarmonyOS_Sans_SC.ttf",
+      "size": 20617156,
+      "mtimeNs": 1752820192000000000
+    }
+  ],
+  "charCount": 14,
+  "charSha256": "28c933334ad1ee3a463b635fc0b2ffef6761d76ce2c47ce7d21b3ab44e90d2f6",
+  "stride": 10,
+  "jobs": 5,
+  "source": {
+    "algorithmSha256": "273ff47d364435e66eaa60d2674f3300f4835201f9466a1de35bcbc7d6da5c07",
+    "python": "3.9.1",
+    "platform": "Windows-10-10.0.19041-SP0",
+    "machine": "AMD64"
+  },
+  "elapsedSeconds": 64.226,
+  "summary": {
+    "HarmonyOS_Sans_SC": {
+      "total": 14,
+      "skipped": 0,
+      "tested": 14,
+      "passed": 11,
+      "passRate": 78.57,
+      "byCode": {
+        "TYPE": {
+          "count": 3,
+          "chars": "戆繪鼴"
+        },
+        "AREA": {
+          "count": 3,
+          "chars": "戆繪鼴"
+        }
+      },
+      "failChars": {
+        "戆": [
+          "AREA",
+          "TYPE"
+        ],
+        "繪": [
+          "AREA",
+          "TYPE"
+        ],
+        "鼴": [
+          "AREA",
+          "TYPE"
+        ]
+      },
+      "avgRetain": 0.93,
+      "clampedStrokes": 45,
+      "kaiTplStrokes": 5
+    }
+  }
+}

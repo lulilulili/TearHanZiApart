@@ -1,0 +1,41 @@
+{
+ "HarmonyOS_Sans_SC": {
+  "total": 14,
+  "skipped": 0,
+  "tested": 14,
+  "passed": 12,
+  "passRate": 85.71,
+  "byCode": {
+   "TYPE": {
+    "count": 2,
+    "chars": "戆鼴"
+   },
+   "ORDER": {
+    "count": 1,
+    "chars": "戆"
+   },
+   "OVERLAP": {
+    "count": 1,
+    "chars": "戆"
+   },
+   "AREA": {
+    "count": 1,
+    "chars": "戆"
+   }
+  },
+  "failChars": {
+   "戆": [
+    "AREA",
+    "ORDER",
+    "OVERLAP",
+    "TYPE"
+   ],
+   "鼴": [
+    "TYPE"
+   ]
+  },
+  "avgRetain": 0.932,
+  "clampedStrokes": 29,
+  "kaiTplStrokes": 6
+ }
+}
