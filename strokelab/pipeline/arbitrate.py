@@ -624,6 +624,7 @@ def barTheftSwap(geom, kaiRef, groups, pose, cost):
     nStrokes = pose.nStrokes
     initMedians = pose.initMedians
     costRows = cost.costRows
+    penTags = getattr(cost, "penTags", None) or {}
     strokeGroup = groups.strokeGroup
     groupStrokes = groups.groupStrokes
     groupBBoxes = groups.groupBBoxes
@@ -656,12 +657,41 @@ def barTheftSwap(geom, kaiRef, groups, pose, cost):
             if done:
                 break
             ss0 = groupStrokes.get(g0, [])
-            if len(ss0) != 1:
-                continue
-            k1 = ss0[0]
             bb0 = groupBBoxes.get(g0)
             if bb0 is None:
                 continue
+            # extG5=扩展门放行标记：只进 evidence（"ext":1，diff_traces
+            # 的多重集键剔除 evidence，不算漂移），供胜率表按原判据面
+            # （单笔独占）同口径统计 G5 降幅——扩门提议不混入原口径分母。
+            extG5 = len(ss0) != 1
+            if not extG5:
+                k1 = ss0[0]
+            else:
+                # 保留层门扩展（矩阵归并2b·对抗评审裁定#4）：barcap 罚把
+                # 过长笔锚出杆后，argmin 就近入组常把它送回原组=双成员
+                # 杆，原"单笔独占"门失明——评审模拟 21 个 G5 采纳字中 ~7
+                # 个现通过字（减僚威缴舲藐輸鼴类）的已验证修复链被打断。
+                # 门扩为：组内存在 barcap 命中对（锚定期同判据，penTags
+                # 查询；限实际归属本组的笔，排除 S1b 多重入组/全开兜底
+                # 名单）时同样放行，k1 取命中笔中超长比最大者（最像抢占
+                # 者；同分取先序，序稳定）。PEN_BARCAP 关闭时无 barcap
+                # 条目→恒 continue，与基线逐位一致（parity 硬门）。
+                k1 = None
+                bestR = 0.0
+                for kh in ss0:
+                    if strokeGroup[kh] != g0 or \
+                            not penTags.get(kh, {}).get(g0, {}).get("barcap"):
+                        continue
+                    mh = initMedians[kh]
+                    radH = math.atan2(mh[-1][1] - mh[0][1],
+                                      mh[-1][0] - mh[0][0])
+                    blH = abs(bb0.w * math.cos(radH)) + \
+                        abs(bb0.h * math.sin(radH))
+                    rH = _axisChordLen(initMedians, kh) / max(1.0, blH)
+                    if k1 is None or rH > bestR:
+                        k1, bestR = kh, rH
+                if k1 is None:
+                    continue
             m1 = initMedians[k1]
             a1 = math.degrees(math.atan2(m1[-1][1] - m1[0][1],
                                          m1[-1][0] - m1[0][0])) % 180.0
@@ -692,11 +722,13 @@ def barTheftSwap(geom, kaiRef, groups, pose, cost):
             if bestU is None:
                 if tOn:
                     # 决策迹 G5：笔比杆长病征已触发但无孤儿墨组可认领
+                    ev = {"lenRatio": round(chord1 / max(1.0, barLen), 2)}
+                    if extG5:
+                        ev["ext"] = 1
                     trace.append({
                         "level": "G5", "stroke": k1, "from": g0,
                         "action": "noOrphan", "adopted": False,
-                        "evidence": {"lenRatio": round(
-                            chord1 / max(1.0, barLen), 2)}})
+                        "evidence": ev})
                 continue
             supU, gU, off1 = bestU
             c1 = _medianCenter(initMedians, k1)
@@ -731,23 +763,27 @@ def barTheftSwap(geom, kaiRef, groups, pose, cost):
             if bestK2 is None:
                 if tOn:
                     # 决策迹 G5：孤儿组已定但无合格回填者（链断被拒）
+                    ev = {"lenRatio": round(chord1 / max(1.0, barLen), 2),
+                          "sup": round(supU, 1)}
+                    if extG5:
+                        ev["ext"] = 1
                     trace.append({
                         "level": "G5", "stroke": k1, "from": g0, "to": gU,
                         "action": "noRefill", "adopted": False,
-                        "evidence": {"lenRatio": round(
-                            chord1 / max(1.0, barLen), 2),
-                            "sup": round(supU, 1)}})
+                        "evidence": ev})
                 continue
             k2 = bestK2[1]
             g2 = strokeGroup[k2]
             if tOn:
+                ev = {"lenRatio": round(chord1 / max(1.0, barLen), 2),
+                      "sup": round(supU, 1),
+                      "sup2": round(bestK2[0], 1)}
+                if extG5:
+                    ev["ext"] = 1
                 trace.append({
                     "level": "G5", "strokes": [k1, k2],
                     "moves": [[k1, g0, gU], [k2, g2, g0]], "adopted": True,
-                    "evidence": {"lenRatio": round(
-                        chord1 / max(1.0, barLen), 2),
-                        "sup": round(supU, 1),
-                        "sup2": round(bestK2[0], 1)}})
+                    "evidence": ev})
             groupStrokes[g0].remove(k1)
             strokeGroup[k1] = gU
             groupStrokes[gU].append(k1)
@@ -1449,7 +1485,7 @@ def ladderActStage(kaiRef, groups, pose, cost, diag):
     initMedians = pose.initMedians
     affine = kaiRef.affine
     strokeGroupCost = cost.strokeGroupCost
-    penMatrix = cost.penMatrix
+    penTags = getattr(cost, "penTags", None) or {}
 
     # ------------------------------------------------------------ G8.5 执行器
     # 对 fired 部件按 plan 施行：组重排 + 中轴重置到目标条带 y。
@@ -1459,8 +1495,9 @@ def ladderActStage(kaiRef, groups, pose, cost, diag):
     #    strokeGroupCost 评新组贴合度（≤40）；
     #  · all-or-nothing：任一步不达标整包回滚；
     #  · 被顶出的原独占者（搏5横折垫底接盘/睥·目底横跨位窃占）名义
-    #    中轴重置后按重置代价 argmin 重指派，叠 penMatrix 杆⊥罚
-    #    （≥200 一票否决），禁投本轮已认领的条组；
+    #    中轴重置后按重置代价 argmin 重指派，叠 penTags 罚（非 barcap
+    #    罚种和 ≥200 一票否决，barcap 分道豁免——裁定#7），禁投本轮已
+    #    认领的条组；
     #  · 空组断言：不得新增空组（休眠网既有空组豁免——组数>笔数时
     #    S1b 语义认领的空组是常态）；
     #  · ladderTouched 组在 G9 豁免——G9 是整组仿射复位，会把刚锚定
@@ -1538,7 +1575,14 @@ def ladderActStage(kaiRef, groups, pose, cost, diag):
                             lim = 90.0 if g in _vacated else 60.0
                             if row[g] > lim:
                                 continue
-                            if penMatrix.get(o, {}).get(g, 0) >= 200:
+                            # 否决门分道读取（矩阵归并2b·裁定#7）：barcap
+                            # 容量罚是锚定期猜测的修正非铁证，不参与一票
+                            # 否决（杆⊥/点锚仍否决——卑族杆⊥误否决正当
+                            # 互换的教训同语义）；无 barcap 条目时罚种和
+                            # 逐位=原 penMatrix 标量读法（同序求和）。
+                            if sum(v for t2, v in penTags.get(o, {})
+                                   .get(g, {}).items()
+                                   if t2 != "barcap") >= 200:
                                 continue
                             dest = g
                             break

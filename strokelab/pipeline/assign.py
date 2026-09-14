@@ -24,6 +24,18 @@ def _traceOn():
     return bool(getattr(_pl, "TRACE_ON", False) or _pl.LADDER_PROBE)
 
 
+# 杆容量罚标定参数（矩阵归并2b·设计§2b 标定阶梯"先提门槛再降罚幅"；
+# 标定过程与各候选点实测数据见 docs/矩阵归并设计.md 实施记录·2b）：
+# RATIO=超长判据门槛（G5 实码 1.08 为判据面原点）；PEN=罚幅（推导：
+# 须覆盖"名义压杆代价≈0 vs 真主组代价可达 G5 认领窗 140"的差值）；
+# WIN=罚施加的代价窗（"现住户"概念的锚定期翻译——G5 触发主体是已
+# 入组的现住户，无窗版把罚铺满全部远距(笔,组)对，sample958 实测
+# 54 对/字，匈牙利被迫指派下纯连锁挤位破坏健康字）。
+BARCAP_RATIO = 1.15
+BARCAP_PEN = 120.0
+BARCAP_WIN = 1e18
+
+
 def strokeGroupCostRow(groups, pose, k):
     """笔画→各组的"墨距离"（墨内=0，否则到组边界最近距离）均值向量。
     inside 占比法对 ⊓ 形带状轮廓失效（鸿蒙"日"的竖中轴悬在空腔里），
@@ -215,8 +227,27 @@ def run(geom, kaiRef, groups, pose, cost):
     # ②点锚大墨罚 +250：点笔×(组bbox对角线≥3.5×名义弦长且组墨占比
     #   ≥7%)（邸酞濮蜷——楷体点名义恰压长笔墨上代价≈0，匈牙利便
     #   "点锚大墨、长笔流放点斑"）
+    # ③杆容量罚 +200（矩阵归并2b，PEN_BARCAP 默认关）：若 k 锚进 g，
+    #   k 名义弦长 > 1.08× g 的 bbox 沿笔轴投影 barLen=|w·ux|+|h·uy|
+    #   （与 G5 barTheftSwap/_axisChordLen 同公式）——"杆装不下它、是
+    #   抢来的"。判据=G5 现行触发判据的**锚定期版本**，照抄实码不加它
+    #   没有的形状门/笔型门（对抗评审裁定#3：带 _barAx 杆形门+笔型门
+    #   对 G5 触发对命中率仅 44-46%）。**"现住户"概念的锚定期翻译含
+    #   代价窗 ≤140**（G5 认领窗上限，罚幅 200 的覆盖设计参照同一常数）：
+    #   G5 触发主体是已入组的现住户（代价≈0），无窗版把 200 罚铺满全部
+    #   远距(笔,组)对（sample958 实测 54 对/字），匈牙利被迫指派下纯
+    #   连锁挤位——标定实测 21 个回退字里 14 个无任何 barcap 直接命中，
+    #   全是连锁位移；加窗后罚面只剩"确实可能锚进去"的对。威 族病理：
+    #   全局仿射把楷体顶横名义压在戌内短横杆上代价≈0 直出抢杆——罚后
+    #   匈牙利把杆锚给装得下的同向笔，"过长笔单独直出杆"在锚定层消解
+    #   为多成员竞争组；G5 层保留兜漏网（门扩展见 arbitrate.
+    #   barTheftSwap）。仅名义遍施行（seedMedians is None，同 G8.5
+    #   执行器门，理由见包开关注释）。
     penMatrix = {}
     penTags = {}
+    barcapOn = bool(getattr(sys.modules["strokelab.pipeline"],
+                            "PEN_BARCAP", False)) and \
+        pose.seedMedians is None
     try:
         _totInk = 0.0
         _gInk = {}
@@ -252,6 +283,13 @@ def run(geom, kaiRef, groups, pose, cost):
             if chord0 >= 40 and t0 in ("横", "竖", "提"):
                 kAng0 = math.degrees(math.atan2(
                     m0k[-1][1] - m0k[0][1], m0k[-1][0] - m0k[0][0])) % 180.0
+            # 杆容量罚的笔轴单位向量（无笔型/弦长门——G5 实码对任意笔
+            # 评 chord>1.08×barLen；barLen 取 |·| 后与 %180 无关）
+            uxCap = uyCap = None
+            if barcapOn and chord0 > 0:
+                radCap = math.atan2(m0k[-1][1] - m0k[0][1],
+                                    m0k[-1][0] - m0k[0][0])
+                uxCap, uyCap = math.cos(radCap), math.sin(radCap)
             for g in range(nGroups):
                 pens = {}
                 ax0 = _barAx.get(g)
@@ -266,13 +304,19 @@ def run(geom, kaiRef, groups, pose, cost):
                         if diag0 >= 3.5 * max(20.0, chord0) and \
                                 _gInk.get(g, 0.0) / _totInk >= 0.07:
                             pens["dotAnchor"] = 250.0
+                if uxCap is not None:
+                    bb = groupBBoxes.get(g)
+                    if bb is not None and costRows[k][g] <= BARCAP_WIN and \
+                            chord0 > BARCAP_RATIO * (
+                                abs(bb.w * uxCap) + abs(bb.h * uyCap)):
+                        pens["barcap"] = BARCAP_PEN
                 if pens:
                     # 罚种分道记账（矩阵归并·对抗评审裁定#1）：penTags
                     # 记 {罚种:罚值} 明细，penMatrix 保持"各罚种之和"的
-                    # 标量——G8.5 执行器否决门在 arbitrate.py 读标量
-                    # (≥200 一票否决)，对外读法零改动；未来罚种豁免
-                    # （裁定#7 barcap 不进否决门）只需该处改读 penTags
-                    # 分量。求和顺序=罚种登记顺序，数值与原累加逐位同。
+                    # 标量——匈牙利锚定读标量；G8.5 执行器否决门改读
+                    # penTags 分量（barcap 分道豁免，裁定#7，见
+                    # arbitrate.ladderActStage）。求和顺序=罚种登记
+                    # 顺序，数值与原累加逐位同。
                     penTags.setdefault(k, {})[g] = pens
                     penMatrix.setdefault(k, {})[g] = sum(pens.values())
     except Exception:

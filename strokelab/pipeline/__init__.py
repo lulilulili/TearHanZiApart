@@ -68,6 +68,18 @@ TRACE_ON = _os.environ.get("STROKELAB_TRACE", "1") != "0"
 # 环境变量 STROKELAB_G8_EXEC=0 切撤除态（spawn worker 继承语义同
 # CLIB_ENABLE——批跑子进程读不到主进程包属性赋值）。
 ARB_G8_EXEC = _os.environ.get("STROKELAB_G8_EXEC", "1") != "0"
+# 杆容量罚开关（矩阵归并 2b，docs/矩阵归并设计.md·对抗评审裁定#3/#4/#7）：
+# G5"杆容量"证据折进锚定罚——若 k 锚进组 g，k 名义弦长 > 1.08× g 的
+# bbox 沿笔轴投影（判据=G5 疑抢杆触发判据的锚定期版本，照抄实码、不加
+# 它没有的形状门/笔型门），penTags['barcap']=200 只进匈牙利锚定矩阵
+# （红线：不进 costRows 本体；G8.5 执行器否决门分道豁免该罚种）。仅
+# 名义遍施行（seedMedians is None，同 G8.5 执行器门）——种子遍中轴已
+# 实测落位，容量罚是对锚定期名义猜测的修正，不对实证证据二次猜测；
+# 该门同时保证"首遍前段两态同判 ⇒ 全管线两态同判"的归纳链成立（全库
+# 复核可用前段截跑，tools/enum_barcap.py）。默认 False（基线逐位一致，
+# parity 硬门），六门标定达标后转 True 提交。环境变量
+# STROKELAB_PEN_BARCAP=1 开（spawn worker 继承语义同 CLIB_ENABLE）。
+PEN_BARCAP = _os.environ.get("STROKELAB_PEN_BARCAP", "") == "1"
 
 from .helpers import (_medianDeviation, _hungarian, _switchbackCount,
                       _axisFails, _reMedianFromStroke, _selfSeeds,
