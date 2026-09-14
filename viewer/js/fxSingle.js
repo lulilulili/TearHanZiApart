@@ -282,7 +282,7 @@ async function etymEffect(ctx) {
     const sl = (r.slotOf || [])[k];
     const isSem = semSlot >= 0 && sl === semSlot;
     const isPho = phoSlot >= 0 && sl === phoSlot;
-    const p = el("path", { d: drawPathOf(s, 1), "fill-rule": "nonzero",
+    const p = el("path", { d: s.path, "fill-rule": "nonzero",
       fill: isSem ? semColor : isPho ? phoColor : "#b9bec6" }, root);
     if (isPho) {
       p.setAttribute("stroke", phoColor);
@@ -338,8 +338,7 @@ async function writeEffect(ctx) {
   const seq = [];
   r.strokes.forEach((s, k) => {
     if (s.failed || !s.path) return;
-    const dPath = drawPathOf(s, 1);    // 理想形态开关：书写底/揭示剪均切换
-    const base = el("path", { d: dPath, fill: "#ececec", stroke: "#d5d5d5",
+    const base = el("path", { d: s.path, fill: "#ececec", stroke: "#d5d5d5",
       "stroke-width": 2, "fill-rule": "nonzero" }, root);
     if (!s.median || s.median.length < 2) {
       seq.push({ base, color: colorOf(s.index), instant: true });
@@ -347,7 +346,7 @@ async function writeEffect(ctx) {
     }
     const cid = "fxw_clip" + k;
     const cp = el("clipPath", { id: cid }, defs);
-    el("path", { d: dPath, "clip-rule": "nonzero" }, cp);
+    el("path", { d: s.path, "clip-rule": "nonzero" }, cp);
     const mp = s.median.map((p, j) =>
       (j ? "L" : "M") + fmt(p[0]) + " " + fmt(p[1])).join(" ");
     const wpx = Math.max(60, (s.width || 110) * 1.3);

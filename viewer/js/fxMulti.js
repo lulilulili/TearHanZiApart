@@ -21,8 +21,7 @@ function mkStrokeGroup(deco, ks, parent) {
   for (const k of ks) {
     const s = deco.strokes[k];
     if (s && !s.failed && s.path)
-      el("path", { d: drawPathOf(s, 2), "fill-rule": "nonzero",
-                   fill: colorOf(k) }, g);
+      el("path", { d: s.path, "fill-rule": "nonzero", fill: colorOf(k) }, g);
   }
   return g;
 }
@@ -93,12 +92,6 @@ function unionPairIdx(nS, nD) {
   return pairs;
 }
 
-/* 理想形态开关（⑧场）织进重复点击场景 key：同字对在两态各自成场，
-   切换开关后再点即按新态重建，不复用旧态几何 */
-function fx2SceneKey(pair) {
-  return pair.join("") + (idealOn(2) ? "|理想" : "");
-}
-
 /* ---- ⑧ 场引擎 ---- */
 const fx2 = {
   svg: null, raf: 0, token: 0, mode: null,
@@ -145,8 +138,7 @@ const fx2 = {
     const cg = el("g", { transform: fxU.tf(place) }, root);
     deco.strokes.forEach((s, k) => {
       if (!s.failed && s.path)
-        el("path", { d: drawPathOf(s, 2), "fill-rule": "nonzero",
-                     fill: colorOf(k) }, cg);
+        el("path", { d: s.path, "fill-rule": "nonzero", fill: colorOf(k) }, cg);
     });
   },
   async morphChar(a, b, place, tk, pho) {   // 声旁槽内逐笔插值；其余飞出/飞入
@@ -269,8 +261,7 @@ const fx2 = {
       for (let i = n; i < pr.dst.ks.length; i++) {   // 笔画数不等的兜底淡入
         const sb = B.strokes[pr.dst.ks[i]];
         if (sb && !sb.failed && sb.path)
-          morphs.push({ fadeIn: true, node: el("path", {
-            d: drawPathOf(sb, 2),
+          morphs.push({ fadeIn: true, node: el("path", { d: sb.path,
             "fill-rule": "nonzero", fill: colorOf(pr.dst.ks[i]), opacity: 0 }, cg2) });
       }
     }
@@ -341,7 +332,7 @@ async function fx2SwapEffect(ctx) {
   const eng = ctx.engine;
   const pair = ctx.chars("清晴", 2, 2);
   if (pair.length < 2) { ctx.setInfo("请输入两个字（如 清晴）"); return; }
-  if (eng.mode === "swap" && eng.swapCtx && eng.swapCtx.key === fx2SceneKey(pair)) {
+  if (eng.mode === "swap" && eng.swapCtx && eng.swapCtx.key === pair.join("")) {
     const c = eng.swapCtx, dir = c.swapped ? 0 : 1;
     if (await ctx.anim(900, t => swapFrame(c, dir, t))) {
       c.swapped = !c.swapped;
@@ -380,14 +371,12 @@ async function fx2SwapEffect(ctx) {
     const stat = el("g", { transform: fxU.tf(place) }, root);
     deco.strokes.forEach((s, k) => {
       if (s.failed || !s.path || ks.indexOf(k) >= 0) return;
-      el("path", { d: drawPathOf(s, 2), "fill-rule": "nonzero",
-                   fill: "#565b63" }, stat);
+      el("path", { d: s.path, "fill-rule": "nonzero", fill: "#565b63" }, stat);
     });
     const mov = el("g", { transform: fxU.tf(place) }, root);
     for (const k of ks) {
       const s = deco.strokes[k];
-      el("path", { d: drawPathOf(s, 2), "fill-rule": "nonzero",
-                   fill: tint }, mov);
+      el("path", { d: s.path, "fill-rule": "nonzero", fill: tint }, mov);
     }
     return mov;
   };
@@ -406,7 +395,7 @@ async function fx2SwapEffect(ctx) {
   const sameOp = (((A.kai || {}).structure) || {}).op &&
     (((A.kai || {}).structure) || {}).op === (((B.kai || {}).structure) || {}).op;
   eng.swapCtx = {
-    key: fx2SceneKey(pair), swapped: false,
+    key: pair.join(""), swapped: false,
     label: `「${fxU.childChar(chA[slot])}」⇄「${fxU.childChar(chB[slot])}」（槽位${slot + 1}）`,
     movers: [
       { g: movA, home: pA,
@@ -429,7 +418,7 @@ async function fx2SwapMorphEffect(ctx) {
   const eng = ctx.engine;
   const pair = ctx.chars("清晴", 2, 2);
   if (pair.length < 2) { ctx.setInfo("请输入两个字（如 清晴）"); return; }
-  if (eng.mode === "swapM" && eng.smCtx && eng.smCtx.key === fx2SceneKey(pair)) {
+  if (eng.mode === "swapM" && eng.smCtx && eng.smCtx.key === pair.join("")) {
     const c = eng.smCtx, toB = !c.morphed;
     if (await ctx.anim(1100, t =>
         c.items.forEach(it => smFrame(it, toB ? t : 1 - t)))) {
@@ -467,8 +456,7 @@ async function fx2SwapMorphEffect(ctx) {
     const stat = el("g", { transform: fxU.tf(place) }, root);
     deco.strokes.forEach((s, k) => {
       if (s.failed || !s.path || srcKs.indexOf(k) >= 0) return;
-      el("path", { d: drawPathOf(s, 2), "fill-rule": "nonzero",
-                   fill: "#565b63" }, stat);
+      el("path", { d: s.path, "fill-rule": "nonzero", fill: "#565b63" }, stat);
     });
     const mg = el("g", { transform: fxU.tf(place) }, root);
     const srcSubsList = srcKs.map(k => strokeSubpaths(deco, k, N)).filter(Boolean);
@@ -499,7 +487,7 @@ async function fx2SwapMorphEffect(ctx) {
   const itemsB = mkItems(B, pB, ksB, A, ksA, fitAtoB, "#2b6fb3");
   if (!itemsA.length || !itemsB.length) { ctx.setInfo("重采样失败"); return; }
   eng.smCtx = {
-    key: fx2SceneKey(pair), morphed: false,
+    key: pair.join(""), morphed: false,
     label: `「${fxU.childChar(chA[slot])}」⇢「${fxU.childChar(chB[slot])}」（原地插值）`,
     items: itemsA.concat(itemsB),
   };
@@ -519,7 +507,7 @@ async function fx2AnyMorphEffect(ctx) {
   const eng = ctx.engine;
   const pair = ctx.chars("汉字", 2, 2);
   if (pair.length < 2) { ctx.setInfo("请输入两个字（如 汉字）"); return; }
-  if (eng.mode === "any" && eng.anyCtx && eng.anyCtx.key === fx2SceneKey(pair)) {
+  if (eng.mode === "any" && eng.anyCtx && eng.anyCtx.key === pair.join("")) {
     const c = eng.anyCtx, toB = !c.morphed;
     if (await ctx.anim(1200, t =>
         c.items.forEach(it => smFrame(it, toB ? t : 1 - t)))) {
@@ -560,7 +548,7 @@ async function fx2AnyMorphEffect(ctx) {
     items.push({ p: pEl, pairs: fxU.buildRingPairs(srcSubs, dstSubsCache[j]) });
   }
   if (!items.length) { ctx.setInfo("重采样失败"); return; }
-  eng.anyCtx = { key: fx2SceneKey(pair), morphed: false,
+  eng.anyCtx = { key: pair.join(""), morphed: false,
     label: `「${pair[0]}」⇢「${pair[1]}」（整字子路径级插值）`, items };
   items.forEach(it => smFrame(it, 0));
   ctx.setInfo(`任意变形 ${pair.join(" / ")}：${eng.anyCtx.label} 变形中…`);
@@ -697,9 +685,8 @@ async function fx2GatherEffect(ctx, auto) {
     o.d.strokes.forEach((st, k) => {
       if (st.failed || !st.path) return;
       const g = el("g", {}, cg);
-      const dP = drawPathOf(st, 2);
-      el("path", { d: dP, "fill-rule": "nonzero", fill: colorOf(k) }, g);
-      const bb = pathBBox(dP) || { x0: 400, y0: 400, x1: 600, y1: 600 };
+      el("path", { d: st.path, "fill-rule": "nonzero", fill: colorOf(k) }, g);
+      const bb = pathBBox(st.path) || { x0: 400, y0: 400, x1: 600, y1: 600 };
       const side = Math.floor(Math.random() * 4);
       let ox, oy;                     // 视口四边外（外层数据坐标）
       if (side === 0) { ox = -260 - Math.random() * 260; oy = -150 + Math.random() * 1150; }
