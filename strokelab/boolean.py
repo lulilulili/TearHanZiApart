@@ -10,15 +10,50 @@ clampStrokes：
 """
 
 import math
+import os as _os
 
 from functools import lru_cache
 
-from shapely.geometry import Polygon, MultiPolygon
+from shapely.geometry import Point, Polygon, MultiPolygon
 from shapely.ops import unary_union
 
-from .geometry import parseContours, flattenSegs, shapeDescriptor
+from .geometry import (parseContours, flattenSegs, shapeDescriptor,
+                       signedArea, _medialAdjacency)
 
 _FLAT = 3.0  # 布尔运算用的细分步长
+
+# ---- 形态修复器·交界毛刺置换开关（2026-09-15）。默认关；病例集+健康
+# 集标定与四门（关态 parity / 开态 bench / sample958 / cross）全绿后
+# 转默认开。环境变量 STROKELAB_MORPH_REPAIR=1 开（verify 批跑 spawn
+# worker 读不到主进程的模块属性赋值，环境变量随子进程继承——
+# pipeline.CLIB_ENABLE 先例）。开关放 boolean 模块而非 pipeline 包
+# __init__（本轮授权路径约束，arbitrate.LADDER_F 先例）；
+# finalize.sealUnion 经 booleanClamp 属性运行期取值，标定脚本赋值即生效。
+MORPH_REPAIR = _os.environ.get("STROKELAB_MORPH_REPAIR", "0") == "1"
+MORPH_RETAIN_GATE = 0.95   # 检测门：保留率低于此（切割动过交界带）才审
+MORPH_BRIDGE_GATE = 2      # 或 桥数≥此值（交界带靠桥缝合=毛刺高发）
+MORPH_SPUR_FLOOR = 40.0    # 短叶枝阈下限（照 verify.MORPH_SPUR_MIN 口径）
+MORPH_PATCH_MAX = 0.35     # 单补丁面积上限（占本笔比）。曾设 0.10——
+                           # 入侵残片型病理（simkai 草 #5横被邻笔残片
+                           # 压顶，残片≈38% 本笔面积）整类漏修；真防线
+                           # 是 接触>颈宽+形态改善+单连通 三守卫，面积
+                           # 上限只挡"整半边身子搬家"的失控场景
+MORPH_SHARE_MAX = 0.45     # 单笔转让总面积上限——retainRatio 字段收口链
+                           # 从不改写，"retain 不得下降"守卫按面积化口径
+                           # 落地：置换后本笔至少留 55% 面积
+MORPH_RECV_MAX = 0.6       # 补丁不得超过受让笔面积的 0.6 倍（挂在别人
+                           # 身上的肉不会比别人的身子还大）
+MORPH_RECV_SICK = 12       # 受让笔当前形态分（交叉+短叶枝）超过此值不
+                           # 受让：重病笔的轮廓不可信，往它身上归肉是
+                           # 垃圾上摞垃圾（simkai 草 #5横 分 88 实证，
+                           # 收下残片后 verify 全字 junc 30→37 净恶化；
+                           # 健康受让先例 永·捺 分 4、草 #3竖 分 1）
+MORPH_CONTACT_MIN = 4.0    # 邻笔接触长度下限（数值噪声级接触不构成转让证据）
+MORPH_SEAM_TOL = 0.6       # 接触判定膨胀带（切割缝两侧 0.1 舍入+细分噪声）
+MORPH_ARM_MAX = 250.0      # 伪臂候选链长上限：交界粘连尾巴（永 横折钩沿捺
+                           # 左flank 的楔实测 187）在此之下；真笔臂（横杆/
+                           # 竖身，geometry.medialJunctions 实测真 T 臂 354+）
+                           # 在此之上——同一尺度先例（角噪二段剪除 <250）
 
 
 def _loopPolys(pathStr):
@@ -723,3 +758,348 @@ def clampStrokes(contours, strokes, excessTol=0.5, coverTol=99.5, glyph=None):
     cover = union.intersection(glyph).area / glyph.area * 100
     excess = (union.area - union.intersection(glyph).area) / max(1.0, union.area) * 100
     return {"cover": round(cover, 1), "excess": round(excess, 1)}
+
+
+# ---------------------------------------------------------------- 形态修复器：交界毛刺置换
+
+def _nonzeroLargest(pathStr):
+    """切割路径 → nonzero 语义单笔区域最大片（中轴图审计域）。切割路径
+    继承字体原始绕向，奇偶合成会在保留片搭接处误挖假孔，Voronoi 中轴
+    会被假孔搅出伪分叉——审计域用 nonzero（外环并集减反绕环并集）；
+    手术域仍用 _pathRegion（奇偶=reUnionCheck/verify UNION 的消费语义，
+    写出路径的区域按此恒等）。语义同 verify.strokeMorphRegion，独立
+    实现（verify 与生产代码路径强制隔离，不能互相 import）。"""
+    pairs = []
+    for c in parseContours(pathStr):
+        pts = flattenSegs(c["segs"], _FLAT)
+        if len(pts) < 4:
+            continue
+        try:
+            pg = Polygon(pts)
+            if not pg.is_valid:
+                pg = pg.buffer(0)
+            if not pg.is_empty:
+                pairs.append((pg, signedArea(pts)))
+        except Exception:
+            pass
+    if not pairs:
+        return None
+    outerSign = 1.0 if max(pairs, key=lambda t: abs(t[1]))[1] >= 0 else -1.0
+    outers = [pg for pg, a in pairs if a * outerSign >= 0]
+    holes = [pg for pg, a in pairs if a * outerSign < 0]
+    try:
+        region = unary_union(outers)
+        if holes:
+            region = region.difference(unary_union(holes))
+    except Exception:
+        return None
+    if not region.is_valid:
+        region = region.buffer(0)
+    pieces = _piecesOf(region)
+    if not pieces:
+        return None
+    region = max(pieces, key=lambda g: g.area)
+    return region if region.area >= 25.0 else None
+
+
+def _walkLeafChain(adj, leaf):
+    """度1叶沿度≤2链走到头 → (链节点表, 链长, 挂点交叉节点|None)。
+    与 geometry.medialJunctions / verify._morphWalkLeaf 同法——三处
+    阈值语义不同（全字级120 / verify 单笔审计 / 本处修复域），且
+    verify 与生产隔离不能互相 import，各自独立持有。"""
+    chain = [leaf]
+    chainLen = 0.0
+    cur, prev = leaf, None
+    while True:
+        nbrs = [(v, w) for v, w in adj[cur].items() if v != prev]
+        if not nbrs:
+            return chain, chainLen, None
+        v, w = nbrs[0]
+        chainLen += w
+        prev, cur = cur, v
+        if len(adj[cur]) != 2:
+            break
+        chain.append(cur)
+    return chain, chainLen, (cur if len(adj[cur]) >= 3 else None)
+
+
+def _dropLeafChain(adj, chain):
+    """从无向图 adj 中整链摘除（含挂边）。"""
+    for node in chain:
+        for v in list(adj.get(node, {})):
+            adj[v].pop(node, None)
+        adj.pop(node, None)
+
+
+def _morphScan(region):
+    """单笔中轴图形态勘察 → (交叉节点数, 短叶枝记录表, 伪臂候选表)
+    | None。剪枝口径照 verify.morphAuditStroke（链长 < max(2×挂点余隙,
+    40)）；剪稳后剩余图里 链长<MORPH_ARM_MAX 的叶链是伪臂候选（交界
+    粘连尾巴长于笔宽、逃过 spur 阈，正是 verify 注释里"保留计入交叉
+    节点"的形态病本体）。交叉节点数/短叶枝数与 verify 审计同口径，
+    伪臂只作修复候选不进指标。"""
+    adj = _medialAdjacency(region)
+    if not adj:
+        return None
+    adj = {u: dict(vs) for u, vs in adj.items()}
+    rings = [region.exterior] + list(region.interiors)
+
+    def clearance(p):
+        pt = Point(p)
+        return min(r.distance(pt) for r in rings)
+
+    spurs = []
+    changed = True
+    while changed:
+        changed = False
+        for leaf in [u for u, vs in adj.items() if len(vs) == 1]:
+            if leaf not in adj or len(adj[leaf]) != 1:
+                continue
+            chain, chainLen, junc = _walkLeafChain(adj, leaf)
+            if junc is None:
+                continue
+            if chainLen < max(2.0 * clearance(junc), MORPH_SPUR_FLOOR):
+                spurs.append({"tip": leaf, "chain": chain,
+                              "clrs": [clearance(p) for p in chain],
+                              "len": chainLen})
+                _dropLeafChain(adj, chain)
+                changed = True
+    arms = []
+    for leaf in [u for u, vs in adj.items() if len(vs) == 1]:
+        chain, chainLen, junc = _walkLeafChain(adj, leaf)
+        if junc is None or chainLen >= MORPH_ARM_MAX:
+            continue
+        arms.append({"tip": leaf, "chain": chain,
+                     "clrs": [clearance(p) for p in chain], "len": chainLen})
+    juncN = sum(1 for vs in adj.values() if len(vs) >= 3)
+    return juncN, spurs, arms
+
+
+def _burrPatch(cur, spur):
+    """毛刺补丁提取：叶枝沿链逐点圆盘（半径=2×该点余隙）并集 ∩ 本笔
+    当前区域，取含链末端的那片。末端单圆盘不够——交界毛刺常是沿邻笔
+    缝隙下垂的长条楔（永 横折钩沿捺左flank 187 长、楔尖余隙仅 0.4-3），
+    补丁须罩住整条走廊且半径须随局部余隙走。两处几何卫生（永 标定
+    实测）：①从末端起取**连续前缀**，余隙陡升处截断（>max(2×链余隙
+    中位, 6)=已进交界肥厚区，散点保留会留缺口）；②圆盘并集先做闭运算
+    （+r/−r 缓冲）再求交——不同半径圆盘拼接的扇贝形切口会让重扫
+    Voronoi 喷出几十条假短叶枝，改善守卫恒否决。"""
+    chain, clrs = spur["chain"], spur["clrs"]
+    med = sorted(clrs)[len(clrs) // 2]
+    cap = max(2.0 * med, 6.0)
+    pref = []
+    for p, c in zip(chain, clrs):
+        if c > cap and len(pref) >= 2:
+            break
+        pref.append((p, c))
+    disks = [Point(p).buffer(2.0 * max(c, 1.5), 8) for p, c in pref[::2]]
+    disks.append(Point(pref[-1][0]).buffer(2.0 * max(pref[-1][1], 1.5), 8))
+    try:
+        zone = unary_union(disks)
+        s = 2.0 * cap
+        zone = zone.buffer(s, 8).buffer(-s, 8)
+        patch = zone.intersection(cur)
+    except Exception:
+        return None
+    pieces = _piecesOf(patch)
+    if not pieces:
+        return None
+    pt = Point(spur["tip"])
+    for pc in pieces:
+        if pc.contains(pt) or pc.distance(pt) < 0.2:
+            return pc
+    return max(pieces, key=lambda g: g.area)
+
+
+def _seamContact(patch, other):
+    """补丁边界落在邻笔 tol 邻域内的长度。切割缝两侧路径各自细分并
+    0.1 舍入，精确 boundary∩boundary 会漏，按膨胀带口径量。"""
+    if other is None or other.is_empty:
+        return 0.0
+    try:
+        if patch.distance(other) > MORPH_SEAM_TOL:
+            return 0.0
+        return patch.boundary.intersection(other.buffer(MORPH_SEAM_TOL)).length
+    except Exception:
+        return 0.0
+
+
+def _bigPieces(region, refArea):
+    return [g for g in _piecesOf(region)
+            if g.area >= max(25.0, refArea * 0.02)]
+
+
+def _scanScore(region):
+    """区域最大片的 (交叉+短叶枝) 合计分 | None。受让方传染守卫用。"""
+    main = max(_piecesOf(region), key=lambda g: g.area, default=None)
+    if main is None:
+        return None
+    scan = _morphScan(main)
+    if not scan:
+        return None
+    return scan[0] + len(scan[1])
+
+
+def _repairOneStroke(strokes, regions, k, mates):
+    """单笔毛刺勘察+试置换（不落盘）→ (新本笔区域, {受让笔:[补丁并,
+    数,并后区域]}) | None。置换判据：补丁与邻笔的边界接触长度 > 补丁
+    挂回本笔主体的颈宽（圆弧割线长，偏保守）——"挂在别人身上的肉"
+    才转让。守卫：①补丁单块/合计面积上限（retain 面积化口径）；②逐
+    补丁不破单连通；③置换后本笔中轴图指标净改善且交叉不升；④受让方
+    传染守卫——重病笔（形态分>MORPH_RECV_SICK）不受让 + 受让侧恶化
+    合计≤2×本笔改善量（simkai 草曾出现 横折 把残片塞给已病的 #5横，
+    本笔小赚邻笔大亏，verify 侧 junc 30→37 净恶化）。"""
+    own = regions[k]
+    big0 = _bigPieces(own, own.area)
+    if not big0:
+        return None
+    main0 = max(big0, key=lambda g: g.area)
+    audit = _nonzeroLargest(strokes[k]["path"])
+    if audit is None:
+        return None
+    # 域一致性门：审计域（nonzero）与手术域（奇偶）不一致的笔跳过——
+    # 保留片搭接被奇偶误挖出假孔时两域中轴拓扑不可比，改善守卫失真；
+    # 手术若照奇偶写出会把假孔实体化，照 nonzero 写出会改并集语义。
+    try:
+        if audit.symmetric_difference(main0).area > max(1.0, own.area * 0.002):
+            return None
+    except Exception:
+        return None
+    scan0 = _morphScan(main0)
+    if not scan0:
+        return None
+    junc0, spurs0, arms0 = scan0
+    if not spurs0 and not arms0:
+        return None
+    cur = own
+    gains = {}
+    recvScore = {}      # 受让候选形态分惰性缓存（每邻笔最多一次 Voronoi）
+    for sp in spurs0 + arms0:
+        patch = _burrPatch(cur, sp)
+        if patch is None or patch.area < 9.0 or \
+                patch.area > own.area * MORPH_PATCH_MAX:
+            continue
+        try:
+            rest = cur.difference(patch)
+            if not rest.is_valid:
+                rest = rest.buffer(0)
+            if len(_bigPieces(rest, own.area)) != len(big0):
+                continue
+            neck = patch.boundary.intersection(rest).length
+        except Exception:
+            continue
+        bestJ, bestC = -1, max(neck, MORPH_CONTACT_MIN)
+        for j in mates:
+            if regions[j] is None or \
+                    patch.area > regions[j].area * MORPH_RECV_MAX:
+                continue
+            if j not in recvScore:
+                recvScore[j] = _scanScore(regions[j])
+            if recvScore[j] is None or recvScore[j] > MORPH_RECV_SICK:
+                continue
+            c = _seamContact(patch, regions[j])
+            if c > bestC:
+                bestC, bestJ = c, j
+        if bestJ < 0:
+            continue
+        cur = rest
+        if bestJ in gains:
+            gains[bestJ][0] = gains[bestJ][0].union(patch)
+            gains[bestJ][1] += 1
+        else:
+            gains[bestJ] = [patch, 1]
+    if not gains or own.area - cur.area > own.area * MORPH_SHARE_MAX:
+        return None
+    mainNew = max(_piecesOf(cur), key=lambda g: g.area, default=None)
+    if mainNew is None:
+        return None
+    scan2 = _morphScan(mainNew)
+    if not scan2:
+        return None
+    junc2, spurs2, _arms2 = scan2
+    # 改善守卫：交叉节点不得上升，交叉+短叶枝合计必须严格下降（合计
+    # 门允许切口处冒出个别新短叶枝，但只在交叉下降更多时放行——永
+    # 横折钩实测 junc 7→0、spur 15→17，合计 22→17）
+    if junc2 > junc0 or junc2 + len(spurs2) >= junc0 + len(spurs0):
+        return None
+    # 受让方传染守卫：受让侧恶化合计 ≤ 2×本笔改善量。静态合计对
+    # "毛边换主"近守恒（锯齿边归谁谁挨罚），真收益在下游——一遍置换
+    # →种子更干净→自洽二遍重切整体更优（永 静态 NET+4 但 verify 终态
+    # junc 7→2 spur 19→11）；绝对失控（受让侧恶化远超本笔改善）仍拦
+    donorGain = (junc0 + len(spurs0)) - (junc2 + len(spurs2))
+    recvDelta = 0
+    for j, entry in gains.items():
+        m2 = regions[j].union(entry[0])
+        if not m2.is_valid:
+            m2 = m2.buffer(0)
+        after = _scanScore(m2)
+        if after is None:
+            return None
+        recvDelta += after - (recvScore.get(j) or 0)
+        entry.append(m2)     # 并后受让区域随包带出，commit 免重算
+    if recvDelta > 2 * donorGain:
+        return None
+    return cur, gains
+
+
+def _commitRepair(strokes, regions, k, trial):
+    """置换落盘（整包 all-or-nothing）：受让侧试并+双侧路径重建全部
+    通过才写；受让笔不得新增显著碎片（补丁与邻笔只是 0.6 带内接触、
+    实际隔缝时并集会成飞地——那是 SPLIT，整笔放弃）。返回
+    [[笔, 补丁数, 受让笔], ...]（失败返回 []，一切未动）。"""
+    cur, gains = trial
+    merged, newPaths = {}, {}
+    for j, (patch, _n, m2) in gains.items():
+        p2 = _regionToPath(m2)
+        if not p2 or len(_bigPieces(m2, m2.area)) > \
+                len(_bigPieces(regions[j], regions[j].area)):
+            return []
+        merged[j], newPaths[j] = m2, p2
+    pK = _regionToPath(cur)
+    if not pK:
+        return []
+    written = _pathRegion(pK)
+    if written is None or written.is_empty or written.area < 4.0:
+        return []
+    strokes[k]["path"] = pK
+    strokes[k]["clamped"] = True
+    regions[k] = cur
+    out = []
+    for j, (patch, n, _m2) in gains.items():
+        strokes[j]["path"] = newPaths[j]
+        strokes[j]["clamped"] = True
+        regions[j] = merged[j]
+        out.append([k, n, j])
+    return out
+
+
+def morphRepairStrokes(strokes):
+    """交界毛刺置换（形态修复器，MORPH_REPAIR 开关）：衬线体交叉组
+    切割后交界带留下的毛边/枝桠（simsun 永 横折钩 retain0.82+2桥）是
+    "挂在别人身上的肉"——短叶枝末端的轮廓局部凸起若与某同组邻笔的
+    边界接触长度大于其挂回本笔主体的颈宽，则整块转让给该邻笔。转让
+    是 difference/union 对偶（补丁只在两笔间换主），并集恒等天然保持。
+    挂点=收口链末端（finalize.sealUnion，归属/切割/救济/补缝已尘埃
+    落定，只做交界再划界）。返回 [[笔, 补丁数, 受让笔], ...]。"""
+    repairs = []
+    regions = [None if s["failed"] else _pathRegion(s["path"])
+               for s in strokes]
+    groupIdx = {}
+    for i, s in enumerate(strokes):
+        if not s["failed"] and regions[i] is not None \
+                and not regions[i].is_empty:
+            groupIdx.setdefault(s.get("group"), []).append(i)
+    for k, s in enumerate(strokes):
+        if s["failed"] or regions[k] is None or regions[k].is_empty \
+                or regions[k].area < 100.0:
+            continue
+        if s.get("retainRatio", 1.0) >= MORPH_RETAIN_GATE and \
+                (s.get("bridges") or 0) < MORPH_BRIDGE_GATE:
+            continue
+        mates = [j for j in groupIdx.get(s.get("group"), []) if j != k]
+        if not mates:
+            continue    # 无同组邻笔=无受让方，免付 Voronoi
+        trial = _repairOneStroke(strokes, regions, k, mates)
+        if trial is not None:
+            repairs.extend(_commitRepair(strokes, regions, k, trial))
+    return repairs

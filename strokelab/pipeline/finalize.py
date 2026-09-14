@@ -90,8 +90,8 @@ class FrontReuse:
 
 def sealUnion(geom, kaiRef, strokes, applyBooleanClamp, reuse=None):
     """布尔收口 + 并集恒等校验（含空洞识别与饿死救济循环）；
-    返回 (unionCheck, holeBoxes, glyph)。reuse 给出时整字区域与空腔
-    直接复用首遍产物（值恒同，见 FrontReuse 注释）。"""
+    返回 (unionCheck, holeBoxes, glyph, morphRepairs)。reuse 给出时整字
+    区域与空腔直接复用首遍产物（值恒同，见 FrontReuse 注释）。"""
     kai = kaiRef.kai
     contours = geom.contours
 
@@ -122,6 +122,7 @@ def sealUnion(geom, kaiRef, strokes, applyBooleanClamp, reuse=None):
     booleanClamp.rescueStarved(contours, strokes, kai["strokes"],
                                kai["medians"], glyph=_glyph)
     unionCheck = None
+    _morphRepairs = []
     if applyBooleanClamp:
         unionCheck = booleanClamp.clampStrokes(contours, strokes, glyph=_glyph)
         # 裁剪可能把"整笔落在墨外"的退化笔置 failed——重走饿死救济
@@ -159,10 +160,20 @@ def sealUnion(geom, kaiRef, strokes, applyBooleanClamp, reuse=None):
                 booleanClamp.clampStrokes(contours, strokes, glyph=_glyph)
             unionCheck = booleanClamp.reUnionCheck(contours, strokes,
                                                    glyph=_glyph)
+        # 交界毛刺置换（形态修复器，boolean.MORPH_REPAIR 开关）：挂点
+        # =收口链最末、终检口径之后——归属/切割/救济/减除/补缝/强制
+        # 收口全部尘埃落定，此处只做笔笔交界带的再划界。补丁按
+        # difference/union 对偶在两笔间转移，并集恒等天然保持；有改动
+        # 仍按终检口径复核一次（诚实陈述，非守卫）。
+        if booleanClamp.MORPH_REPAIR:
+            _morphRepairs = booleanClamp.morphRepairStrokes(strokes)
+            if _morphRepairs:
+                unionCheck = booleanClamp.reUnionCheck(contours, strokes,
+                                                       glyph=_glyph)
     if unionCheck is None:
         unionCheck = booleanClamp.reUnionCheck(contours, strokes, glyph=_glyph)
 
-    return unionCheck, _holeBoxes, _glyph
+    return unionCheck, _holeBoxes, _glyph, _morphRepairs
 
 
 def remedianAndSim(kaiRef, strokes):
@@ -319,6 +330,10 @@ def selfConsistentPass(ctx, reuse):
                 # （照 timings 合并先例，验收翻转清单依赖）
                 if not r2.get("ladderRealign"):
                     r2["ladderRealign"] = result.get("ladderRealign") or []
+                # 毛刺置换记录同理继承（永：一遍置换→种子更干净→二遍
+                # 重切胜出且自身无需置换，触发痕迹不能丢）
+                if booleanClamp.MORPH_REPAIR and not r2.get("morphRepairs"):
+                    r2["morphRepairs"] = result.get("morphRepairs") or []
                 result = r2
             else:
                 result["timings"].append(
@@ -384,6 +399,9 @@ def axisGuard(ctx, reuse):
                     if not r3.get("ladderRealign"):
                         r3["ladderRealign"] = \
                             result.get("ladderRealign") or []
+                    if booleanClamp.MORPH_REPAIR and \
+                            not r3.get("morphRepairs"):
+                        r3["morphRepairs"] = result.get("morphRepairs") or []
                     result = r3
                 else:
                     # 计时对账：未采纳的重试也是一整遍真实开销——不入账
@@ -403,10 +421,9 @@ def run(ctx, frontReuse=None):
     dataHub/fontEntry 等全部入参句柄。frontReuse：本调用为重试遍时由
     runPipeline 透传的首遍前段快照（收口区域复用）；首遍为 None，
     收口后在此抓快照传给两个重试阶段。"""
-    ctx.unionCheck, ctx.holeBoxes, _glyph = sealUnion(ctx.geom, ctx.kaiRef,
-                                                      ctx.strokes,
-                                                      ctx.applyBooleanClamp,
-                                                      reuse=frontReuse)
+    ctx.unionCheck, ctx.holeBoxes, _glyph, _morphRepairs = sealUnion(
+        ctx.geom, ctx.kaiRef, ctx.strokes, ctx.applyBooleanClamp,
+        reuse=frontReuse)
     ctx.holeCount = len(ctx.holeBoxes)
     ctx.diag.tick("收口")
     remedianAndSim(ctx.kaiRef, ctx.strokes)
@@ -414,6 +431,13 @@ def run(ctx, frontReuse=None):
     # 无独立 tick 曾让这段时间凭空消失(用户对账发现)
     ctx.diag.tick("终态中轴重提")
     buildResult(ctx)
+    # 毛刺置换诊断挂 result（开关关闭时不加键——result 与基线逐字节
+    # 一致，CLIB_ENABLE 先例；state.py 本轮授权路径外，不加 ctx 字段。
+    # 自洽二遍/轴向守卫采纳的 r2/r3 出自完整 runPipeline 复跑、各自带
+    # 自己的 morphRepairs 键，描述的正是被采纳终态，无需继承）。
+    if booleanClamp.MORPH_REPAIR and isinstance(ctx.result, dict) and \
+            "error" not in ctx.result:
+        ctx.result["morphRepairs"] = _morphRepairs
     # 重试遍（seedMedians 给定）不再嵌套重试，快照无消费者，不抓
     reuse = FrontReuse.fromCtx(ctx, _glyph) \
         if ctx.pose.seedMedians is None else None
