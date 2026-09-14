@@ -30,7 +30,7 @@ import os
 import time
 
 from .geometry import (parseContours, flattenSegs, signedArea, resamplePolyline,
-                       dist, shapeDescriptor)
+                       dist, shapeDescriptor, _medialAdjacency)
 from .classify import classifyMedian, matchTier, semanticSegments
 
 UNION_TOL = 0.5      # 覆盖缺口/溢出 阈值（% of 字形面积）
@@ -42,6 +42,19 @@ ORDER_KAI_GAP = 180.0  # 楷体质心间距大于此值才构成"明确方位"�
 ORDER_TOL = 60.0     # 目标字体反向超过此距离才算矛盾
 SPLIT_MIN_AREA = 25.0  # 小于此面积的碎片不计连通性
 IOU_FLAT = 4.0       # shapely 细分步长
+
+# ---- 形态审计软指标常量（2026-09-14 用户裁定："形态与标准笔画一致性"
+# 审计第一步——本轮只落指标不设硬门，不参与 fails 判定，标定数据由
+# 公司机全库跑）。MORPH_BUDGET：笔画类型类 → 中轴图交叉节点（度3+）
+# 上限，超预算计入 morphBad。保守初值，待公司机全库分布标定后修订：
+# 单元素直笔的理想中轴是一条无分叉链（0 交叉），留 1 容忍衬线/端饰
+# 残余；折/钩类拐角与钩臂处会产生少量合法分叉（medialJunctions 实测
+# 框角是度2拐弯，但出头/钩尖常挂 1-2 个真分叉），留 4；其余复合折笔
+# 留 6。
+MORPH_BUDGET = {"直笔": 1, "折钩": 4, "其余": 6}
+MORPH_STRAIGHT = ("横", "竖", "撇", "捺", "点", "提")  # 单元素直笔类型名
+MORPH_RETAIN_SKIP = 0.98  # 独组笔保留率≥此值免审：切割没动它，就是原生轮廓件
+MORPH_SPUR_MIN = 40.0     # 短叶枝阈下限：链长 < max(2×挂点余隙, 40) 计 spur
 
 
 # ---------------------------------------------------------------- 区域构造（独立实现）
@@ -135,6 +148,109 @@ def _pieces(region):
     if isinstance(region, MultiPolygon):
         return list(region.geoms)
     return [g for g in getattr(region, "geoms", []) if isinstance(g, Polygon)]
+
+
+# ---------------------------------------------------------------- 形态审计（软指标）
+
+def morphBudgetOf(strokeType):
+    """笔画类型 → 拓扑预算（中轴图交叉节点上限，见 MORPH_BUDGET 注）。"""
+    if strokeType in MORPH_STRAIGHT:
+        return MORPH_BUDGET["直笔"]
+    if "折" in strokeType or "钩" in strokeType:
+        return MORPH_BUDGET["折钩"]
+    return MORPH_BUDGET["其余"]
+
+
+def strokeMorphRegion(pathStr):
+    """单笔区域：切割路径按 nonzero 语义构造（照 boolean.glyphRegion /
+    tools.calib_frame_rows.groupRegion：外环并集减孔环并集；孔=与最大
+    环反绕向的环）。切割路径继承字体原始绕向，奇偶合成会在保留片
+    搭接处误挖，故不用 evenOddRegion。多片取最大片（中轴图要求单
+    多边形）。独立实现不复用 boolean 代码（verify 与生产路径隔离）。"""
+    from shapely.geometry import Polygon
+    from shapely.ops import unary_union
+    pp = _polys(pathStr)
+    if not pp:
+        return None
+    outerSign = 1.0 if max(pp, key=lambda t: abs(t[1]))[1] >= 0 else -1.0
+    outers = [pg for pg, a in pp if a * outerSign >= 0]
+    holes = [pg for pg, a in pp if a * outerSign < 0]
+    try:
+        region = unary_union(outers)
+        if holes:
+            region = region.difference(unary_union(holes))
+    except Exception:
+        return None
+    if not region.is_valid:
+        region = region.buffer(0)
+    if region.is_empty:
+        return None
+    if not isinstance(region, Polygon):
+        pieces = _pieces(region)
+        if not pieces:
+            return None
+        region = max(pieces, key=lambda g: g.area)
+    return region if region.area >= 4 else None
+
+
+def _morphWalkLeaf(adj, leaf):
+    """度1叶沿度≤2链走到头 → (链节点表, 链长, 挂点交叉节点|None)。
+    与 geometry.medialJunctions 的叶链遍历同法，独立复写以套形态审计
+    自己的 spur 阈值（那边 120/250 是组级区域标定，单笔区域更小）。"""
+    chain = [leaf]
+    chainLen = 0.0
+    cur, prev = leaf, None
+    while True:
+        nbrs = [(v, w) for v, w in adj[cur].items() if v != prev]
+        if not nbrs:
+            return chain, chainLen, None
+        v, w = nbrs[0]
+        chainLen += w
+        prev, cur = cur, v
+        if len(adj[cur]) != 2:
+            break
+        chain.append(cur)
+    return chain, chainLen, (cur if len(adj[cur]) >= 3 else None)
+
+
+def _morphDropChain(adj, chain):
+    """从无向图 adj 中整链摘除（含挂边）。"""
+    for node in chain:
+        for v in list(adj.get(node, {})):
+            adj[v].pop(node, None)
+        adj.pop(node, None)
+
+
+def morphAuditStroke(region):
+    """单笔形态审计 → (交叉节点数, 短叶枝数) 或 None（退化区域）。
+    原始 Voronoi 中轴图带大量角噪叶枝（见 medialJunctions 注：真值的
+    2-4 倍），先计数并剪除短叶枝——链长 < max(2×挂点余隙, MORPH_SPUR_MIN)
+    者。2×余隙≈挂点处笔宽：短于笔宽的叶枝是轮廓锯齿/衬线噪声，不是
+    形态分支；长于笔宽的伪臂（切割残余/粘连尾巴）保留计入交叉节点，
+    这正是要抓的形态病。迭代剪至稳定后按剩余图取度3+节点数。"""
+    from shapely.geometry import Point
+    adj = _medialAdjacency(region)
+    if not adj:
+        return None
+    adj = {u: dict(vs) for u, vs in adj.items()}
+    rings = [region.exterior] + list(region.interiors)
+    spurN = 0
+    changed = True
+    while changed:
+        changed = False
+        for leaf in [u for u, vs in adj.items() if len(vs) == 1]:
+            if leaf not in adj or len(adj[leaf]) != 1:
+                continue
+            chain, chainLen, junc = _morphWalkLeaf(adj, leaf)
+            if junc is None:
+                continue
+            clr = min(r.distance(Point(junc)) for r in rings)
+            if chainLen < max(2.0 * clr, MORPH_SPUR_MIN):
+                _morphDropChain(adj, chain)
+                spurN += 1
+                changed = True
+    juncN = sum(1 for vs in adj.values() if len(vs) >= 3)
+    return juncN, spurN
 
 
 # ---------------------------------------------------------------- 辅助
@@ -419,6 +535,37 @@ def verifyChar(hub, font, ch):
             areaBad.append("%d:%.0f%%→%.0f%%" % (i, sk * 100, st * 100))
     if areaBad:
         fail("AREA", " ".join(areaBad[:8]))
+
+    # ---- 形态审计软指标（不判失败；2026-09-14 第一步只落指标）：
+    # morphJunc=审计笔中轴图交叉节点（度3+）合计；morphSpur=短叶枝
+    # 合计；morphBad=交叉节点超 MORPH_BUDGET 预算的笔数。审计范围控
+    # 成本：仅 retain<0.98 或所在连通组≥2笔 的非 failed 笔——独组且
+    # 近全保留的笔就是原生轮廓件，形态无需复核（Voronoi 是大头）。
+    try:
+        groupN = {}
+        for s in strokes:
+            g = s.get("group", -1)
+            groupN[g] = groupN.get(g, 0) + 1
+        morphJunc = morphSpur = morphBad = 0
+        for s in strokes:
+            if s["failed"]:
+                continue
+            if s["retainRatio"] >= MORPH_RETAIN_SKIP and \
+                    groupN.get(s.get("group", -1), 1) < 2:
+                continue
+            regM = strokeMorphRegion(s["path"])
+            audited = morphAuditStroke(regM) if regM is not None else None
+            if audited is None:
+                continue
+            morphJunc += audited[0]
+            morphSpur += audited[1]
+            if audited[0] > morphBudgetOf(s["type"]):
+                morphBad += 1
+        rec["m"]["morphJunc"] = morphJunc
+        rec["m"]["morphSpur"] = morphSpur
+        rec["m"]["morphBad"] = morphBad
+    except Exception:
+        pass
 
     # ---- 质量指标（不判失败，供趋势分析）
     okS = [s for s in strokes if not s["failed"]]

@@ -29,7 +29,9 @@ DEFAULT_FONTS = {
     "sample": "HarmonyOS_Sans_SC.ttf",
     "cross": "simhei.ttf,NotoSansSC-VariableFont_wght.ttf,simsun.ttc",
     "full": "HarmonyOS_Sans_SC.ttf",
-    "coverage": "HarmonyOS_Sans_SC.ttf",
+    # coverage 默认全字体：单字体默认曾让新入库字体从不被覆盖验收
+    # （2026-09-14 用户教训），验收覆盖必须自动跟上 Fonts/ 目录。
+    "coverage": "all",
 }
 DEFAULT_STRIDE = {"sample": 10, "cross": 30, "full": 1, "coverage": 1}
 
