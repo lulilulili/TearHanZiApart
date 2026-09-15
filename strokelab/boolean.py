@@ -43,17 +43,24 @@ MORPH_SHARE_MAX = 0.45     # 单笔转让总面积上限——retainRatio 字段
                            # 落地：置换后本笔至少留 55% 面积
 MORPH_RECV_MAX = 0.6       # 补丁不得超过受让笔面积的 0.6 倍（挂在别人
                            # 身上的肉不会比别人的身子还大）
-MORPH_RECV_SICK = 12       # 受让笔当前形态分（交叉+短叶枝）超过此值不
+MORPH_RECV_SICK = 30       # 受让笔当前形态分（交叉+短叶枝）超过此值不
                            # 受让：重病笔的轮廓不可信，往它身上归肉是
                            # 垃圾上摞垃圾（simkai 草 #5横 分 88 实证，
-                           # 收下残片后 verify 全字 junc 30→37 净恶化；
-                           # 健康受让先例 永·捺 分 4、草 #3竖 分 1）
+                           # 收下残片后 verify 全字 junc 30→37 净恶化）。
+                           # 阈值标定：宋体健康-中噪笔实测 1-17（強 的
+                           # 受让候选 14-17 属衬线锯齿底噪，12 曾误拦），
+                           # 重病实例 88——取 30 分界
 MORPH_CONTACT_MIN = 4.0    # 邻笔接触长度下限（数值噪声级接触不构成转让证据）
 MORPH_SEAM_TOL = 0.6       # 接触判定膨胀带（切割缝两侧 0.1 舍入+细分噪声）
 MORPH_ARM_MAX = 250.0      # 伪臂候选链长上限：交界粘连尾巴（永 横折钩沿捺
                            # 左flank 的楔实测 187）在此之下；真笔臂（横杆/
                            # 竖身，geometry.medialJunctions 实测真 T 臂 354+）
                            # 在此之上——同一尺度先例（角噪二段剪除 <250）
+MORPH_MIN_GAIN = 5         # 本笔手术收益（交叉+短叶枝净降）下限。标定：
+                           # 赢家 永 5 / simhei草 15，噪声触发 我 1 / 婕 3
+                           # ——收益≤重扫噪声量级(±2-3)的置换纯属搬椅子，
+                           # 级联(种子→自洽二遍)方差还会外溢（健康集 筻
+                           # 曾因小收益置换 retain -0.027）
 
 
 def _loopPolys(pathStr):
@@ -971,6 +978,13 @@ def _repairOneStroke(strokes, regions, k, mates):
     junc0, spurs0, arms0 = scan0
     if not spurs0 and not arms0:
         return None
+    # 执行域门：只修交叉节点型病笔（junc0≥1）。spur-only 笔（衬线锯齿
+    # 底噪）的批量搬运在标定中净害——漱 spur 267→297、攮 morphBad
+    # 2→4(码型迁移)、健康集 筻 经"置换→种子→自洽二遍"级联 retain
+    # -0.027；而毛刺/枝桠必挂交叉点（伪臂按定义挂在交叉点上，junc0=0
+    # 时 arms 恒空，标定 13 个 donor 行 11/11 实测），锯齿型不在射程。
+    if junc0 < 1:
+        return None
     cur = own
     gains = {}
     recvScore = {}      # 受让候选形态分惰性缓存（每邻笔最多一次 Voronoi）
@@ -1027,6 +1041,8 @@ def _repairOneStroke(strokes, regions, k, mates):
     # →种子更干净→自洽二遍重切整体更优（永 静态 NET+4 但 verify 终态
     # junc 7→2 spur 19→11）；绝对失控（受让侧恶化远超本笔改善）仍拦
     donorGain = (junc0 + len(spurs0)) - (junc2 + len(spurs2))
+    if donorGain < MORPH_MIN_GAIN:
+        return None
     recvDelta = 0
     for j, entry in gains.items():
         m2 = regions[j].union(entry[0])
