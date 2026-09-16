@@ -65,9 +65,28 @@
   .treeBox li { padding-left: 8px; }
   .muted { color: var(--dim); }
   .statusLine { font-size: 12.5px; margin-top: 6px; color: var(--dim); }
-  #overlay { position: fixed; inset: 0; background: rgba(10,12,15,.85); z-index: 50;
-             display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  #overlay { position: fixed; inset: 0; background: rgba(10,12,15,.88); z-index: 50;
+             display: flex; align-items: center; justify-content: center; padding: 24px; }
   #overlay.hidden { display: none; }
+  .loadingCard { width: min(460px, 100%); padding: 24px; background: var(--panel);
+                 border: 1px solid var(--line); border-radius: 12px;
+                 box-shadow: 0 18px 50px rgba(0,0,0,.38); }
+  .loadingHead { display: flex; gap: 14px; align-items: center; }
+  .loadingSpinner { width: 28px; height: 28px; flex: 0 0 auto; border-radius: 50%;
+                    border: 3px solid #343a44; border-top-color: var(--accent);
+                    animation: loadingSpin .85s linear infinite; }
+  #ovMsg { font-size: 16px; font-weight: 600; }
+  #ovDetail { color: var(--dim); font-size: 13px; margin-top: 3px; min-height: 20px; }
+  .loadingTrack { height: 4px; margin-top: 18px; overflow: hidden; border-radius: 4px;
+                  background: #30353d; }
+  #ovProgress { display: block; width: 0; height: 100%; border-radius: inherit;
+                background: var(--accent); transition: width .35s ease; }
+  #ovMeta { min-height: 18px; margin-top: 8px; color: var(--dim); font-size: 12px; }
+  @keyframes loadingSpin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .loadingSpinner { animation: none; }
+    #ovProgress { transition: none; }
+  }
 </style>
 </head>
 <body>
@@ -80,7 +99,15 @@
     De Casteljau 矢量切割 → 划分式重构 → shapely 布尔收口（并集与原字形恒等）。</div>
 </header>
 
-<div id="overlay"><div id="ovMsg">连接本地服务…</div></div>
+<div id="overlay" role="status" aria-live="polite" aria-busy="true">
+  <div class="loadingCard">
+    <div class="loadingHead"><span class="loadingSpinner" aria-hidden="true"></span>
+      <div><div id="ovMsg">连接本地服务</div>
+        <div id="ovDetail">读取可用字体列表与示例字</div></div></div>
+    <div class="loadingTrack" aria-hidden="true"><span id="ovProgress"></span></div>
+    <div id="ovMeta"></div>
+  </div>
+</div>
 
 <div id="controls">
   <span><label>目标字体</label><select id="fontSelect"></select>
@@ -186,6 +213,7 @@
 <!-- 模块化 JS（模块二重构）：core=基础设施+面板渲染+注册表+boot；
      fxUtils=统一单元操作；fxSingle=⑦单字效果；fxMulti=⑧多字效果。
      经典脚本按依赖顺序加载，末尾启动引导。 -->
+<script src="js/loadingStages.js"></script>
 <script src="js/core.js"></script>
 <script src="js/fxUtils.js"></script>
 <script src="js/fxSingle.js"></script>

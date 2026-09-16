@@ -127,34 +127,41 @@ const kaiAnimator = new StrokeAnimator(document.getElementById("svgKai"),
                                        document.getElementById("kaiStatus"));
 const resAnimator = new StrokeAnimator(document.getElementById("svgResult"),
                                        document.getElementById("resStatus"));
+const loadingOverlay = new LoadingStageController(document.getElementById("overlay"));
+let refreshSerial = 0;
 
 function setOverlay(msg) {
-  const ov = document.getElementById("overlay");
-  if (msg === null) { ov.classList.add("hidden"); return; }
-  ov.classList.remove("hidden");
-  document.getElementById("ovMsg").textContent = msg;
+  if (msg === null) loadingOverlay.stop();
+  else loadingOverlay.showMessage(msg);
 }
 
 async function refresh() {
+  const serial = ++refreshSerial;
+  const fontKey = state.fontKey;
+  const ch = state.ch;
   document.querySelectorAll("#charChips .chip").forEach(c =>
-    c.classList.toggle("active", c.textContent === state.ch));
+    c.classList.toggle("active", c.textContent === ch));
   state.soloGroup = null;
-  setOverlay("拆解中…");
+  const loadToken = loadingOverlay.start(
+    libraryCache.has(fontKey) ? "decompose" : "font", { font: fontKey, char: ch });
   try {
     const t0 = performance.now();
     let libMs = 0, libSrv = null;
-    if (!libraryCache.has(state.fontKey)) {
-      setOverlay("构建 " + state.fontKey + " 标准笔画库…");
+    if (!libraryCache.has(fontKey)) {
       const tL = performance.now();
-      libraryCache.set(state.fontKey,
-        await api("/api/library?font=" + encodeURIComponent(state.fontKey)));
+      libraryCache.set(fontKey,
+        await api("/api/library?font=" + encodeURIComponent(fontKey)));
       libMs = performance.now() - tL;
-      libSrv = (libraryCache.get(state.fontKey).serverTimings || {})["库准备"];
+      libSrv = (libraryCache.get(fontKey).serverTimings || {})["库准备"];
     }
-    state.library = libraryCache.get(state.fontKey);
+    if (serial !== refreshSerial) return;
+    state.library = libraryCache.get(fontKey);
+    loadingOverlay.switchPlan(loadToken, "decompose", { font: fontKey, char: ch });
     const tD = performance.now();
-    state.result = await api("/api/decompose?font=" + encodeURIComponent(state.fontKey)
-                             + "&char=" + encodeURIComponent(state.ch));
+    const result = await api("/api/decompose?font=" + encodeURIComponent(fontKey)
+                             + "&char=" + encodeURIComponent(ch));
+    if (serial !== refreshSerial) return;
+    state.result = result;
     const decMs = performance.now() - tD;
     const st = state.result.serverTimings;
     const stages = (state.result.timings || [])
@@ -168,10 +175,11 @@ async function refresh() {
     document.getElementById("topStatus").textContent =
       `耗时 ${(performance.now() - t0).toFixed(0)} ms ＝ ` + parts.join(" + ") +
       (stages ? ` ｜ ${stages}` : "");
-    setOverlay(null);
+    loadingOverlay.stop(loadToken);
     renderAll();
   } catch (e) {
-    setOverlay(null);
+    if (serial !== refreshSerial) return;
+    loadingOverlay.stop(loadToken);
     document.getElementById("topStatus").textContent = "错误: " + e.message;
   }
 }
@@ -634,7 +642,7 @@ function strokeSubpaths(deco, k, N) {  // 子路径采样缓存（挂在结果�
 /* ---------------- 启动 ---------------- */
 async function boot() {
   try {
-    setOverlay("连接本地服务…");
+    const bootToken = loadingOverlay.start("connect");
     // 语义关系图页"在拆解实验台打开"经 ?ch=X 直达指定字
     const urlCh = new URLSearchParams(location.search).get("ch");
     if (urlCh && urlCh.length) state.ch = [...urlCh][0];
@@ -674,6 +682,7 @@ async function boot() {
     document.getElementById("resReset").onclick = () => resAnimator.reset();
     document.getElementById("resSpeed").onchange = e => resAnimator.speed = +e.target.value;
     bindFxButtons();                   // ⑦/⑧ 效果按钮统一走注册表
+    loadingOverlay.stop(bootToken);
     await refresh();
   } catch (e) {
     setOverlay("启动失败：" + e.message + "（请用 StrokeLab.bat 启动本地服务）");
