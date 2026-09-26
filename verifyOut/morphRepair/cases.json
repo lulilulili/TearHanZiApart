@@ -37,12 +37,18 @@
   ],
   "m1": [
    0,
-   26,
+   27,
    0
   ],
   "retain0": 0.858,
-  "retain1": 0.858,
-  "repairs": [],
+  "retain1": 0.853,
+  "repairs": [
+   [
+    3,
+    1,
+    4
+   ]
+  ],
   "svg": "D:\\Personal_Work\\TearHanZiApart\\verifyOut\\morphRepair\\simsun_草.svg"
  },
  {
@@ -57,12 +63,18 @@
   ],
   "m1": [
    0,
-   26,
+   27,
    0
   ],
   "retain0": 0.876,
-  "retain1": 0.876,
-  "repairs": [],
+  "retain1": 0.88,
+  "repairs": [
+   [
+    1,
+    1,
+    0
+   ]
+  ],
   "svg": "D:\\Personal_Work\\TearHanZiApart\\verifyOut\\morphRepair\\simsun_威.svg"
  },
  {
@@ -77,12 +89,18 @@
   ],
   "m1": [
    3,
-   76,
+   80,
    0
   ],
   "retain0": 0.761,
-  "retain1": 0.761,
-  "repairs": [],
+  "retain1": 0.765,
+  "repairs": [
+   [
+    2,
+    1,
+    0
+   ]
+  ],
   "svg": "D:\\Personal_Work\\TearHanZiApart\\verifyOut\\morphRepair\\simsun_我.svg"
  },
  {
@@ -228,12 +246,18 @@
   ],
   "m1": [
    2,
-   57,
+   58,
    0
   ],
   "retain0": 0.817,
-  "retain1": 0.817,
-  "repairs": [],
+  "retain1": 0.814,
+  "repairs": [
+   [
+    4,
+    1,
+    5
+   ]
+  ],
   "svg": "D:\\Personal_Work\\TearHanZiApart\\verifyOut\\morphRepair\\simsun_揠.svg"
  },
  {
@@ -259,21 +283,27 @@
  {
   "font": "simsun.ttc",
   "ch": "喧",
-  "c0": "OVERLAP",
-  "c1": "OVERLAP",
+  "c0": "PASS",
+  "c1": "PASS",
   "m0": [
    2,
-   32,
+   25,
    0
   ],
   "m1": [
    2,
-   32,
+   26,
    0
   ],
   "retain0": 0.862,
-  "retain1": 0.862,
-  "repairs": [],
+  "retain1": 0.86,
+  "repairs": [
+   [
+    7,
+    1,
+    8
+   ]
+  ],
   "svg": "D:\\Personal_Work\\TearHanZiApart\\verifyOut\\morphRepair\\simsun_喧.svg"
  },
  {
@@ -288,12 +318,18 @@
   ],
   "m1": [
    18,
-   133,
+   124,
    3
   ],
   "retain0": 0.857,
-  "retain1": 0.857,
-  "repairs": [],
+  "retain1": 0.846,
+  "repairs": [
+   [
+    8,
+    1,
+    7
+   ]
+  ],
   "svg": "D:\\Personal_Work\\TearHanZiApart\\verifyOut\\morphRepair\\simsun_噼.svg"
  },
  {
@@ -322,17 +358,17 @@
   "c0": "AREA+OVERLAP",
   "c1": "AREA+OVERLAP",
   "m0": [
-   16,
-   105,
-   2
+   15,
+   98,
+   3
   ],
   "m1": [
-   5,
-   119,
-   1
+   8,
+   105,
+   3
   ],
-  "retain0": 0.835,
-  "retain1": 0.835,
+  "retain0": 0.836,
+  "retain1": 0.836,
   "repairs": [
    [
     16,
@@ -345,42 +381,21 @@
  {
   "font": "simsun.ttc",
   "ch": "攮",
-  "c0": "OVERLAP",
-  "c1": "OVERLAP+SPLIT",
+  "c0": "AREA+OVERLAP",
+  "c1": "AREA+OVERLAP",
   "m0": [
-   15,
-   111,
-   2
+   18,
+   122,
+   4
   ],
   "m1": [
-   17,
-   153,
-   3
+   18,
+   122,
+   4
   ],
-  "retain0": 0.673,
-  "retain1": 0.694,
-  "repairs": [
-   [
-    9,
-    3,
-    4
-   ],
-   [
-    9,
-    1,
-    6
-   ],
-   [
-    14,
-    1,
-    13
-   ],
-   [
-    14,
-    2,
-    15
-   ]
-  ],
+  "retain0": 0.651,
+  "retain1": 0.651,
+  "repairs": [],
   "svg": "D:\\Personal_Work\\TearHanZiApart\\verifyOut\\morphRepair\\simsun_攮.svg"
  },
  {
@@ -426,20 +441,20 @@
  {
   "font": "simsun.ttc",
   "ch": "漱",
-  "c0": "OVERLAP",
-  "c1": "OVERLAP",
+  "c0": "PASS",
+  "c1": "PASS",
   "m0": [
-   6,
-   267,
+   53,
+   121,
    2
   ],
   "m1": [
-   6,
-   267,
+   53,
+   121,
    2
   ],
-  "retain0": 0.755,
-  "retain1": 0.755,
+  "retain0": 0.779,
+  "retain1": 0.779,
   "repairs": [],
   "svg": "D:\\Personal_Work\\TearHanZiApart\\verifyOut\\morphRepair\\simsun_漱.svg"
  },
@@ -535,7 +550,7 @@
   ],
   "m1": [
    6,
-   56,
+   55,
    0
   ],
   "retain0": 0.775,
@@ -580,23 +595,13 @@
    1
   ],
   "m1": [
-   9,
-   259,
+   45,
+   100,
    1
   ],
   "retain0": 0.758,
-  "retain1": 0.758,
+  "retain1": 0.765,
   "repairs": [
-   [
-    5,
-    2,
-    0
-   ],
-   [
-    5,
-    1,
-    4
-   ],
    [
     14,
     4,
