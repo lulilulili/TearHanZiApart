@@ -56,6 +56,106 @@ def _resolveProbeStroke(dataHub, ch, t, pos):
 _ALGO_SIG = None
 
 
+# ------------------------------------------------------------ 映射取形同型校验
+# 背景:映射表码位错形已两例(捺←0x31D2撇形/横撇族←0x31D6横钩形),
+# ①分类→②映射→③D构建 三级上游此前无任何形态自洽校验,错型可无阻力
+# 传导到出图(好·笔3 变纯横,用户目检)。名字对照不可靠——方言名映射
+# 真形是有意裁定(捺折钩→㇆);故用**几何对照**:候选骨架 vs A库(楷体)
+# 同类型参照中轴,aspect 归一+弧长等分 24 点,均距与端点距各半
+# (镜像错形两臂中段交叉稀释均距:㇒vs捺 均距仅0.541;缺臂错形端点
+# 位移最大:㇖vs㇇ 端距0.781——两信号合取才同时压住两种错形模式)。
+# 标定(tools/calib_typecheck.py,2026-09-26,7字体137条健康映射候选):
+# 健康 p95=0.512 p99=0.589 max=0.622(Noto ㇋借形);两例既往错形
+# 0.719/0.719。阈值取 0.67(中点),子集误拒 0/137;全字体复测见
+# verifyOut/typecheckCalib.json。超阈候选被跳过,取形链落到下一候选;
+# 全灭则保留最优者并标 typeCheckWarn(dbuild 的逐字形态门是第二道防线)。
+MAP_TYPECHECK_DEV = 0.67
+
+
+def _samplePolylineN(poly, n):
+    """弧长等分取样 n 点(resamplePolyline 的第二参是**间距**,对归一化
+    折线传 24 曾只剩首尾两点——标定期发现的采样坑,故显式按弧长分数取)。"""
+    segLens = [dist(poly[i], poly[i + 1]) for i in range(len(poly) - 1)]
+    total = sum(segLens)
+    if total < 1e-9:
+        return None
+    out = []
+    acc = 0.0
+    k = 0
+    for j in range(n):
+        target = total * j / (n - 1)
+        while k < len(segLens) - 1 and acc + segLens[k] < target:
+            acc += segLens[k]
+            k += 1
+        L = max(1e-12, segLens[k])
+        u = min(1.0, max(0.0, (target - acc) / L))
+        x1, y1 = poly[k]
+        x2, y2 = poly[k + 1]
+        out.append((x1 + (x2 - x1) * u, y1 + (y2 - y1) * u))
+    return out
+
+
+def _normalizedMedianDev(skel, refMedian):
+    """骨架 vs 参照中轴的归一化形态偏差 = 0.5·均距 + 0.5·端点距
+    (0≈同形;镜像/缺臂 ≈0.72,健康候选 ≤0.62,见 MAP_TYPECHECK_DEV 注)。
+    归一化=按 bbox 最长边等比缩放、锚左下角(aspect 保形)——各自拉成
+    单位方阵曾把平笔的厚度噪声放大成满幅(simhei 横 dev 0.435 的假高),
+    等比缩放平笔保持平。端点距单独计权:镜像错形(㇒vs捺)两臂中段
+    交叉、均距被稀释到健康区间内,而首尾点距 0.897 是铁证;缺臂错形
+    (㇖vs㇇)则端点位移 0.781 最大。"""
+    if not skel or not refMedian or len(skel) < 2 or len(refMedian) < 2:
+        return None
+
+    def aspectNorm(poly):
+        bb = bboxOfPoints(poly)
+        s = max(1e-6, bb.x1 - bb.x0, bb.y1 - bb.y0)
+        return [((p[0] - bb.x0) / s, (p[1] - bb.y0) / s) for p in poly]
+
+    a = _samplePolylineN(aspectNorm(skel), 24)
+    b = _samplePolylineN(aspectNorm(refMedian), 24)
+    if a is None or b is None:
+        return None
+    ds = [dist(a[i], b[i]) for i in range(24)]
+    return 0.5 * sum(ds) / 24.0 + 0.25 * (ds[0] + ds[-1])
+
+
+def _typeConsistencyDev(fontEntry, dataHub, entry, t):
+    """候选条目的同型偏差:骨架(懒算)对 A 库同类型参照。**只认精确键**
+    参照(规则表 32 类+单笔字型)→ 方言型返回 None 不检:标定实证
+    (2026-09-26,tools/calib_typecheck.py)骨架宽容回退的参照本身是
+    借形(横捺撇→㇊),错形反而更贴(㇖ dev 0.211 < 健康中位 0.28);
+    改用楷体原形样例(好4)亦不可分——楷体把 好·子部 ㇇ 画得极浅,
+    ㇖ dev 0.216 反小于 ㇇ 0.590。方言名是分类器噪声桶,几何上无单一
+    正形,其数据治本走 kaiTypeFixes 部件裁决(横捺撇 75 字已清零),
+    映射行残留仅作后备,且 dbuild 对方言型映射候选另有 0.18 严闸。"""
+    aList = (dataHub.libraryA or {}).get(t)
+    if not aList:
+        return None
+    try:
+        skel = fontEntry.ensureSkeleton(entry, dataHub)
+    except Exception:
+        return None
+    return _normalizedMedianDev(skel, aList[0]["median"])
+
+
+def _typeCheckAccept(fontEntry, dataHub, entry, t):
+    """映射取形链的同型校验接线点(码位直取与探针提取统一过此闸)。
+    log 模式(MAP_TYPECHECK_DEV=None):恒收,条目记 typeCheck:"dev:x.xxx"
+    供标定;启用后超阈拒收(记 "rejected:x.xxx"),调用方落到同 take 的
+    探针兜底/下一 take/楷体回退。dev 不可得(无 A 参照/骨架退化)不拦,
+    记 "dev:na"——校验缺证据时宁可放行,由 dbuild 逐字形态门兜底。
+    → (是否接收, dev|None)"""
+    dev = _typeConsistencyDev(fontEntry, dataHub, entry, t)
+    if dev is None:
+        entry["typeCheck"] = "dev:na"
+        return True, None
+    if MAP_TYPECHECK_DEV is not None and dev > MAP_TYPECHECK_DEV:
+        entry["typeCheck"] = "rejected:%.3f" % dev
+        return False, dev
+    entry["typeCheck"] = "dev:%.3f" % dev
+    return True, dev
+
+
 def _algoSignature():
     """算法签名：核心源码内容哈希——算法一变缓存自动失效。
     pipeline 已包化（strokelab/pipeline/*.py），逐文件按名排序纳入。"""
@@ -615,18 +715,28 @@ class FontEntry:
         mapAll = []
         for t, spec in KAI_TARGET_MAP.items():
             entries = []
+            vetoed = []     # (dev, entry) 超阈候选,全灭时保留最优
             for cp, ch, pos in spec.get("take", []):
                 # 取字集语义=按优先级递减：码位有字形直取；探针字提取只在
                 # 码位缺失时启用（并行候选曾让勺·中的点/买·上的横钩顶掉
                 # 码位字形，詫潺餾等 12 字齐跌——同型异源比拼 dev 分不出
-                # 优劣，噪声提取偶胜反而切坏）
+                # 优劣，噪声提取偶胜反而切坏）。同型校验(2026-09-26 机制性
+                # 堵漏)拒收的码位候选同样放行探针兜底——"落到下一候选"。
                 e = _cpEntry(t, cp) if cp else None
+                if e is not None:
+                    ok, dev = _typeCheckAccept(self, dataHub, e, t)
+                    if not ok:
+                        vetoed.append((dev, e))
+                        e = None
+                if e is None and ch:
+                    e = _probeEntry(t, ch, pos)
+                    if e is not None:
+                        ok, dev = _typeCheckAccept(self, dataHub, e, t)
+                        if not ok:
+                            vetoed.append((dev, e))
+                            e = None
                 if e:
                     entries.append(e)
-                elif ch:
-                    e2 = _probeEntry(t, ch, pos)
-                    if e2:
-                        entries.append(e2)
             fuseCh = spec.get("fuse")
             if fuseCh and self.hasChar(fuseCh):
                 contours = self.glyphContours(fuseCh)
@@ -672,6 +782,14 @@ class FontEntry:
                         entries.append(base)
                     except Exception:
                         pass
+            if not entries and vetoed:
+                # 取形链全灭:保留 dev 最优者并标 typeCheckWarn——映射类型
+                # 彻底缺模板会退楷体回退(位置对形态错配),而 dbuild 的
+                # 0.18/0.28 逐字形态门是第二道防线,超阈模板逐字仍会被拒。
+                dev, best = min(vetoed, key=lambda p: p[0])
+                best["typeCheck"] = "warnKept:%.3f" % dev
+                best["typeCheckWarn"] = True
+                entries.append(best)
             if entries:
                 mapAll.extend(entries)
                 self.libraryB[t] = entries[0]
