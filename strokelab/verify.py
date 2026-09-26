@@ -275,7 +275,8 @@ def _medianMinDist(mA, mB):
 
 # ---------------------------------------------------------------- 单字校验
 
-def verifyChar(hub, font, ch):
+def verifyChar(hub, font, ch, result=None):
+    """result 给定时复用该拆解结果(准确性审计免二次跑管线),默认自跑。"""
     from shapely.ops import unary_union
     t0 = time.time()
     rec = {"ch": ch, "fails": [], "m": {}}
@@ -284,7 +285,7 @@ def verifyChar(hub, font, ch):
         rec["fails"].append({"code": code, "detail": detail})
 
     from .pipeline import runPipeline
-    r = runPipeline(hub, font, ch)
+    r = result if result is not None else runPipeline(hub, font, ch)
     if "error" in r:
         fail("ERROR", str(r["error"]))
         rec["ms"] = int((time.time() - t0) * 1000)
