@@ -30,9 +30,12 @@ from strokelab.verify import verifyChar          # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "verifyOut", "morphRepair")
-CROSS_SIMSUN = os.path.join(ROOT, "verifyOut", "runs", "2b-cross-on-final",
+# 基线口径随主线走：d0eb244 横捺撇门禁归档（sample 933/957、cross
+# 287/247/276）。2b-* 归档是横捺撇五连提交前的旧世界，切割/映射全变，
+# 健康池与 cross 失败池按当前 HEAD 取才有意义。
+CROSS_SIMSUN = os.path.join(ROOT, "verifyOut", "runs", "hnp-gate-cross",
                             "simsun.jsonl")
-SAMPLE_SC = os.path.join(ROOT, "verifyOut", "runs", "2b-sample-on-final",
+SAMPLE_SC = os.path.join(ROOT, "verifyOut", "runs", "hnp-gate-sample",
                          "HarmonyOS_Sans_SC.jsonl")
 PICK20 = os.path.join(OUT_DIR, "pick20.txt")
 

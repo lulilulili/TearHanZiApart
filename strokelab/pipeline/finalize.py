@@ -164,7 +164,11 @@ def sealUnion(geom, kaiRef, strokes, applyBooleanClamp, reuse=None):
         # =收口链最末、终检口径之后——归属/切割/救济/减除/补缝/强制
         # 收口全部尘埃落定，此处只做笔笔交界带的再划界。补丁按
         # difference/union 对偶在两笔间转移，并集恒等天然保持；有改动
-        # 仍按终检口径复核一次（诚实陈述，非守卫）。
+        # 仍按终检口径复核一次。真收益走"置换→中轴重提种子更干净→
+        # 自洽二遍重切"级联（永 junc 7→2/retain+0.027 实测）；级联的
+        # 重切外溢由 selfConsistentPass/axisGuard 的采纳否决兜底
+        # （_morphAdoptVeto——蝮 曾被二遍重切顶出 OVERLAP 96%、筻
+        # retain -0.027，手术现场守卫看不见二遍）。
         if booleanClamp.MORPH_REPAIR:
             _morphRepairs = booleanClamp.morphRepairStrokes(strokes)
             if _morphRepairs:
@@ -290,6 +294,84 @@ def buildResult(ctx):
     ctx.result = result
 
 
+def _resultRegions(result):
+    """result 逐笔 shapely 区域表（failed/空路径为 None；_pathRegion
+    LRU 命中，重复调用近零成本）。"""
+    out = []
+    for s in result.get("strokes") or []:
+        r = None
+        if not s.get("failed") and s.get("path"):
+            r = booleanClamp._pathRegion(s["path"])
+        out.append(r)
+    return out
+
+
+def _pairOverlaps(regions, cap):
+    """区域表中重叠比>cap 的 {(i,j):比} 表（verify OVERLAP 口径的
+    替身，采纳否决用；bbox 预筛）。"""
+    bad = {}
+    for i in range(len(regions)):
+        a = regions[i]
+        if a is None or a.is_empty:
+            continue
+        for j in range(i + 1, len(regions)):
+            b = regions[j]
+            if b is None or b.is_empty:
+                continue
+            ba, bb = a.bounds, b.bounds
+            if ba[2] < bb[0] or bb[2] < ba[0] or \
+                    ba[3] < bb[1] or bb[3] < ba[1]:
+                continue
+            r = booleanClamp._overlapRatio(a, b)
+            if r > cap:
+                bad[(i, j)] = r
+    return bad
+
+
+def _degenerateCount(result, regions):
+    """failed 或区域退化（空/面积<4）的笔数（verify COUNT 口径替身）。"""
+    n = 0
+    for s, r in zip(result.get("strokes") or [], regions):
+        if s.get("failed") or r is None or r.is_empty or r.area < 4.0:
+            n += 1
+    return n
+
+
+def _morphAdoptVeto(prev, cand):
+    """毛刺置换的重跑采纳否决：prev（当前结果）有置换记录时把三道
+    verify 口径的关卡搬到采纳口——级联病理实证：置换→种子更干净→
+    二遍重切通常更优（永 junc 7→2），但偶发重切 ①把 donor 缩身笔对
+    顶进 OVERLAP（蝮 9-10 96%，且 pass1 术后已在 0.55 上、集合差分
+    辨不出"新增"，须按恶化幅度判） ②换到低 retain 分支（筻 -0.027）
+    ③被否决后滞留的 pass1 可能带着二遍本可修掉的退化笔（歛 #7）——
+    重跑修退化笔优先放行。prev **或 cand** 任一侧有置换记录即审——
+    蝮 实证：pass1 无置换、置换发生在 r2 自己的 sealUnion 里（重切
+    后再手术），r2 的 shapeSim 因此改变、翻转了 _secondPassBetter 的
+    判决，只查 prev 会短路放行 r2 重切自带的 96% 重叠对。开关关闭恒
+    False（两侧都无 morphRepairs 键，关态采纳判定逐位同基线）。"""
+    if not booleanClamp.MORPH_REPAIR or not (prev.get("morphRepairs") or
+                                             cand.get("morphRepairs")):
+        return False
+    candRegions = _resultRegions(cand)
+    prevRegions = _resultRegions(prev)
+    dPrev = _degenerateCount(prev, prevRegions)
+    dCand = _degenerateCount(cand, candRegions)
+    if dCand < dPrev:
+        return False
+    if dCand > dPrev:
+        return True
+    if _meanOf(cand, "retainRatio") < _meanOf(prev, "retainRatio") - 0.02:
+        return True
+    for (i, j), r in _pairOverlaps(candRegions, 0.55).items():
+        prevR = 0.0
+        if i < len(prevRegions) and j < len(prevRegions):
+            prevR = booleanClamp._overlapRatio(prevRegions[i],
+                                               prevRegions[j])
+        if r > prevR + 0.05:
+            return True
+    return False
+
+
 def selfConsistentPass(ctx, reuse):
     """自洽回灌二遍（干净中轴种子重跑，双指标择优采纳）。
     reuse：首遍前段产物快照，随种子传入重跑遍免复算（FrontReuse）。"""
@@ -322,7 +404,8 @@ def selfConsistentPass(ctx, reuse):
                           for bb in kaiStrokeBBoxes]
             diag = math.hypot(tb.w, tb.h)
             if "error" not in r2 and _secondPassBetter(r2, result,
-                                                      expCenters, diag):
+                                                      expCenters, diag) and \
+                    not _morphAdoptVeto(result, r2):
                 r2["timings"] = r2.get("timings", []) + [
                     ["第一遍(被自洽二遍替换)",
                      sum(t[1] for t in _timings)]]
@@ -392,7 +475,8 @@ def axisGuard(ctx, reuse):
                         _meanOf(result, "shapeSim") - 0.03
                         and _u3.get("cover", 0) >= _u1.get("cover", 100) - 0.1
                         and abs(_u3.get("excess", 0)) <=
-                        abs(_u1.get("excess", 0)) + 0.1):
+                        abs(_u1.get("excess", 0)) + 0.1
+                        and not _morphAdoptVeto(result, r3)):
                     r3["timings"] = (r3.get("timings") or []) + [
                         ["轴向守卫重试(已采纳)",
                          sum(t[1] for t in (result.get("timings") or []))]]
@@ -431,10 +515,8 @@ def run(ctx, frontReuse=None):
     # 无独立 tick 曾让这段时间凭空消失(用户对账发现)
     ctx.diag.tick("终态中轴重提")
     buildResult(ctx)
-    # 毛刺置换诊断挂 result（开关关闭时不加键——result 与基线逐字节
-    # 一致，CLIB_ENABLE 先例；state.py 本轮授权路径外，不加 ctx 字段。
-    # 自洽二遍/轴向守卫采纳的 r2/r3 出自完整 runPipeline 复跑、各自带
-    # 自己的 morphRepairs 键，描述的正是被采纳终态，无需继承）。
+    # 毛刺置换诊断挂 result（开关关闭不加键——result 与基线逐字节
+    # 一致，CLIB_ENABLE 先例；state.py 本轮授权路径外，不加 ctx 字段）
     if booleanClamp.MORPH_REPAIR and isinstance(ctx.result, dict) and \
             "error" not in ctx.result:
         ctx.result["morphRepairs"] = _morphRepairs
