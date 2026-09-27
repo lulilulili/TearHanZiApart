@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>汉字元素反应场 · Elemental Type Lab</title>
+<link rel="stylesheet" href="css/elementalFx.css">
+</head>
+<body>
+<header class="hero">
+  <div>
+    <div class="eyebrow">ELEMENTAL TYPE LAB</div>
+    <h1>汉字元素反应场</h1>
+    <p>从偏旁语义提取属性，让颜色、粒子与字间反应沿语段传播。</p>
+  </div>
+  <nav><a href="charStrokeLab.html">拆解实验台</a><a href="semanticExplorer.html">语义关系图</a></nav>
+</header>
+
+<main>
+  <section class="control-panel panel">
+    <div class="field grow">
+      <label for="phraseInput">输入语段</label>
+      <textarea id="phraseInput" rows="2" maxlength="64">火树遇水生烟，风过山林；雷电击冰，金石迸光。</textarea>
+    </div>
+    <div class="field">
+      <label for="fontSelect">目标字体</label>
+      <select id="fontSelect"><option>读取字体…</option></select>
+    </div>
+    <div class="actions">
+      <button id="buildBtn" class="primary">生成反应场</button>
+      <button id="replayBtn" disabled>重新播放</button>
+      <button id="pauseBtn" disabled>暂停</button>
+    </div>
+    <div id="loadStatus" class="status" role="status" aria-live="polite">等待输入</div>
+  </section>
+
+  <section class="legend panel" aria-label="元素属性图例">
+    <div id="attributeLegend" class="legend-grid"></div>
+  </section>
+
+  <section class="stage-panel panel">
+    <div class="panel-head">
+      <div><span class="kicker">LIVE VECTOR FIELD</span><h2>语段反应</h2></div>
+      <div class="hint">实色为核心属性 · 淡色为邻字影响 · 风的传播范围为 2 字</div>
+    </div>
+    <div id="phraseStage" class="phrase-stage empty">
+      <div class="empty-copy">输入文字后生成逐笔矢量反应场</div>
+    </div>
+  </section>
+
+  <section class="lower-grid">
+    <div class="panel reaction-panel">
+      <div class="panel-head"><div><span class="kicker">REACTION LOG</span><h2>触发链</h2></div></div>
+      <div id="reactionLog" class="reaction-log"><div class="muted">尚未运行</div></div>
+    </div>
+    <div class="panel rule-panel">
+      <div class="panel-head"><div><span class="kicker">PLUG-IN RULES</span><h2>规则说明</h2></div></div>
+      <div class="rule-copy">
+        <p>属性识别、反应关系和视觉实现分别注册。一个新效果只需增加规则与插件，不改语段编排引擎。</p>
+        <div id="pluginStats" class="plugin-stats"></div>
+        <p class="muted">雨部不自动视为触电；当前仅“雷、電/电、霆”使用强关联规则。标点保留排版，不请求拆解。</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="js/elemental/elementRules.js"></script>
+<script src="js/elemental/reactionRules.js"></script>
+<script src="js/elemental/effectPlugins.js"></script>
+<script src="js/elemental/elementalEngine.js"></script>
+</body>
+</html>
